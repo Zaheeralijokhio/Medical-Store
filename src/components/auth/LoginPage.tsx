@@ -68,22 +68,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     };
   }, []);
 
-  // PIN mode state
+  const staffAccounts: User[] = useMemo(
+    () => allUsers.filter(u => u.id !== 'usr-owner-1'),
+    [allUsers]
+  );
+
+  // PIN mode state (strictly for Staff accounts — never defaults to Owner account)
   const [selectedUserId, setSelectedUserId] = useState<string>(
-    allUsers[0]?.id || 'usr-owner-1'
+    () => staffAccounts[0]?.id || ''
   );
   const [pinDigits, setPinDigits] = useState<string>('');
   const [pinLoading, setPinLoading] = useState(false);
 
+  useEffect(() => {
+    if (staffAccounts.length > 0 && (!selectedUserId || selectedUserId === 'usr-owner-1')) {
+      setSelectedUserId(staffAccounts[0].id);
+    }
+  }, [staffAccounts, selectedUserId]);
+
   // Password mode state
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  const staffAccounts: User[] = allUsers.filter(u => u.id !== 'usr-owner-1');
 
   // Handle PIN input
   const handlePinDigit = async (digit: string) => {
@@ -267,8 +276,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </button>
               </div>
 
-              {/* Always show available Staff Accounts when any exist so user can click to select immediately */}
-              {staffAccounts.length > 0 && (
+              {portalType === 'staff' && staffAccounts.length > 0 && (
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
                     Available Staff Accounts (Click to select):
@@ -298,7 +306,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
               {portalType === 'staff' && staffAccounts.length === 0 && (
                 <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
-                  No staff accounts have been created yet. Sign in as <strong>Owner / Admin</strong> (username: <code>admin</code>, password: <code>admin</code>) and go to <strong>Staff Accounts</strong> to create accounts for sellers or staff.
+                  No staff accounts have been registered yet. Please contact the Store Owner to create your staff login credentials.
                 </div>
               )}
 
@@ -318,7 +326,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       value={username}
                       onChange={e => setUsername(e.target.value)}
                       className="block w-full pl-10 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono"
-                      placeholder={portalType === 'admin' ? 'admin' : 'Enter staff username'}
+                      placeholder={portalType === 'admin' ? 'Enter Owner username' : 'Enter staff username'}
                     />
                   </div>
                 </div>
@@ -337,7 +345,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       className="block w-full pl-10 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono"
-                      placeholder={portalType === 'admin' ? 'Enter admin password' : 'Enter staff password'}
+                      placeholder={portalType === 'admin' ? 'Enter Owner password' : 'Enter staff password'}
                       autoFocus
                     />
                     <button
@@ -360,11 +368,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     />
                     <span>Keep me signed in on this tab</span>
                   </label>
-                  {portalType === 'admin' && (
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Default: <strong className="text-teal-300">admin / admin</strong>
-                    </span>
-                  )}
                 </div>
 
                 <button
@@ -390,53 +393,55 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <div className="space-y-4">
               <div>
                 <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2 text-center">
-                  Select Account for PIN Sign-In:
+                  Select Staff Account for PIN Sign-In:
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {allUsers.map(user => {
-                    const isSelected = user.id === selectedUserId;
-                    return (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedUserId(user.id);
-                          setPinDigits('');
-                          setErrorMessage('');
-                        }}
-                        className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-teal-500/20 border-teal-500 text-white shadow-xs shadow-teal-500/20'
-                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                              user.role === 'admin' ? 'bg-indigo-600' : 'bg-teal-600'
-                            }`}
-                          >
-                            {user.fullName.charAt(0)}
+                {staffAccounts.length === 0 ? (
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 text-xs text-center">
+                    No staff PIN accounts created yet. Please use Username &amp; Password to sign in.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {staffAccounts.map(user => {
+                      const isSelected = user.id === selectedUserId;
+                      return (
+                        <button
+                          key={user.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedUserId(user.id);
+                            setPinDigits('');
+                            setErrorMessage('');
+                          }}
+                          className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-teal-500/20 border-teal-500 text-white shadow-xs shadow-teal-500/20'
+                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0 bg-teal-600">
+                              {user.fullName.charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">
+                                {user.fullName}
+                              </p>
+                              <p className="text-[10px] text-slate-400 truncate">
+                                @{user.username} • {user.designation}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-white truncate">
-                              {user.fullName}
-                            </p>
-                            <p className="text-[10px] text-slate-400 truncate">
-                              @{user.username} • {user.role === 'admin' ? 'Owner' : user.designation}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* 4 PIN Dots */}
               <div className="py-2 text-center">
                 <p className="text-xs text-slate-400 mb-2">
-                  Enter 4-digit security PIN for <strong className="text-teal-300">{selectedUser?.fullName}</strong>:
+                  Enter 4-digit security PIN{selectedUser && selectedUser.id !== 'usr-owner-1' ? ` for ${selectedUser.fullName}` : ''}:
                 </p>
                 <div className="flex items-center justify-center gap-3">
                   {[0, 1, 2, 3].map(idx => (
@@ -494,7 +499,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         <div className="mt-4 text-center">
           <p className="text-xs text-slate-500">
-            Dr. Abdul Rehman (Owner) • Pharmacy ERP & POS System
+            PharmaCare Pro • Medical Store &amp; Pharmacy ERP System
           </p>
         </div>
       </div>

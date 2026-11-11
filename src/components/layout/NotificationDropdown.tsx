@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
+import { useAuth } from '../../context/AuthContext';
 import { PharmacyNotification } from '../../types/pharmacy';
 
 interface NotificationDropdownProps {
@@ -30,6 +31,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   onNavigate,
 }) => {
   const { notifications, markNotificationRead, markAllNotificationsRead, clearNotification } = useStore();
+  const { isAdmin } = useAuth();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,7 +50,13 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
   if (!isOpen) return null;
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const visibleNotifications = isAdmin
+    ? notifications
+    : notifications.filter(
+        n => n.type !== 'staff_activity' && n.type !== 'payment_due' && !n.message.includes('Owner')
+      );
+
+  const unreadCount = visibleNotifications.filter(n => !n.read).length;
 
   const getIcon = (type: PharmacyNotification['type']) => {
     switch (type) {
@@ -94,13 +102,13 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       </div>
 
       <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
-        {notifications.length === 0 ? (
+        {visibleNotifications.length === 0 ? (
           <div className="p-8 text-center text-slate-400">
             <Bell className="w-8 h-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm">No new notifications</p>
           </div>
         ) : (
-          notifications.slice(0, 10).map(notif => (
+          visibleNotifications.slice(0, 10).map(notif => (
             <div
               key={notif.id}
               className={`p-3 text-left transition-colors flex items-start gap-3 hover:bg-slate-50 ${

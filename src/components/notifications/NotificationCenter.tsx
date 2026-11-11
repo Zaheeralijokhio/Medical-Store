@@ -42,6 +42,9 @@ export const NotificationCenter: React.FC = () => {
 
   const filteredNotifications = useMemo(() => {
     return notifications.filter(n => {
+      if (!isAdmin && (n.type === 'staff_activity' || n.type === 'payment_due' || n.message.includes('Owner'))) {
+        return false;
+      }
       if (filterType === 'All') return true;
       if (filterType === 'unread') return !n.read;
       if (filterType === 'expiry') return n.type === 'near_expiry' || n.type === 'expired';
@@ -49,7 +52,7 @@ export const NotificationCenter: React.FC = () => {
       if (filterType === 'transactions') return n.type === 'sale_completed' || n.type === 'purchase_recorded';
       return true;
     });
-  }, [notifications, filterType]);
+  }, [notifications, filterType, isAdmin]);
 
   const handleSaveThresholds = (e: React.FormEvent) => {
     e.preventDefault();

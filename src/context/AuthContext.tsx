@@ -306,7 +306,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         success: false,
         error:
           user.id === OWNER_ACCOUNT.id
-            ? 'Invalid password for Owner account (Default: username "admin", password "admin").'
+            ? 'Invalid password for Owner account.'
             : `Incorrect password for staff account @${user.username}.`,
       };
     }
@@ -340,15 +340,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const matchByPin = (list: User[]) => {
+      const staffOnly = list.filter(u => u.id !== OWNER_ACCOUNT.id);
       if (actualIdent) {
         const cleanIdent = actualIdent.toLowerCase();
-        return list.find(
+        return staffOnly.find(
           u =>
             (u.id.toLowerCase() === cleanIdent || u.username.toLowerCase() === cleanIdent) &&
-            (u.pin === actualPin || (!u.pin && actualPin === '1234'))
+            u.pin === actualPin
         );
       }
-      return list.find(u => u.pin === actualPin || (!u.pin && actualPin === '1234'));
+      return staffOnly.find(u => u.pin === actualPin);
     };
 
     let user = matchByPin(availableUsers);
@@ -385,12 +386,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) {
       return {
         success: false,
-        error: 'Invalid 4-digit PIN for selected account. Default PIN for Dr. Abdul Rehman (Owner) is 1234.',
+        error: 'Invalid 4-digit PIN for selected account.',
       };
     }
 
     if (user.status !== 'active') {
-      return { success: false, error: 'This staff account has been deactivated by Dr. Abdul Rehman (Owner).' };
+      return { success: false, error: 'This staff account has been deactivated by the Owner.' };
     }
 
     const updatedUser: User = {
@@ -415,6 +416,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchUser = (userId: string) => {
+    // STRICT SECURITY RESTRICTION: Only the Master Owner (usr-owner-1) can switch accounts.
+    // Staff members are strictly prohibited from switching to the Owner account or any other account.
+    if (!currentUser || currentUser.id !== OWNER_ACCOUNT.id) {
+      return;
+    }
     const target = availableUsers.find(u => u.id === userId);
     if (target) {
       if (target.status !== 'active') {
@@ -436,18 +442,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(prev => {
       if (!prev) return null;
       const stillExists = clean.find(u => u.id === prev.id);
-      if (!stillExists || stillExists.status !== 'active') {
-        return clean[0] || OWNER_ACCOUNT;
+      if (stillExists) {
+        if (stillExists.status !== 'active') {
+          return null;
+        }
+        return stillExists;
       }
-      return stillExists;
+      // Never fall back to OWNER_ACCOUNT for a staff session
+      if (prev.id === OWNER_ACCOUNT.id) {
+        return clean.find(u => u.id === OWNER_ACCOUNT.id) || OWNER_ACCOUNT;
+      }
+      return prev;
     });
   };
 
-  const isOwner = currentUser?.role === 'admin';
+  // Strictly restrict Owner/Admin privileges to the sole Master Owner account (usr-owner-1)
+  const isOwner = currentUser?.id === OWNER_ACCOUNT.id;
   const isAdmin = isOwner;
-  const isPharmacist = currentUser?.role === 'pharmacist' || currentUser?.role === 'staff';
-  const isCashier = currentUser?.role === 'cashier';
-  const isStaff = isPharmacist || isCashier;
+  const isPharmacist = !isOwner && (currentUser?.role === 'pharmacist' || currentUser?.role === 'staff' || currentUser?.role === 'admin');
+  const isCashier = !isOwner && currentUser?.role === 'cashier';
+  const isStaff = Boolean(currentUser && !isOwner);
 
   return (
     <AuthContext.Provider

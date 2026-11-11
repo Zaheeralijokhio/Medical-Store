@@ -57,6 +57,7 @@ import {
   pushCloudStaff,
   fetchCloudStoreState,
   pushCloudStoreState,
+  pushCloudMedicineRealtime,
 } from '../services/cloudSync';
 
 interface StoreContextType {
@@ -300,59 +301,79 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [sales]);
 
   // Helper to merge arrays by ID so neither server nor local unsynced items are ever lost
-  const mergeById = <T extends { id: string }>(serverArr: T[] = [], localArr: T[] = []): T[] => {
+  const mergeById = <T extends { id: string }>(
+    olderArr: T[] = [],
+    newerArr: T[] = [],
+    deletedSet: Set<string> = new Set()
+  ): T[] => {
     const map = new Map<string, T>();
-    localArr.forEach(item => {
-      if (item && item.id) map.set(item.id, item);
+    olderArr.forEach(item => {
+      if (item && item.id && !deletedSet.has(item.id)) map.set(item.id, item);
     });
-    serverArr.forEach(item => {
-      if (item && item.id) map.set(item.id, item);
+    newerArr.forEach(item => {
+      if (item && item.id && !deletedSet.has(item.id)) map.set(item.id, item);
     });
     return Array.from(map.values());
   };
 
-  // Initial Boot: fetch server state from /api/state AND Cross-Device Cloud Sync, then merge with local data
-  useEffect(() => {
+  const deletedRecordIdsRef = useRef<Set<string>>(new Set());
+
+  // Pull and merge latest state from both Backend API (/api/state) and Cross-Device Cloud Sync
+  const pullLatestDatabaseState = async () => {
     const applyIncomingState = (d: any) => {
       if (!d) return;
+      if (Array.isArray(d.deletedIds)) {
+        d.deletedIds.forEach((id: string) => deletedRecordIdsRef.current.add(id));
+      }
+      const delSet = deletedRecordIdsRef.current;
+
       if (d.settings) setSettings(d.settings);
-      if (Array.isArray(d.medicines) && d.medicines.length > 0) {
-        setMedicines(prev => mergeById(d.medicines, prev));
+      if (Array.isArray(d.medicines)) {
+        setMedicines(prev => {
+          const merged = mergeById(prev, d.medicines, delSet);
+          try {
+            localStorage.setItem('pharmacare_medicines', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       }
-      if (Array.isArray(d.suppliers) && d.suppliers.length > 0) {
-        setSuppliers(prev => mergeById(d.suppliers, prev));
+      if (Array.isArray(d.suppliers)) {
+        setSuppliers(prev => mergeById(prev, d.suppliers, delSet));
       }
-      if (Array.isArray(d.customers) && d.customers.length > 0) {
-        setCustomers(prev => mergeById(d.customers, prev));
+      if (Array.isArray(d.customers)) {
+        setCustomers(prev => mergeById(prev, d.customers, delSet));
       }
-      if (Array.isArray(d.sales) && d.sales.length > 0) {
-        setSales(prev => mergeById(d.sales, prev));
+      if (Array.isArray(d.sales)) {
+        setSales(prev => mergeById(prev, d.sales, delSet));
       }
-      if (Array.isArray(d.purchases) && d.purchases.length > 0) {
-        setPurchases(prev => mergeById(d.purchases, prev));
+      if (Array.isArray(d.saleReturns)) {
+        setSaleReturns(prev => mergeById(prev, d.saleReturns, delSet));
       }
-      if (Array.isArray(d.expenses) && d.expenses.length > 0) {
-        setExpenses(prev => mergeById(d.expenses, prev));
+      if (Array.isArray(d.purchases)) {
+        setPurchases(prev => mergeById(prev, d.purchases, delSet));
       }
-      if (Array.isArray(d.adjustments) && d.adjustments.length > 0) {
-        setAdjustments(prev => mergeById(d.adjustments, prev));
+      if (Array.isArray(d.expenses)) {
+        setExpenses(prev => mergeById(prev, d.expenses, delSet));
+      }
+      if (Array.isArray(d.adjustments)) {
+        setAdjustments(prev => mergeById(prev, d.adjustments, delSet));
       }
       if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
-        setAuditLogs(d.auditLogs);
+        setAuditLogs(prev => mergeById(prev, d.auditLogs, delSet));
       }
       if (Array.isArray(d.notifications) && d.notifications.length > 0) {
-        setNotifications(d.notifications);
+        setNotifications(prev => mergeById(prev, d.notifications, delSet));
       }
       if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
         setStaffMembers(prevLocal => {
-          const combined = mergeById<User>(d.staffMembers, prevLocal);
+          const combined = mergeById<User>(prevLocal, d.staffMembers, delSet);
           return sanitizeStaffAccounts(combined);
         });
       }
     };
 
-    Promise.allSettled([
-      fetch('/api/state')
+    await Promise.allSettled([
+      fetch('/api/state', { cache: 'no-store' })
         .then(res => (res.ok ? res.json() : null))
         .then(res => {
           if (res?.success && res?.data) {
@@ -367,15 +388,63 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       fetchCloudStaff().then(cloudStaff => {
         if (cloudStaff && cloudStaff.length > 0) {
           setStaffMembers(prevLocal => {
-            const combined = mergeById<User>(cloudStaff, prevLocal);
+            const combined = mergeById<User>(prevLocal, cloudStaff, deletedRecordIdsRef.current);
             return sanitizeStaffAccounts(combined);
           });
         }
       }),
-    ]).finally(() => {
+    ]);
+  };
+
+  // Initial Boot + Re-sync whenever Owner or Staff logs in / out + Real-time polling + Tab Focus / Storage events
+  useEffect(() => {
+    pullLatestDatabaseState().finally(() => {
       hasHydratedFromServer.current = true;
       fetchBackupSnapshots();
     });
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'pharmacare_medicines' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setMedicines(prev => mergeById(prev, parsed, deletedRecordIdsRef.current));
+          }
+        } catch {}
+      } else if (e.key === 'pharmacare_sales' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setSales(prev => mergeById(prev, parsed, deletedRecordIdsRef.current));
+          }
+        } catch {}
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        pullLatestDatabaseState();
+      }
+    };
+
+    const interval = setInterval(() => {
+      if (navigator.onLine) {
+        pullLatestDatabaseState();
+      }
+    }, 4500);
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
   }, []);
 
   // Keep AuthContext availableUsers synchronized whenever staffMembers state updates
@@ -688,6 +757,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newMed),
     }).catch(() => {});
+    pushCloudMedicineRealtime(newMed).catch(() => {});
     logActivity('MEDICINE_ADDED', `Added new medicine: ${newMed.name} (${newMed.strength}) - Fixed Price Rs. ${resolvedFixedSalePrice}`, { medId });
     addNotification('stock_adjustment', 'New Medicine Registered', `${newMed.name} added to inventory catalog at Fixed Price Rs. ${resolvedFixedSalePrice}.`, 'info', medId);
   };
@@ -725,6 +795,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedTarget),
       }).catch(() => {});
+      pushCloudMedicineRealtime(updatedTarget).catch(() => {});
     }
     logActivity('MEDICINE_EDITED', `Updated medicine specifications & fixed inventory price for ID: ${id}`);
   };
@@ -732,6 +803,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteMedicine = (id: string) => {
     const target = medicines.find(m => m.id === id);
     if (!target) return;
+    deletedRecordIdsRef.current.add(id);
     setMedicines(prev => {
       const next = prev.filter(m => m.id !== id);
       try {
@@ -742,6 +814,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetch(`/api/medicine/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }).catch(() => {});
+    pushCloudMedicineRealtime(null, id).catch(() => {});
     logActivity('MEDICINE_DELETED', `Deleted medicine: ${target.name}`);
   };
 
@@ -757,51 +830,93 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       salePrice: Number(batchData.salePrice),
     };
 
-    setMedicines(prev =>
-      prev.map(med => {
+    let updatedMed: Medicine | null = null;
+    setMedicines(prev => {
+      const next = prev.map(med => {
         if (med.id !== medicineId) return med;
         const updatedBatches = [...(med.batches || []), newBatch];
         const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-        return {
+        updatedMed = {
           ...med,
           batches: updatedBatches,
           totalQuantity,
         };
-      })
-    );
+        return updatedMed;
+      });
+      try {
+        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (updatedMed) {
+      fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedMed),
+      }).catch(() => {});
+      pushCloudMedicineRealtime(updatedMed).catch(() => {});
+    }
 
     logActivity('BATCH_ADDED', `Added batch ${newBatch.batchNumber} to medicine ID ${medicineId} (Qty: ${newBatch.quantity})`);
   };
 
   const updateBatch = (medicineId: string, batchId: string, updated: Partial<MedicineBatch>) => {
-    setMedicines(prev =>
-      prev.map(med => {
+    let updatedMed: Medicine | null = null;
+    setMedicines(prev => {
+      const next = prev.map(med => {
         if (med.id !== medicineId) return med;
         const updatedBatches = (med.batches || []).map(b => (b.id === batchId ? { ...b, ...updated } : b));
         const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-        return {
+        updatedMed = {
           ...med,
           batches: updatedBatches,
           totalQuantity,
         };
-      })
-    );
+        return updatedMed;
+      });
+      try {
+        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (updatedMed) {
+      fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedMed),
+      }).catch(() => {});
+      pushCloudMedicineRealtime(updatedMed).catch(() => {});
+    }
     logActivity('BATCH_UPDATED', `Updated batch ID ${batchId} on medicine ID ${medicineId}`);
   };
 
   const deleteBatch = (medicineId: string, batchId: string) => {
-    setMedicines(prev =>
-      prev.map(med => {
+    let updatedMed: Medicine | null = null;
+    setMedicines(prev => {
+      const next = prev.map(med => {
         if (med.id !== medicineId) return med;
         const updatedBatches = (med.batches || []).filter(b => b.id !== batchId);
         const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-        return {
+        updatedMed = {
           ...med,
           batches: updatedBatches,
           totalQuantity,
         };
-      })
-    );
+        return updatedMed;
+      });
+      try {
+        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (updatedMed) {
+      fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedMed),
+      }).catch(() => {});
+      pushCloudMedicineRealtime(updatedMed).catch(() => {});
+    }
     logActivity('BATCH_DELETED', `Deleted batch ID ${batchId} on medicine ID ${medicineId}`);
   };
 
@@ -812,8 +927,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     costPrice?: number,
     salePrice?: number
   ) => {
-    setMedicines(prev =>
-      prev.map(med => {
+    let updatedMed: Medicine | null = null;
+    setMedicines(prev => {
+      const next = prev.map(med => {
         if (med.id !== medicineId) return med;
         const updatedBatches = med.batches.map(b => {
           if (b.id !== batchId) return b;
@@ -825,13 +941,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
         });
         const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-        return {
+        updatedMed = {
           ...med,
           batches: updatedBatches,
           totalQuantity,
         };
-      })
-    );
+        return updatedMed;
+      });
+      try {
+        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (updatedMed) {
+      fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedMed),
+      }).catch(() => {});
+      pushCloudMedicineRealtime(updatedMed).catch(() => {});
+    }
     logActivity('STOCK_ADDED', `Added +${additionalQty} units to medicine ID ${medicineId} (Batch ID: ${batchId})`);
   };
 

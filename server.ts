@@ -315,10 +315,26 @@ async function startServer() {
     }
   });
 
-  // GET /api/state: Full database state
-  app.get('/api/state', (_req: Request, res: Response) => {
+  // Helper to merge collections by ID so neither Owner nor Staff sessions overwrite records added by the other
+  function mergeCollectionById<T extends { id: string }>(existingArr: T[] = [], incomingArr: T[] = []): T[] {
+    const map = new Map<string, T>();
+    if (Array.isArray(existingArr)) {
+      existingArr.forEach(item => {
+        if (item && item.id) map.set(item.id, item);
+      });
+    }
+    if (Array.isArray(incomingArr)) {
+      incomingArr.forEach(item => {
+        if (item && item.id) map.set(item.id, item);
+      });
+    }
+    return Array.from(map.values());
+  }
+
+  // GET /api/state: Full database state (merged with MongoDB Atlas if connected)
+  app.get('/api/state', async (_req: Request, res: Response) => {
     try {
-      const db = readDatabase();
+      const db = await readLatestDatabaseWithMongo();
       res.json({
         success: true,
         storageEngine: mongoConnected ? 'mongodb_atlas' : 'local_disk',
@@ -329,44 +345,37 @@ async function startServer() {
     }
   });
 
-  // POST /api/sync: Synchronize state from client without letting an unhydrated tab wipe existing records
-  app.post('/api/sync', (req: Request, res: Response) => {
+  // POST /api/sync: Synchronize state from client by merging records across Owner & Staff accounts
+  app.post('/api/sync', async (req: Request, res: Response) => {
     try {
       const incoming = req.body;
       if (!incoming || !Array.isArray(incoming.medicines)) {
         return res.status(400).json({ success: false, error: 'Invalid state payload' });
       }
 
-      const existingDb = readDatabase();
+      const existingDb = await readLatestDatabaseWithMongo();
 
-      // Merge staffMembers by ID so an unhydrated tab with only [OWNER_ACCOUNT] never wipes created staff
-      const mergedStaffMap = new Map<string, any>();
-      if (!incoming.forceStaffReplace) {
-        (existingDb.staffMembers || []).forEach(u => {
-          if (u && u.id) mergedStaffMap.set(u.id, u);
-        });
-      }
-      (incoming.staffMembers || []).forEach((u: any) => {
-        if (u && u.id) mergedStaffMap.set(u.id, u);
-      });
+      const mergedStaff = incoming.forceStaffReplace
+        ? incoming.staffMembers
+        : mergeCollectionById(existingDb.staffMembers, incoming.staffMembers);
 
-      // Merge medicines if incoming is empty and forceReplace is not set
-      let resolvedMedicines = incoming.medicines;
-      if (
-        Array.isArray(resolvedMedicines) &&
-        resolvedMedicines.length === 0 &&
-        existingDb.medicines.length > 0 &&
-        !incoming.forceMedicineReplace
-      ) {
-        resolvedMedicines = existingDb.medicines;
-      }
+      const mergedMedicines = incoming.forceMedicineReplace
+        ? incoming.medicines
+        : mergeCollectionById(existingDb.medicines, incoming.medicines);
 
       const nextDb: DatabaseSchema = {
         ...existingDb,
         ...incoming,
         cleanVersion: DATA_CLEAN_VERSION,
-        medicines: resolvedMedicines,
-        staffMembers: sanitizeStaffAccounts(Array.from(mergedStaffMap.values())),
+        medicines: mergedMedicines,
+        suppliers: mergeCollectionById(existingDb.suppliers, incoming.suppliers),
+        customers: mergeCollectionById(existingDb.customers, incoming.customers),
+        sales: mergeCollectionById(existingDb.sales, incoming.sales),
+        saleReturns: mergeCollectionById(existingDb.saleReturns, incoming.saleReturns),
+        purchases: mergeCollectionById(existingDb.purchases, incoming.purchases),
+        expenses: mergeCollectionById(existingDb.expenses, incoming.expenses),
+        adjustments: mergeCollectionById(existingDb.adjustments, incoming.adjustments),
+        staffMembers: sanitizeStaffAccounts(mergedStaff),
         lastUpdated: new Date().toISOString(),
       };
 
@@ -863,7 +872,7 @@ async function startServer() {
           success: false,
           error:
             user.id === 'usr-owner-1'
-              ? 'Invalid password for Owner account (Default: admin / admin).'
+              ? 'Invalid password for Owner account.'
               : `Incorrect password for @${user.username}.`,
         });
       }
@@ -874,7 +883,7 @@ async function startServer() {
     }
   });
 
-  // POST /api/auth/pin-login: PIN Keypad login verification
+  // POST /api/auth/pin-login: PIN Keypad login verification (Strictly for Staff accounts)
   app.post('/api/auth/pin-login', async (req: Request, res: Response) => {
     try {
       const { pin, username } = req.body;
@@ -884,7 +893,8 @@ async function startServer() {
 
       const db = await readLatestDatabaseWithMongo();
       const user = db.staffMembers.find(u => {
-        const matchesPin = u.pin === pin || (!u.pin && pin === '1234');
+        if (u.id === 'usr-owner-1') return false;
+        const matchesPin = u.pin === pin;
         if (username) {
           return (
             matchesPin &&

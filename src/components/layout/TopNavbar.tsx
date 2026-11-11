@@ -121,7 +121,12 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onNavigate]);
 
-  const unreadNotifs = notifications.filter(n => !n.read).length;
+  const visibleNotifications = isAdmin
+    ? notifications
+    : notifications.filter(
+        n => n.type !== 'staff_activity' && n.type !== 'payment_due' && !n.message.includes('Owner')
+      );
+  const unreadNotifs = visibleNotifications.filter(n => !n.read).length;
 
   const tabTitles: Record<NavTab, { title: string; subtitle: string }> = {
     dashboard: {
@@ -300,7 +305,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
               />
             </div>
 
-            {/* Fast Switch User Dropdown */}
+            {/* User Profile Dropdown (Account switching strictly restricted to Master Owner only) */}
             <div className="relative">
               <button
                 onClick={() => setIsUserMenuOpen(prev => !prev)}
@@ -318,7 +323,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     {currentUser?.fullName}
                   </span>
                   <span className="text-[10px] text-slate-500 block leading-none">
-                    {currentUser?.role === 'admin' ? 'Store Owner' : currentUser?.designation || 'Seller / Staff'}
+                    {isAdmin ? 'Store Owner' : currentUser?.designation || 'Seller / Staff'}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -330,69 +335,77 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     <p className="text-xs font-bold text-slate-900">{currentUser?.fullName}</p>
                     <p className="text-[11px] text-slate-500">@{currentUser?.username} • {currentUser?.email}</p>
                     <div className="mt-1.5 flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          isAdmin
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            : 'bg-teal-50 text-teal-700 border-teal-200'
+                        }`}
+                      >
                         {currentUser?.designation}
                       </span>
                     </div>
                   </div>
 
                   {isAdmin && (
-                    <div className="pb-1 mb-1 border-b border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onNavigate('staff');
-                          setIsUserMenuOpen(false);
-                        }}
-                        className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold bg-teal-50 text-teal-800 hover:bg-teal-100 transition-colors"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <PlusCircle className="w-3.5 h-3.5 text-teal-600" />
-                          Create / Remove Staff Accounts
-                        </span>
-                        <span className="text-[10px] bg-teal-600 text-white px-1.5 py-0.5 rounded">
-                          Owner
-                        </span>
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="py-1">
-                    <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Active Accounts ({availableUsers.length}):
-                    </p>
-                    {availableUsers.map(user => {
-                      const isSelected = user.id === currentUser?.id;
-                      return (
+                    <>
+                      <div className="pb-1 mb-1 border-b border-slate-100">
                         <button
-                          key={user.id}
+                          type="button"
                           onClick={() => {
-                            switchUser(user.id);
+                            onNavigate('staff');
                             setIsUserMenuOpen(false);
                           }}
-                          className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
-                            isSelected
-                              ? 'bg-teal-50 text-teal-800 font-semibold'
-                              : 'hover:bg-slate-50 text-slate-700'
-                          }`}
+                          className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold bg-teal-50 text-teal-800 hover:bg-teal-100 transition-colors"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span
-                              className={`w-2 h-2 rounded-full shrink-0 ${
-                                user.role === 'admin' ? 'bg-indigo-600' : user.role === 'pharmacist' ? 'bg-teal-500' : 'bg-amber-500'
-                              }`}
-                            />
-                            <span className="truncate">{user.fullName}</span>
-                          </div>
-                          <span className="text-[10px] uppercase text-slate-400 shrink-0 ml-2">
-                            {user.id === 'usr-owner-1' ? 'Owner' : user.role}
+                          <span className="flex items-center gap-1.5">
+                            <PlusCircle className="w-3.5 h-3.5 text-teal-600" />
+                            Create / Remove Staff Accounts
+                          </span>
+                          <span className="text-[10px] bg-teal-600 text-white px-1.5 py-0.5 rounded">
+                            Owner
                           </span>
                         </button>
-                      );
-                    })}
-                  </div>
+                      </div>
 
-                  <div className="border-t border-slate-100 pt-1 mt-1 space-y-1">
+                      <div className="py-1">
+                        <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Owner Account Switcher ({availableUsers.length}):
+                        </p>
+                        {availableUsers.map(user => {
+                          const isSelected = user.id === currentUser?.id;
+                          return (
+                            <button
+                              key={user.id}
+                              onClick={() => {
+                                switchUser(user.id);
+                                setIsUserMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
+                                isSelected
+                                  ? 'bg-teal-50 text-teal-800 font-semibold'
+                                  : 'hover:bg-slate-50 text-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    user.id === 'usr-owner-1' ? 'bg-indigo-600' : 'bg-teal-500'
+                                  }`}
+                                />
+                                <span className="truncate">{user.fullName}</span>
+                              </div>
+                              <span className="text-[10px] uppercase text-slate-400 shrink-0 ml-2">
+                                {user.id === 'usr-owner-1' ? 'Owner' : user.role}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  <div className={`${isAdmin ? 'border-t border-slate-100 pt-1 mt-1' : 'pt-0.5'} space-y-1`}>
                     <button
                       type="button"
                       onClick={() => {

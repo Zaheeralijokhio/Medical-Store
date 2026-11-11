@@ -2,10 +2,10 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * Cross-Device Cloud Synchronization Service
- * Ensures Staff Accounts, Medicines, Sales, Purchases, and Store Data sync
- * across PC, Mobile Phone, and Tablet browsers even when Hostinger serves
- * the frontend via static CDN (hcdn) where /api/* routes return HTTP 404.
+ * Real-Time Cross-Account & Cross-Device Cloud Synchronization Service
+ * Ensures Staff Accounts, Medicines, Batches, Sales, Purchases, Suppliers,
+ * Customers, and Expenses added by either Staff or Owner are saved in real-time
+ * and reflected immediately across both Owner and Staff accounts on all devices.
  */
 
 import { User } from '../types/pharmacy';
@@ -21,6 +21,7 @@ const NTFY_STORE_TOPIC_URL = 'https://ntfy.sh/pharmacare_edulinker_store_v3';
 export interface CloudStorePayload {
   cleanVersion: string;
   updatedAt: string;
+  deletedIds?: string[];
   settings?: any;
   medicines?: any[];
   suppliers?: any[];
@@ -33,12 +34,35 @@ export interface CloudStorePayload {
   staffMembers?: User[];
 }
 
+function mergeArraysById<T extends { id: string }>(
+  olderArr: T[] = [],
+  newerArr: T[] = [],
+  deletedIds: Set<string> = new Set()
+): T[] {
+  const map = new Map<string, T>();
+  if (Array.isArray(olderArr)) {
+    for (const item of olderArr) {
+      if (item && item.id && !deletedIds.has(item.id)) {
+        map.set(item.id, item);
+      }
+    }
+  }
+  if (Array.isArray(newerArr)) {
+    for (const item of newerArr) {
+      if (item && item.id && !deletedIds.has(item.id)) {
+        map.set(item.id, item);
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
 /**
  * Fetch latest staff accounts from redundant HTTPS cloud channels
  */
 export async function fetchCloudStaff(): Promise<User[] | null> {
   const collected: User[] = [];
-  let deletedIds = new Set<string>();
+  const deletedIds = new Set<string>();
   let clearedAllOthers = false;
 
   // Channel 1: Dedicated RESTful Cloud Object
@@ -86,6 +110,9 @@ export async function fetchCloudStaff(): Promise<User[] | null> {
           if (event?.event === 'message' && typeof event.message === 'string') {
             const payload = JSON.parse(event.message);
             if (payload?.cleanVersion === DATA_CLEAN_VERSION) {
+              if (Array.isArray(payload.deletedIds)) {
+                payload.deletedIds.forEach((id: string) => deletedIds.add(id));
+              }
               if (payload.forceReplace && Array.isArray(payload.staffMembers)) {
                 collected.length = 0;
                 collected.push(...payload.staffMembers);
@@ -107,7 +134,6 @@ export async function fetchCloudStaff(): Promise<User[] | null> {
     return null;
   }
 
-  // Deduplicate by ID and username (latest wins)
   const byUsername = new Map<string, User>();
   for (const u of collected) {
     if (!u || !u.id || deletedIds.has(u.id)) continue;
@@ -158,7 +184,6 @@ export async function pushCloudStaff(
 
   let ok = false;
 
-  // Channel 1: PUT to RESTful Cloud Object
   try {
     const res = await fetch(STAFF_CLOUD_OBJECT_URL, {
       method: 'PUT',
@@ -171,7 +196,6 @@ export async function pushCloudStaff(
     if (res.ok) ok = true;
   } catch {}
 
-  // Channel 2: POST to ntfy.sh stream
   try {
     const res = await fetch(NTFY_STAFF_TOPIC_URL, {
       method: 'POST',
@@ -184,9 +208,15 @@ export async function pushCloudStaff(
 }
 
 /**
- * Fetch full store state (medicines, sales, purchases, suppliers, customers, staff) from cloud
+ * Fetch full store state (medicines, sales, purchases, suppliers, customers, staff)
+ * merging both primary Cloud Object and real-time ntfy stream so medicines added by
+ * Staff or Owner are always present.
  */
 export async function fetchCloudStoreState(): Promise<CloudStorePayload | null> {
+  let combined: CloudStorePayload | null = null;
+  const deletedIds = new Set<string>();
+
+  // 1. Primary Cloud Object
   try {
     const res = await fetch(STORE_CLOUD_OBJECT_URL, {
       method: 'GET',
@@ -197,12 +227,15 @@ export async function fetchCloudStoreState(): Promise<CloudStorePayload | null> 
       const json = await res.json();
       const data = json?.data as CloudStorePayload | undefined;
       if (data && data.cleanVersion === DATA_CLEAN_VERSION) {
-        return data;
+        if (Array.isArray(data.deletedIds)) {
+          data.deletedIds.forEach(id => deletedIds.add(id));
+        }
+        combined = { ...data };
       }
     }
   } catch {}
 
-  // Fallback to ntfy store stream
+  // 2. Real-Time ntfy store stream (captures instant medicine/sale additions)
   try {
     const res = await fetch(`${NTFY_STORE_TOPIC_URL}/json?poll=1&since=24h`, {
       method: 'GET',
@@ -214,34 +247,137 @@ export async function fetchCloudStoreState(): Promise<CloudStorePayload | null> 
         .split('\n')
         .map(l => l.trim())
         .filter(Boolean);
-      let latestState: CloudStorePayload | null = null;
+
       for (const line of lines) {
         try {
           const event = JSON.parse(line);
           if (event?.event === 'message' && typeof event.message === 'string') {
             const parsed = JSON.parse(event.message);
             if (parsed?.cleanVersion === DATA_CLEAN_VERSION) {
-              latestState = parsed;
+              if (Array.isArray(parsed.deletedIds)) {
+                parsed.deletedIds.forEach((id: string) => deletedIds.add(id));
+              }
+              if (!combined) {
+                combined = {
+                  cleanVersion: DATA_CLEAN_VERSION,
+                  updatedAt: parsed.updatedAt || new Date().toISOString(),
+                  medicines: [],
+                  suppliers: [],
+                  customers: [],
+                  sales: [],
+                  saleReturns: [],
+                  purchases: [],
+                  expenses: [],
+                  adjustments: [],
+                  staffMembers: [],
+                };
+              }
+              if (parsed.medicine) {
+                combined.medicines = mergeArraysById(combined.medicines, [parsed.medicine], deletedIds);
+              }
+              if (Array.isArray(parsed.medicines)) {
+                combined.medicines = mergeArraysById(combined.medicines, parsed.medicines, deletedIds);
+              }
+              if (Array.isArray(parsed.suppliers)) {
+                combined.suppliers = mergeArraysById(combined.suppliers, parsed.suppliers, deletedIds);
+              }
+              if (Array.isArray(parsed.customers)) {
+                combined.customers = mergeArraysById(combined.customers, parsed.customers, deletedIds);
+              }
+              if (Array.isArray(parsed.sales)) {
+                combined.sales = mergeArraysById(combined.sales, parsed.sales, deletedIds);
+              }
+              if (Array.isArray(parsed.saleReturns)) {
+                combined.saleReturns = mergeArraysById(combined.saleReturns, parsed.saleReturns, deletedIds);
+              }
+              if (Array.isArray(parsed.purchases)) {
+                combined.purchases = mergeArraysById(combined.purchases, parsed.purchases, deletedIds);
+              }
+              if (Array.isArray(parsed.expenses)) {
+                combined.expenses = mergeArraysById(combined.expenses, parsed.expenses, deletedIds);
+              }
+              if (Array.isArray(parsed.adjustments)) {
+                combined.adjustments = mergeArraysById(combined.adjustments, parsed.adjustments, deletedIds);
+              }
+              if (Array.isArray(parsed.staffMembers)) {
+                combined.staffMembers = sanitizeStaffAccounts(
+                  mergeArraysById(combined.staffMembers, parsed.staffMembers, deletedIds)
+                );
+              }
             }
           }
         } catch {}
       }
-      if (latestState) return latestState;
     }
   } catch {}
 
-  return null;
+  if (combined && deletedIds.size > 0) {
+    combined.deletedIds = Array.from(deletedIds);
+    combined.medicines = (combined.medicines || []).filter(m => !deletedIds.has(m.id));
+    combined.suppliers = (combined.suppliers || []).filter(s => !deletedIds.has(s.id));
+    combined.customers = (combined.customers || []).filter(c => !deletedIds.has(c.id));
+    combined.expenses = (combined.expenses || []).filter(e => !deletedIds.has(e.id));
+  }
+
+  return combined;
 }
 
 /**
- * Push full store state to cloud
+ * Push a single added/updated medicine immediately in real-time to cloud
  */
-export async function pushCloudStoreState(state: Omit<CloudStorePayload, 'cleanVersion' | 'updatedAt'>): Promise<boolean> {
-  const payload: CloudStorePayload = {
-    ...state,
+export async function pushCloudMedicineRealtime(medicine: any, deletedId?: string): Promise<void> {
+  const eventPayload = {
     cleanVersion: DATA_CLEAN_VERSION,
     updatedAt: new Date().toISOString(),
-    staffMembers: sanitizeStaffAccounts(state.staffMembers),
+    medicine: medicine || undefined,
+    deletedIds: deletedId ? [deletedId] : [],
+  };
+
+  try {
+    await fetch(NTFY_STORE_TOPIC_URL, {
+      method: 'POST',
+      body: JSON.stringify(eventPayload),
+    });
+  } catch {}
+}
+
+/**
+ * Push full store state to cloud AFTER merging with existing cloud records so
+ * neither Staff nor Owner sessions ever overwrite medicines/sales added by the other!
+ */
+export async function pushCloudStoreState(
+  state: Omit<CloudStorePayload, 'cleanVersion' | 'updatedAt'>,
+  options?: { deletedId?: string }
+): Promise<boolean> {
+  const deletedIds = new Set<string>(state.deletedIds || []);
+  if (options?.deletedId) {
+    deletedIds.add(options.deletedId);
+  }
+
+  let existing: CloudStorePayload | null = null;
+  try {
+    existing = await fetchCloudStoreState();
+    if (existing?.deletedIds) {
+      existing.deletedIds.forEach(id => deletedIds.add(id));
+    }
+  } catch {}
+
+  const mergedPayload: CloudStorePayload = {
+    cleanVersion: DATA_CLEAN_VERSION,
+    updatedAt: new Date().toISOString(),
+    deletedIds: Array.from(deletedIds),
+    settings: state.settings || existing?.settings,
+    medicines: mergeArraysById(existing?.medicines, state.medicines, deletedIds),
+    suppliers: mergeArraysById(existing?.suppliers, state.suppliers, deletedIds),
+    customers: mergeArraysById(existing?.customers, state.customers, deletedIds),
+    sales: mergeArraysById(existing?.sales, state.sales, deletedIds),
+    saleReturns: mergeArraysById(existing?.saleReturns, state.saleReturns, deletedIds),
+    purchases: mergeArraysById(existing?.purchases, state.purchases, deletedIds),
+    expenses: mergeArraysById(existing?.expenses, state.expenses, deletedIds),
+    adjustments: mergeArraysById(existing?.adjustments, state.adjustments, deletedIds),
+    staffMembers: sanitizeStaffAccounts(
+      mergeArraysById(existing?.staffMembers, state.staffMembers, deletedIds)
+    ),
   };
 
   let ok = false;
@@ -251,7 +387,7 @@ export async function pushCloudStoreState(state: Omit<CloudStorePayload, 'cleanV
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'pharmacare_store_state',
-        data: payload,
+        data: mergedPayload,
       }),
     });
     if (res.ok) ok = true;
