@@ -9,7 +9,6 @@ import {
   INITIAL_USERS,
   OWNER_ACCOUNT,
   LEGACY_DEMO_USER_IDS,
-  LEGACY_DEMO_USERNAMES,
   sanitizeStaffAccounts,
 } from '../data/initialData';
 
@@ -31,7 +30,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_STORAGE_KEY = 'pharmacare_active_user';
+const AUTH_STORAGE_KEY = 'pharmacare_auth_session_v2';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [availableUsers, setAvailableUsers] = useState<User[]>(() => {
@@ -51,34 +50,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
-      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+      // Clear legacy auto-login key so users see the Login Screen
+      localStorage.removeItem('pharmacare_active_user');
+      const saved = sessionStorage.getItem(AUTH_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as User;
         if (
           parsed &&
           parsed.id &&
-          !LEGACY_DEMO_USER_IDS.has(parsed.id) &&
-          !LEGACY_DEMO_USERNAMES.has((parsed.username || '').toLowerCase())
+          !LEGACY_DEMO_USER_IDS.has(parsed.id)
         ) {
+          if (parsed.id === OWNER_ACCOUNT.id) {
+            return {
+              ...OWNER_ACCOUNT,
+              ...parsed,
+              username: 'admin',
+              password: parsed.password || 'admin',
+              role: 'admin',
+              permissions: OWNER_ACCOUNT.permissions,
+            };
+          }
           return parsed;
         }
       }
     } catch {
       // fallback
     }
-    // Default to Dr. Abdul Rehman (Owner)
-    return OWNER_ACCOUNT;
+    // Start unauthenticated so the Login Screen is displayed
+    return null;
   });
+
+  // Fetch latest staff accounts from Hostinger / Backend Database on startup
+  useEffect(() => {
+    let active = true;
+    fetch('/api/staff')
+      .then(res => (res.ok ? res.json() : null))
+      .then(json => {
+        if (!active || !json?.staffMembers || !Array.isArray(json.staffMembers)) return;
+        setAvailableUsers(prev => {
+          const mergedMap = new Map<string, User>();
+          prev.forEach(u => mergedMap.set(u.id, u));
+          json.staffMembers.forEach((u: User) => {
+            if (u && u.id) mergedMap.set(u.id, u);
+          });
+          const clean = sanitizeStaffAccounts(Array.from(mergedMap.values()));
+          try {
+            localStorage.setItem('pharmacare_staff', JSON.stringify(clean));
+          } catch {}
+          return clean;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (currentUser) {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
+      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
     } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
+      sessionStorage.removeItem(AUTH_STORAGE_KEY);
     }
   }, [currentUser]);
 
-  // Support direct URL query login (e.g. ?u=abdulrehman&pin=1234)
+  // Support direct URL query login (e.g. ?u=admin&pin=1234)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -116,28 +152,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     const cleanUsername = username.trim().toLowerCase();
-    const user = availableUsers.find(
+    if (!cleanUsername) {
+      return { success: false, error: 'Please enter your username.' };
+    }
+
+    let user = availableUsers.find(
       u =>
         u.username.toLowerCase() === cleanUsername ||
         u.email.toLowerCase() === cleanUsername ||
-        u.fullName.toLowerCase() === cleanUsername ||
-        (u.id === OWNER_ACCOUNT.id &&
-          ['admin', 'owner', 'abdulrehman', 'dr. abdul rehman', 'dr abdul rehman'].includes(cleanUsername))
+        (u.id === OWNER_ACCOUNT.id && ['admin', 'owner', 'abdulrehman'].includes(cleanUsername))
     );
+
+    // If not found in local memory yet, check backend database directly
+    if (!user) {
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanUsername, password }),
+        });
+        const data = await res.json();
+        if (res.ok && data?.success && data?.user) {
+          user = data.user as User;
+          setAvailableUsers(prev => {
+            const next = sanitizeStaffAccounts([...prev.filter(u => u.id !== user!.id), user!]);
+            try {
+              localStorage.setItem('pharmacare_staff', JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+          setCurrentUser(user);
+          return { success: true };
+        } else if (data?.error) {
+          return { success: false, error: data.error };
+        }
+      } catch {
+        // fallback to local check error message below
+      }
+    }
 
     if (!user) {
       return {
         success: false,
-        error: 'Account not found. Sign in as "abdulrehman" (Dr. Abdul Rehman - Owner) or use a staff username created by Dr. Abdul Rehman.',
+        error: 'Account not found. Enter "admin" for Owner or a valid staff username created by the Owner.',
       };
     }
 
     if (user.status !== 'active') {
-      return { success: false, error: 'This staff account has been deactivated by Dr. Abdul Rehman (Owner).' };
+      return { success: false, error: 'This staff account has been deactivated by the Owner.' };
     }
 
-    if (password && user.password && password !== user.password && password !== 'demoPass123') {
-      return { success: false, error: 'Incorrect password for this account.' };
+    const expectedPassword = user.id === OWNER_ACCOUNT.id ? (user.password || 'admin') : (user.password || '');
+    if (expectedPassword && (!password || password !== expectedPassword)) {
+      return {
+        success: false,
+        error:
+          user.id === OWNER_ACCOUNT.id
+            ? 'Invalid password for Owner account (Default: username "admin", password "admin").'
+            : `Incorrect password for staff account @${user.username}.`,
+      };
     }
 
     const updatedUser: User = {
@@ -183,6 +256,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!user) {
+      try {
+        const res = await fetch('/api/auth/pin-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: actualPin, username: actualIdent }),
+        });
+        const data = await res.json();
+        if (res.ok && data?.success && data?.user) {
+          user = data.user as User;
+          setAvailableUsers(prev => {
+            const next = sanitizeStaffAccounts([...prev.filter(u => u.id !== user!.id), user!]);
+            try {
+              localStorage.setItem('pharmacare_staff', JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+          setCurrentUser(user);
+          return { success: true };
+        }
+      } catch {
+        // ignore network error and show message below
+      }
+    }
+
+    if (!user) {
       return {
         success: false,
         error: 'Invalid 4-digit PIN for selected account. Default PIN for Dr. Abdul Rehman (Owner) is 1234.',
@@ -210,7 +308,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setCurrentUser(null);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem('pharmacare_active_user');
   };
 
   const switchUser = (userId: string) => {

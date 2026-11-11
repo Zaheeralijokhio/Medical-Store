@@ -37,8 +37,8 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   currentTab,
   onNavigate,
 }) => {
-  const { currentUser, isAdmin, switchUser, availableUsers } = useAuth();
-  const { settings, notifications, resetToDemoData, isOnline, pendingSyncCount, offlineSyncStatus, syncOfflineQueue } = useStore();
+  const { currentUser, isAdmin, switchUser, availableUsers, logout } = useAuth();
+  const { settings, notifications, isOnline, pendingSyncCount, offlineSyncStatus, syncOfflineQueue } = useStore();
   const isSyncing = offlineSyncStatus === 'syncing';
 
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -392,18 +392,17 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     })}
                   </div>
 
-                  <div className="border-t border-slate-100 pt-1 mt-1">
+                  <div className="border-t border-slate-100 pt-1 mt-1 space-y-1">
                     <button
+                      type="button"
                       onClick={() => {
-                        if (confirm('Reset database back to default realistic Pakistani demo data?')) {
-                          resetToDemoData();
-                          setIsUserMenuOpen(false);
-                        }
+                        setIsUserMenuOpen(false);
+                        logout();
                       }}
-                      className="w-full flex items-center gap-2 p-2 rounded-lg text-xs text-amber-700 hover:bg-amber-50 font-medium"
+                      className="w-full flex items-center gap-2 p-2 rounded-lg text-xs text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      Reset Demo Database
+                      Sign Out to Login Screen
                     </button>
                   </div>
                 </div>

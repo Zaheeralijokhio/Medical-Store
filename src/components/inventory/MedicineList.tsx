@@ -246,8 +246,13 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [quickStockMed, setQuickStockMed] = useState<Medicine | null>(null);
 
-  // Cashier restriction
-  const canModifyPrices = isAdmin || currentUser?.permissions?.canModifyPrices;
+  // Staff permission check: allow adding/editing medicines if Owner granted inventory/price/stock/purchase permission
+  const canModifyPrices =
+    isAdmin ||
+    currentUser?.role === 'pharmacist' ||
+    Boolean(currentUser?.permissions?.canModifyPrices) ||
+    Boolean(currentUser?.permissions?.canAdjustStock) ||
+    Boolean(currentUser?.permissions?.canManagePurchases);
 
   const getFixedPrice = (med: Medicine): number => {
     if (med.fixedSalePrice !== undefined && med.fixedSalePrice > 0) {
@@ -497,7 +502,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
           </button>
 
-          {isAdmin && (
+          {canModifyPrices && (
             <>
               <button
                 onClick={() => setShowImportModal(true)}

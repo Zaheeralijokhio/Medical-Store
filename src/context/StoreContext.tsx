@@ -24,6 +24,7 @@ import {
   BackupSnapshot,
 } from '../types/pharmacy';
 import {
+  DATA_CLEAN_VERSION,
   INITIAL_SETTINGS,
   INITIAL_USERS,
   OWNER_ACCOUNT,
@@ -170,8 +171,32 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
+// Ensure any legacy dummy data in localStorage is wiped once for DATA_CLEAN_VERSION
+function ensureCleanStorageVersion(): void {
+  try {
+    const ver = localStorage.getItem('pharmacare_clean_version');
+    if (ver !== DATA_CLEAN_VERSION) {
+      const keysToClear = [
+        'pharmacare_medicines',
+        'pharmacare_suppliers',
+        'pharmacare_customers',
+        'pharmacare_sales',
+        'pharmacare_returns',
+        'pharmacare_purchases',
+        'pharmacare_expenses',
+        'pharmacare_adjustments',
+        'pharmacare_audit_logs',
+        'pharmacare_notifications',
+      ];
+      keysToClear.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('pharmacare_clean_version', DATA_CLEAN_VERSION);
+    }
+  } catch {}
+}
+
 // Storage helper with fallback
 function loadFromStorage<T>(key: string, fallback: T): T {
+  ensureCleanStorageVersion();
   try {
     const item = localStorage.getItem(`pharmacare_${key}`);
     return item ? JSON.parse(item) : fallback;
@@ -268,7 +293,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     refreshPendingQueueCount();
   }, [sales]);
 
-  // Initial Boot: fetch server state from /api/state
+  // Initial Boot: fetch server state from /api/state and merge with any unsynced local data
   useEffect(() => {
     fetch('/api/state')
       .then(res => res.json())
@@ -276,19 +301,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (res.success && res.data) {
           const d = res.data;
           if (d.settings) setSettings(d.settings);
-          if (d.medicines && d.medicines.length > 0) setMedicines(d.medicines);
-          if (d.suppliers) setSuppliers(d.suppliers);
-          if (d.customers) setCustomers(d.customers);
-          if (d.sales && d.sales.length > 0) setSales(d.sales);
-          if (d.purchases) setPurchases(d.purchases);
-          if (d.expenses) setExpenses(d.expenses);
-          if (d.adjustments) setAdjustments(d.adjustments);
-          if (d.auditLogs) setAuditLogs(d.auditLogs);
-          if (d.notifications) setNotifications(d.notifications);
-          if (d.staffMembers) {
-            const cleanStaff = sanitizeStaffAccounts(d.staffMembers);
-            setStaffMembers(cleanStaff);
-            syncStaffList(cleanStaff);
+          if (Array.isArray(d.medicines) && d.medicines.length > 0) setMedicines(d.medicines);
+          if (Array.isArray(d.suppliers) && d.suppliers.length > 0) setSuppliers(d.suppliers);
+          if (Array.isArray(d.customers) && d.customers.length > 0) setCustomers(d.customers);
+          if (Array.isArray(d.sales) && d.sales.length > 0) setSales(d.sales);
+          if (Array.isArray(d.purchases) && d.purchases.length > 0) setPurchases(d.purchases);
+          if (Array.isArray(d.expenses) && d.expenses.length > 0) setExpenses(d.expenses);
+          if (Array.isArray(d.adjustments) && d.adjustments.length > 0) setAdjustments(d.adjustments);
+          if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) setAuditLogs(d.auditLogs);
+          if (Array.isArray(d.notifications) && d.notifications.length > 0) setNotifications(d.notifications);
+          if (Array.isArray(d.staffMembers)) {
+            setStaffMembers(prevLocal => {
+              // Merge server staffMembers with any locally created staff accounts so nothing is lost
+              const combined = [...d.staffMembers, ...prevLocal];
+              return sanitizeStaffAccounts(combined);
+            });
           }
         }
       })
@@ -299,6 +326,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         fetchBackupSnapshots();
       });
   }, []);
+
+  // Keep AuthContext availableUsers synchronized whenever staffMembers state updates
+  useEffect(() => {
+    localStorage.setItem('pharmacare_staff', JSON.stringify(staffMembers));
+    syncStaffList(staffMembers);
+  }, [staffMembers]);
 
   // Cache medicines in IndexedDB whenever medicines update
   useEffect(() => {
@@ -317,9 +350,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('pharmacare_adjustments', JSON.stringify(adjustments)); }, [adjustments]);
   useEffect(() => { localStorage.setItem('pharmacare_audit_logs', JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem('pharmacare_notifications', JSON.stringify(notifications)); }, [notifications]);
-  useEffect(() => { localStorage.setItem('pharmacare_staff', JSON.stringify(staffMembers)); }, [staffMembers]);
 
-  // Debounced server sync of full state to /api/sync
+  // Fast server sync of full state to /api/sync (persists to Hostinger disk & MongoDB Atlas)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -332,6 +364,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            cleanVersion: DATA_CLEAN_VERSION,
             settings,
             medicines,
             suppliers,
@@ -347,7 +380,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }),
         }).catch(() => {});
       }
-    }, 1500);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [

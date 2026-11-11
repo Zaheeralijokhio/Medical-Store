@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { MongoClient, Collection } from 'mongodb';
 import { createServer as createViteServer } from 'vite';
 import {
+  DATA_CLEAN_VERSION,
   INITIAL_SETTINGS,
   INITIAL_USERS,
   INITIAL_SUPPLIERS,
@@ -43,6 +44,7 @@ if (!fs.existsSync(BACKUPS_DIR)) {
 }
 
 interface DatabaseSchema {
+  cleanVersion?: string;
   settings: typeof INITIAL_SETTINGS;
   medicines: typeof INITIAL_MEDICINES;
   suppliers: typeof INITIAL_SUPPLIERS;
@@ -56,6 +58,52 @@ interface DatabaseSchema {
   notifications: typeof INITIAL_NOTIFICATIONS;
   staffMembers: typeof INITIAL_USERS;
   lastUpdated: string;
+}
+
+// Initial Database Seeder (100% Clean, No Dummy Data)
+function getInitialDatabase(): DatabaseSchema {
+  return {
+    cleanVersion: DATA_CLEAN_VERSION,
+    settings: INITIAL_SETTINGS,
+    medicines: INITIAL_MEDICINES,
+    suppliers: INITIAL_SUPPLIERS,
+    customers: INITIAL_CUSTOMERS,
+    sales: INITIAL_SALES,
+    saleReturns: [],
+    purchases: INITIAL_PURCHASES,
+    expenses: INITIAL_EXPENSES,
+    adjustments: INITIAL_ADJUSTMENTS,
+    auditLogs: INITIAL_AUDIT_LOGS,
+    notifications: INITIAL_NOTIFICATIONS,
+    staffMembers: INITIAL_USERS,
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+function sanitizeDatabaseState(data: any): DatabaseSchema {
+  if (!data || data.cleanVersion !== DATA_CLEAN_VERSION) {
+    // Strip all old dummy records while keeping any custom staff accounts created by Owner
+    const clean = getInitialDatabase();
+    clean.staffMembers = sanitizeStaffAccounts(data?.staffMembers);
+    return clean;
+  }
+
+  return {
+    ...data,
+    cleanVersion: DATA_CLEAN_VERSION,
+    medicines: Array.isArray(data.medicines) ? data.medicines : [],
+    suppliers: Array.isArray(data.suppliers) ? data.suppliers : [],
+    customers: Array.isArray(data.customers) ? data.customers : [],
+    sales: Array.isArray(data.sales) ? data.sales : [],
+    saleReturns: Array.isArray(data.saleReturns) ? data.saleReturns : [],
+    purchases: Array.isArray(data.purchases) ? data.purchases : [],
+    expenses: Array.isArray(data.expenses) ? data.expenses : [],
+    adjustments: Array.isArray(data.adjustments) ? data.adjustments : [],
+    auditLogs: Array.isArray(data.auditLogs) ? data.auditLogs : [],
+    notifications: Array.isArray(data.notifications) ? data.notifications : [],
+    staffMembers: sanitizeStaffAccounts(data.staffMembers),
+    lastUpdated: data.lastUpdated || new Date().toISOString(),
+  };
 }
 
 // Optional MongoDB Atlas Cloud Persistence (auto-enabled when MONGODB_URI is set on Hostinger)
@@ -77,13 +125,11 @@ async function initMongoDB(): Promise<void> {
     mongoConnected = true;
     console.log('Connected to MongoDB Atlas cloud database successfully.');
 
-    // Load existing cloud state onto local disk cache if present, or seed cloud from local disk
     const existingDoc = await mongoCollection.findOne({ _id: 'primary_store_state' });
-    if (existingDoc && existingDoc.state && existingDoc.state.medicines) {
-      const cloudState = existingDoc.state as DatabaseSchema;
-      cloudState.staffMembers = sanitizeStaffAccounts(cloudState.staffMembers);
+    if (existingDoc && existingDoc.state && existingDoc.state.cleanVersion === DATA_CLEAN_VERSION) {
+      const cloudState = sanitizeDatabaseState(existingDoc.state);
       writeLocalFileOnly(cloudState);
-      console.log('Synchronized state from MongoDB Atlas.');
+      console.log('Synchronized clean state from MongoDB Atlas.');
     } else {
       const currentLocal = readDatabase();
       await mongoCollection.updateOne(
@@ -91,33 +137,15 @@ async function initMongoDB(): Promise<void> {
         { $set: { state: currentLocal, updatedAt: new Date().toISOString() } },
         { upsert: true }
       );
-      console.log('Seeded initial pharmacy database to MongoDB Atlas.');
+      console.log('Seeded clean pharmacy database to MongoDB Atlas.');
     }
   } catch (err) {
     console.error('MongoDB Atlas connection warning (using local disk database fallback):', err);
   }
 }
 
-// Initial Database Seeder
-function getInitialDatabase(): DatabaseSchema {
-  return {
-    settings: INITIAL_SETTINGS,
-    medicines: INITIAL_MEDICINES,
-    suppliers: INITIAL_SUPPLIERS,
-    customers: INITIAL_CUSTOMERS,
-    sales: INITIAL_SALES,
-    saleReturns: [],
-    purchases: INITIAL_PURCHASES,
-    expenses: INITIAL_EXPENSES,
-    adjustments: INITIAL_ADJUSTMENTS,
-    auditLogs: INITIAL_AUDIT_LOGS,
-    notifications: INITIAL_NOTIFICATIONS,
-    staffMembers: INITIAL_USERS,
-    lastUpdated: new Date().toISOString(),
-  };
-}
-
 function writeLocalFileOnly(data: DatabaseSchema): void {
+  data.cleanVersion = DATA_CLEAN_VERSION;
   data.lastUpdated = new Date().toISOString();
   const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
   try {
@@ -136,14 +164,10 @@ function readDatabase(): DatabaseSchema {
   try {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
-      const data = JSON.parse(raw);
-      if (data && data.medicines && data.sales) {
-        const sanitizedStaff = sanitizeStaffAccounts(data.staffMembers);
-        if (JSON.stringify(data.staffMembers) !== JSON.stringify(sanitizedStaff)) {
-          data.staffMembers = sanitizedStaff;
-          writeDatabase(data);
-        }
-        return data;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.cleanVersion === DATA_CLEAN_VERSION) {
+        const sanitized = sanitizeDatabaseState(parsed);
+        return sanitized;
       }
     }
   } catch (err) {
@@ -157,12 +181,13 @@ function readDatabase(): DatabaseSchema {
 
 // Atomic file write + automatic MongoDB Atlas cloud sync
 function writeDatabase(data: DatabaseSchema): void {
-  writeLocalFileOnly(data);
+  const clean = sanitizeDatabaseState(data);
+  writeLocalFileOnly(clean);
   if (mongoCollection && mongoConnected) {
     mongoCollection
       .updateOne(
         { _id: 'primary_store_state' },
-        { $set: { state: data, updatedAt: data.lastUpdated } },
+        { $set: { state: clean, updatedAt: clean.lastUpdated } },
         { upsert: true }
       )
       .catch(err => console.error('Failed to sync state to MongoDB Atlas:', err));
@@ -219,13 +244,13 @@ async function startServer() {
   app.post('/api/sync', (req: Request, res: Response) => {
     try {
       const incoming = req.body;
-      if (!incoming || !incoming.medicines) {
+      if (!incoming || !Array.isArray(incoming.medicines)) {
         return res.status(400).json({ success: false, error: 'Invalid state payload' });
       }
 
-      incoming.staffMembers = sanitizeStaffAccounts(incoming.staffMembers);
+      incoming.cleanVersion = DATA_CLEAN_VERSION;
       writeDatabase(incoming);
-      res.json({ success: true, message: 'Database state updated and persisted to disk' });
+      res.json({ success: true, message: 'Database state updated and persisted' });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -496,6 +521,159 @@ async function startServer() {
     }
   });
 
+  // GET /api/staff: Get all staff accounts from database
+  app.get('/api/staff', (_req: Request, res: Response) => {
+    try {
+      const db = readDatabase();
+      res.json({ success: true, staffMembers: db.staffMembers });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST /api/staff: Create new staff account and persist immediately
+  app.post('/api/staff', (req: Request, res: Response) => {
+    try {
+      const newStaff = req.body;
+      if (!newStaff || !newStaff.username || !newStaff.fullName) {
+        return res.status(400).json({ success: false, error: 'Full name and username are required' });
+      }
+
+      const db = readDatabase();
+      const cleanUsername = String(newStaff.username).trim().toLowerCase();
+
+      const existingIdx = db.staffMembers.findIndex(
+        u => u.id === newStaff.id || u.username.toLowerCase() === cleanUsername
+      );
+
+      if (existingIdx >= 0 && db.staffMembers[existingIdx].id !== newStaff.id) {
+        return res.status(409).json({ success: false, error: `Username @${cleanUsername} already exists` });
+      }
+
+      const userToSave = {
+        ...newStaff,
+        id: newStaff.id || `usr-staff-${Date.now()}`,
+        username: cleanUsername,
+        password: newStaff.password || 'seller123',
+        pin: newStaff.pin || '5678',
+        status: newStaff.status || 'active',
+        joiningDate: newStaff.joiningDate || new Date().toISOString().split('T')[0],
+      };
+
+      if (existingIdx >= 0) {
+        db.staffMembers[existingIdx] = userToSave;
+      } else {
+        db.staffMembers.push(userToSave);
+      }
+
+      db.staffMembers = sanitizeStaffAccounts(db.staffMembers);
+
+      db.auditLogs.unshift({
+        id: `log-${Date.now()}`,
+        action: 'STAFF_CREATED',
+        description: `Owner created staff account for ${userToSave.fullName} (@${userToSave.username})`,
+        userId: 'usr-owner-1',
+        userName: 'Dr. Abdul Rehman (Owner)',
+        userRole: 'admin',
+        timestamp: new Date().toISOString(),
+      });
+
+      writeDatabase(db);
+      res.json({ success: true, user: userToSave, staffMembers: db.staffMembers });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // PUT /api/staff/:id: Update staff account and persist immediately
+  app.put('/api/staff/:id', (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const db = readDatabase();
+      const idx = db.staffMembers.findIndex(u => u.id === id);
+
+      if (idx === -1) {
+        return res.status(404).json({ success: false, error: 'Staff account not found' });
+      }
+
+      db.staffMembers[idx] = { ...db.staffMembers[idx], ...updates };
+      db.staffMembers = sanitizeStaffAccounts(db.staffMembers);
+
+      writeDatabase(db);
+      res.json({ success: true, user: db.staffMembers[idx], staffMembers: db.staffMembers });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // DELETE /api/staff/:id: Delete a staff account (or 'all-others' to clear non-owner accounts)
+  app.delete('/api/staff/:id', (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const db = readDatabase();
+
+      if (id === 'all-others') {
+        db.staffMembers = sanitizeStaffAccounts([]);
+      } else {
+        if (id === 'usr-owner-1') {
+          return res.status(403).json({ success: false, error: 'Owner account cannot be deleted' });
+        }
+        db.staffMembers = sanitizeStaffAccounts(db.staffMembers.filter(u => u.id !== id));
+      }
+
+      writeDatabase(db);
+      res.json({ success: true, staffMembers: db.staffMembers });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST /api/auth/login: Username + Password login verification against server database
+  app.post('/api/auth/login', (req: Request, res: Response) => {
+    try {
+      const { username, password } = req.body || {};
+      if (!username) {
+        return res.status(400).json({ success: false, error: 'Username is required' });
+      }
+
+      const cleanUsername = String(username).trim().toLowerCase();
+      const db = readDatabase();
+      const user = db.staffMembers.find(
+        u =>
+          u.username.toLowerCase() === cleanUsername ||
+          u.email.toLowerCase() === cleanUsername ||
+          (u.id === 'usr-owner-1' && ['admin', 'owner', 'abdulrehman'].includes(cleanUsername))
+      );
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Account not found. Enter "admin" for Owner or a valid staff username.',
+        });
+      }
+
+      if (user.status !== 'active') {
+        return res.status(403).json({ success: false, error: 'This staff account is deactivated.' });
+      }
+
+      const expectedPassword = user.id === 'usr-owner-1' ? (user.password || 'admin') : (user.password || '');
+      if (expectedPassword && password !== expectedPassword) {
+        return res.status(401).json({
+          success: false,
+          error:
+            user.id === 'usr-owner-1'
+              ? 'Invalid password for Owner account (Default: admin / admin).'
+              : `Incorrect password for @${user.username}.`,
+        });
+      }
+
+      res.json({ success: true, user, staffMembers: db.staffMembers });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // POST /api/auth/pin-login: PIN Keypad login verification
   app.post('/api/auth/pin-login', (req: Request, res: Response) => {
     try {
@@ -508,7 +686,12 @@ async function startServer() {
       const user = db.staffMembers.find(u => {
         const matchesPin = u.pin === pin || (!u.pin && pin === '1234');
         if (username) {
-          return matchesPin && (u.username.toLowerCase() === username.toLowerCase() || u.fullName.toLowerCase() === username.toLowerCase());
+          return (
+            matchesPin &&
+            (u.id.toLowerCase() === username.toLowerCase() ||
+              u.username.toLowerCase() === username.toLowerCase() ||
+              u.fullName.toLowerCase() === username.toLowerCase())
+          );
         }
         return matchesPin;
       });
@@ -521,7 +704,7 @@ async function startServer() {
         return res.status(403).json({ success: false, error: 'Account is deactivated' });
       }
 
-      res.json({ success: true, user });
+      res.json({ success: true, user, staffMembers: db.staffMembers });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

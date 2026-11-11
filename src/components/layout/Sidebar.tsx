@@ -61,32 +61,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const unreadNotifs = notifications.filter(n => !n.read).length;
   const lowStockCount = medicines.filter(m => m.totalQuantity <= m.minStockLevel).length;
 
-  const adminNavItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = [
-    { id: 'dashboard', label: 'Admin Overview', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'pos', label: 'POS Terminal (Sales)', icon: <ShoppingCart className="w-5 h-5" />, badgeColor: 'bg-emerald-500' },
-    { id: 'inventory', label: 'Medicine Inventory', icon: <Pill className="w-5 h-5" />, badge: lowStockCount > 0 ? lowStockCount : undefined, badgeColor: 'bg-amber-500' },
-    { id: 'sales', label: 'Sales & Invoices', icon: <Receipt className="w-5 h-5" /> },
-    { id: 'purchases', label: 'Purchases & Stock In', icon: <Truck className="w-5 h-5" /> },
-    { id: 'suppliers', label: 'Suppliers Directory', icon: <Building2 className="w-5 h-5" /> },
-    { id: 'customers', label: 'Customer Directory', icon: <Users className="w-5 h-5" /> },
-    { id: 'expenses', label: 'Expense Tracker', icon: <WalletCards className="w-5 h-5" /> },
-    { id: 'adjustments', label: 'Stock Audit / Adjust', icon: <SlidersHorizontal className="w-5 h-5" /> },
-    { id: 'reports', label: 'Reports & P&L', icon: <BarChart3 className="w-5 h-5" /> },
-    { id: 'staff', label: 'Staff Accounts', icon: <UserCheck className="w-5 h-5" /> },
-    { id: 'notifications', label: 'Alerts & Expiry', icon: <Bell className="w-5 h-5" />, badge: unreadNotifs > 0 ? unreadNotifs : undefined, badgeColor: 'bg-rose-500' },
-    { id: 'settings', label: 'Store Settings', icon: <Settings className="w-5 h-5" /> },
-  ];
+  const perms = currentUser?.permissions;
+  const canManagePurchases = isAdmin || currentUser?.role === 'pharmacist' || Boolean(perms?.canManagePurchases);
+  const canAdjustStock = isAdmin || currentUser?.role === 'pharmacist' || Boolean(perms?.canAdjustStock);
+  const canViewReports = isAdmin || Boolean(perms?.canViewReports);
+  const canMakeSales = isAdmin || perms?.canMakeSales !== false;
+  const canViewInventory = isAdmin || perms?.canViewInventory !== false;
+  const canAddCustomer = isAdmin || perms?.canAddCustomer !== false;
 
-  const staffNavItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = [
-    { id: 'dashboard', label: 'My Shift Overview', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'pos', label: 'POS Billing Counter', icon: <ShoppingCart className="w-5 h-5" /> },
-    { id: 'inventory', label: 'Medicine Search', icon: <Pill className="w-5 h-5" /> },
-    { id: 'sales', label: 'My Sales History', icon: <Receipt className="w-5 h-5" /> },
-    { id: 'customers', label: 'Customer Lookup', icon: <Users className="w-5 h-5" /> },
-    { id: 'notifications', label: 'Store Alerts', icon: <Bell className="w-5 h-5" />, badge: unreadNotifs > 0 ? unreadNotifs : undefined, badgeColor: 'bg-amber-500' },
+  const navItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: number; badgeColor?: string }[] = [
+    {
+      id: 'dashboard',
+      label: isAdmin ? 'Owner Overview' : 'Staff Shift Overview',
+      icon: <LayoutDashboard className="w-5 h-5" />,
+    },
+    ...(canMakeSales
+      ? [
+          {
+            id: 'pos' as NavTab,
+            label: 'POS Terminal (Sales)',
+            icon: <ShoppingCart className="w-5 h-5" />,
+            badgeColor: 'bg-emerald-500',
+          },
+        ]
+      : []),
+    ...(canViewInventory
+      ? [
+          {
+            id: 'inventory' as NavTab,
+            label: 'Medicine Inventory',
+            icon: <Pill className="w-5 h-5" />,
+            badge: lowStockCount > 0 ? lowStockCount : undefined,
+            badgeColor: 'bg-amber-500',
+          },
+        ]
+      : []),
+    ...(canMakeSales
+      ? [{ id: 'sales' as NavTab, label: 'Sales & Invoices', icon: <Receipt className="w-5 h-5" /> }]
+      : []),
+    ...(canManagePurchases
+      ? [
+          { id: 'purchases' as NavTab, label: 'Purchases & Stock In', icon: <Truck className="w-5 h-5" /> },
+          { id: 'suppliers' as NavTab, label: 'Suppliers Directory', icon: <Building2 className="w-5 h-5" /> },
+        ]
+      : []),
+    ...(canAddCustomer
+      ? [{ id: 'customers' as NavTab, label: 'Customer Directory', icon: <Users className="w-5 h-5" /> }]
+      : []),
+    ...(canViewReports
+      ? [{ id: 'expenses' as NavTab, label: 'Expense Tracker', icon: <WalletCards className="w-5 h-5" /> }]
+      : []),
+    ...(canAdjustStock
+      ? [{ id: 'adjustments' as NavTab, label: 'Stock Audit / Adjust', icon: <SlidersHorizontal className="w-5 h-5" /> }]
+      : []),
+    ...(canViewReports
+      ? [{ id: 'reports' as NavTab, label: 'Reports & P&L', icon: <BarChart3 className="w-5 h-5" /> }]
+      : []),
+    ...(isAdmin
+      ? [{ id: 'staff' as NavTab, label: 'Staff Accounts', icon: <UserCheck className="w-5 h-5" /> }]
+      : []),
+    {
+      id: 'notifications',
+      label: 'Alerts & Expiry',
+      icon: <Bell className="w-5 h-5" />,
+      badge: unreadNotifs > 0 ? unreadNotifs : undefined,
+      badgeColor: 'bg-rose-500',
+    },
+    ...(isAdmin
+      ? [{ id: 'settings' as NavTab, label: 'Store Settings', icon: <Settings className="w-5 h-5" /> }]
+      : []),
   ];
-
-  const navItems = isAdmin ? adminNavItems : staffNavItems;
 
   return (
     <>

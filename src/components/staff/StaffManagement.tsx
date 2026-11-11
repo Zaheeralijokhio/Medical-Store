@@ -45,6 +45,10 @@ export const StaffManagement: React.FC = () => {
   const [confirmDeleteUser, setConfirmDeleteUser] = useState<User | null>(null);
   const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
   const [formError, setFormError] = useState('');
+  const [statusBanner, setStatusBanner] = useState<{
+    title: string;
+    detail: string;
+  } | null>(null);
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -60,9 +64,9 @@ export const StaffManagement: React.FC = () => {
     canViewInventory: true,
     canAddCustomer: true,
     canViewReports: false,
-    canAdjustStock: false,
-    canManagePurchases: false,
-    canModifyPrices: false,
+    canAdjustStock: true,
+    canManagePurchases: true,
+    canModifyPrices: true,
   });
 
   // Selected staff for detailed performance inspect
@@ -114,16 +118,16 @@ export const StaffManagement: React.FC = () => {
 
   const applyRolePreset = (preset: 'seller' | 'pharmacist' | 'cashier' | 'manager') => {
     if (preset === 'seller') {
-      setDesignation('Medicine Seller / Counter Salesperson');
+      setDesignation('Medicine Seller & Inventory Staff');
       setRole('staff');
       setPermissions({
         canMakeSales: true,
         canViewInventory: true,
         canAddCustomer: true,
         canViewReports: false,
-        canAdjustStock: false,
-        canManagePurchases: false,
-        canModifyPrices: false,
+        canAdjustStock: true,
+        canManagePurchases: true,
+        canModifyPrices: true,
       });
     } else if (preset === 'pharmacist') {
       setDesignation('Registered Pharmacist / Dispenser');
@@ -135,7 +139,7 @@ export const StaffManagement: React.FC = () => {
         canViewReports: false,
         canAdjustStock: true,
         canManagePurchases: true,
-        canModifyPrices: false,
+        canModifyPrices: true,
       });
     } else if (preset === 'cashier') {
       setDesignation('POS Counter Cashier');
@@ -171,7 +175,7 @@ export const StaffManagement: React.FC = () => {
     setUsername('');
     setEmail('');
     setPhone('');
-    setDesignation('Medicine Seller / Counter Salesperson');
+    setDesignation('Medicine Seller & Inventory Staff');
     setRole('staff');
     setPin('5678');
     setPassword('seller123');
@@ -180,9 +184,9 @@ export const StaffManagement: React.FC = () => {
       canViewInventory: true,
       canAddCustomer: true,
       canViewReports: false,
-      canAdjustStock: false,
-      canManagePurchases: false,
-      canModifyPrices: false,
+      canAdjustStock: true,
+      canManagePurchases: true,
+      canModifyPrices: true,
     });
     setShowAddEditModal(true);
   };
@@ -210,16 +214,14 @@ export const StaffManagement: React.FC = () => {
     setFormError('');
 
     const cleanName = fullName.trim();
-    const cleanUser = username.trim().toLowerCase().replace(/\s+/g, '');
-    const cleanPin = pin.trim();
+    const fallbackUser = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14);
+    const cleanUser = (username.trim() || fallbackUser).toLowerCase().replace(/\s+/g, '');
+    const digitsOnlyPin = pin.replace(/\D/g, '');
+    const cleanPin = digitsOnlyPin.length === 4 ? digitsOnlyPin : '5678';
+    const cleanPass = password.trim() || 'seller123';
 
     if (!cleanName || !cleanUser) {
-      setFormError('Full Name and Username are required.');
-      return;
-    }
-
-    if (!/^\d{4}$/.test(cleanPin)) {
-      setFormError('Security PIN must be exactly 4 digits (e.g., 5678).');
+      setFormError('Please enter the Staff Member Full Name.');
       return;
     }
 
@@ -242,8 +244,12 @@ export const StaffManagement: React.FC = () => {
         designation: designation.trim() || 'Medicine Seller',
         role: editingStaff.id === OWNER_ACCOUNT.id ? 'admin' : role,
         pin: cleanPin,
-        password: password.trim() || 'seller123',
+        password: cleanPass,
         permissions,
+      });
+      setStatusBanner({
+        title: `Staff Account Updated & Saved to Database: ${cleanName}`,
+        detail: `Login Username: @${cleanUser} • Password: ${cleanPass} • 4-Digit PIN: ${cleanPin}`,
       });
     } else {
       addStaff({
@@ -254,9 +260,13 @@ export const StaffManagement: React.FC = () => {
         designation: designation.trim() || 'Medicine Seller',
         role,
         pin: cleanPin,
-        password: password.trim() || 'seller123',
+        password: cleanPass,
         status: 'active',
         permissions,
+      });
+      setStatusBanner({
+        title: `New Staff Account Created & Saved to Hostinger Database: ${cleanName}`,
+        detail: `Staff can now sign in on the Login Screen using Username: "${cleanUser}", Password: "${cleanPass}", or 4-Digit PIN: "${cleanPin}".`,
       });
     }
 
@@ -277,14 +287,14 @@ export const StaffManagement: React.FC = () => {
                 Sole Master Owner Account
               </span>
               <span className="text-xs text-indigo-200 font-mono">
-                Login ID: @abdulrehman • PIN: 1234
+                Username: admin • Password: admin • PIN: 1234
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black tracking-tight mt-1">
-              Dr. Abdul Rehman (Owner) — Staff & Seller Account Control Center
+              Dr. Abdul Rehman (Owner) — Staff & Role Access Control Center
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Only Dr. Abdul Rehman can create new accounts for medicine sellers, pharmacists, or cashiers and remove any other staff accounts.
+              Create accounts for staff (Seller, Pharmacist, Cashier, Manager) so they can add medicines, stock, purchases, and sales according to their role. All accounts & data auto-save to your Hostinger database.
             </p>
           </div>
         </div>
@@ -310,6 +320,26 @@ export const StaffManagement: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Confirmation Banner when Staff Account is Created / Updated */}
+      {statusBanner && (
+        <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 flex items-start justify-between gap-3 shadow-xs">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-xs font-black text-emerald-950">{statusBanner.title}</h4>
+              <p className="text-xs text-emerald-800 font-mono mt-0.5">{statusBanner.detail}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStatusBanner(null)}
+            className="text-emerald-600 hover:text-emerald-900 p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Summary & Search Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -426,6 +456,9 @@ export const StaffManagement: React.FC = () => {
                       <div className="flex flex-col gap-0.5">
                         <span className="font-mono font-bold text-slate-900 text-xs">
                           @{staff.username}
+                        </span>
+                        <span className="text-[11px] text-slate-600 font-mono">
+                          Pass: <strong className="text-slate-800">{staff.password || (isMasterOwner ? 'admin' : 'seller123')}</strong>
                         </span>
                         <span className="inline-flex items-center gap-1 text-[11px] text-teal-700 font-mono font-semibold">
                           <KeyRound className="w-3 h-3" /> PIN: {staff.pin || '1234'}
@@ -775,9 +808,11 @@ export const StaffManagement: React.FC = () => {
                     required
                     value={fullName}
                     onChange={e => {
-                      setFullName(e.target.value);
-                      if (!editingStaff && !username) {
-                        setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14));
+                      const prevAuto = fullName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14);
+                      const nextName = e.target.value;
+                      setFullName(nextName);
+                      if (!editingStaff && (!username || username === prevAuto)) {
+                        setUsername(nextName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14));
                       }
                     }}
                     placeholder="e.g. Ali Raza (Seller)"

@@ -37,12 +37,19 @@ const MainAppContent: React.FC = () => {
     return <LoginPage onLoginSuccess={() => setCurrentTab('dashboard')} />;
   }
 
-  // Role guard: if staff tries to visit admin-restricted pages, redirect to dashboard or pos
+  // Role & Permission guard: allow access based on Owner-assigned permissions
+  const perms = currentUser?.permissions;
+  const canManagePurchases = isAdmin || currentUser?.role === 'pharmacist' || Boolean(perms?.canManagePurchases);
+  const canAdjustStock = isAdmin || currentUser?.role === 'pharmacist' || Boolean(perms?.canAdjustStock);
+  const canViewReports = isAdmin || Boolean(perms?.canViewReports);
+
   const isRestrictedForStaff =
     !isAdmin &&
-    ['purchases', 'suppliers', 'expenses', 'adjustments', 'reports', 'staff', 'settings'].includes(
-      currentTab
-    );
+    (((currentTab === 'purchases' || currentTab === 'suppliers') && !canManagePurchases) ||
+      (currentTab === 'adjustments' && !canAdjustStock) ||
+      ((currentTab === 'reports' || currentTab === 'expenses') && !canViewReports) ||
+      currentTab === 'staff' ||
+      currentTab === 'settings');
 
   const activeTab: NavTab = isRestrictedForStaff ? 'dashboard' : currentTab;
 
