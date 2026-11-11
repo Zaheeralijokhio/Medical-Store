@@ -3,6 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        try {
+          var desc = Object.getOwnPropertyDescriptor(window, 'fetch') || Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+          if (desc && desc.configurable && !desc.set) {
+            var currentFetch = window.fetch.bind(window);
+            Object.defineProperty(window, 'fetch', {
+              configurable: true,
+              enumerable: true,
+              get: function () {
+                return currentFetch;
+              },
+              set: function (fn) {
+                if (typeof fn === 'function') {
+                  currentFetch = fn;
+                }
+              },
+            });
+          }
+        } catch (e) {}
+
+        window.addEventListener(
+          'error',
+          function (event) {
+            var msg = (event && event.message) || '';
+            var file = (event && event.filename) || '';
+            if (
+              msg.indexOf('Cannot set property fetch') !== -1 ||
+              file.indexOf('chrome-extension://') === 0 ||
+              file.indexOf('moz-extension://') === 0
+            ) {
+              event.stopImmediatePropagation();
+              event.preventDefault();
+              return false;
+            }
+          },
+          true
+        );
+      })();
+    </script>
     <title>PharmaCare Pro - Medical Store Inventory & Pharmacy Management System</title>
     <meta name="description" content="Comprehensive pharmacy and medical store management system featuring dual Admin & Staff portals, FEFO batch-wise inventory tracking, fast POS billing with receipt printing, suppliers, purchases, customer ledgers, expense tracking, and deep profit & loss analytics." />
     <meta property="og:title" content="PharmaCare Pro - Medical Store Inventory & Pharmacy Management System" />

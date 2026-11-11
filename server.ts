@@ -4,9 +4,11 @@
  */
 
 import express, { Request, Response } from 'express';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { MongoClient, Collection } from 'mongodb';
 import { createServer as createViteServer } from 'vite';
 import {
   INITIAL_SETTINGS,
@@ -22,6 +24,8 @@ import {
   INITIAL_NOTIFICATIONS,
   sanitizeStaffAccounts,
 } from './src/data/initialData.ts';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,6 +58,46 @@ interface DatabaseSchema {
   lastUpdated: string;
 }
 
+// Optional MongoDB Atlas Cloud Persistence (auto-enabled when MONGODB_URI is set on Hostinger)
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URI ||
+  (process.env.DATABASE_URL?.startsWith('mongodb') ? process.env.DATABASE_URL : '');
+
+let mongoCollection: Collection<any> | null = null;
+let mongoConnected = false;
+
+async function initMongoDB(): Promise<void> {
+  if (!MONGODB_URI) return;
+  try {
+    const client = new MongoClient(MONGODB_URI);
+    await client.connect();
+    const db = client.db(process.env.MONGODB_DB_NAME || 'pharmacare_erp');
+    mongoCollection = db.collection('pharmacy_store_state');
+    mongoConnected = true;
+    console.log('Connected to MongoDB Atlas cloud database successfully.');
+
+    // Load existing cloud state onto local disk cache if present, or seed cloud from local disk
+    const existingDoc = await mongoCollection.findOne({ _id: 'primary_store_state' });
+    if (existingDoc && existingDoc.state && existingDoc.state.medicines) {
+      const cloudState = existingDoc.state as DatabaseSchema;
+      cloudState.staffMembers = sanitizeStaffAccounts(cloudState.staffMembers);
+      writeLocalFileOnly(cloudState);
+      console.log('Synchronized state from MongoDB Atlas.');
+    } else {
+      const currentLocal = readDatabase();
+      await mongoCollection.updateOne(
+        { _id: 'primary_store_state' },
+        { $set: { state: currentLocal, updatedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+      console.log('Seeded initial pharmacy database to MongoDB Atlas.');
+    }
+  } catch (err) {
+    console.error('MongoDB Atlas connection warning (using local disk database fallback):', err);
+  }
+}
+
 // Initial Database Seeder
 function getInitialDatabase(): DatabaseSchema {
   return {
@@ -71,6 +115,20 @@ function getInitialDatabase(): DatabaseSchema {
     staffMembers: INITIAL_USERS,
     lastUpdated: new Date().toISOString(),
   };
+}
+
+function writeLocalFileOnly(data: DatabaseSchema): void {
+  data.lastUpdated = new Date().toISOString();
+  const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
+  try {
+    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmpFile, DB_FILE);
+  } catch (err) {
+    console.error('Failed atomic write to database:', err);
+    if (fs.existsSync(tmpFile)) {
+      try { fs.unlinkSync(tmpFile); } catch {}
+    }
+  }
 }
 
 // Read database from disk with fallback
@@ -97,18 +155,17 @@ function readDatabase(): DatabaseSchema {
   return initial;
 }
 
-// Atomic file write to prevent database corruption
+// Atomic file write + automatic MongoDB Atlas cloud sync
 function writeDatabase(data: DatabaseSchema): void {
-  data.lastUpdated = new Date().toISOString();
-  const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
-  try {
-    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tmpFile, DB_FILE);
-  } catch (err) {
-    console.error('Failed atomic write to database:', err);
-    if (fs.existsSync(tmpFile)) {
-      try { fs.unlinkSync(tmpFile); } catch {}
-    }
+  writeLocalFileOnly(data);
+  if (mongoCollection && mongoConnected) {
+    mongoCollection
+      .updateOne(
+        { _id: 'primary_store_state' },
+        { $set: { state: data, updatedAt: data.lastUpdated } },
+        { upsert: true }
+      )
+      .catch(err => console.error('Failed to sync state to MongoDB Atlas:', err));
   }
 }
 
@@ -136,8 +193,9 @@ async function startServer() {
 
   app.use(express.json({ limit: '15mb' }));
 
-  // Ensure initial database exists on startup
+  // Ensure initial database exists on startup and connect MongoDB Atlas if MONGODB_URI is provided
   readDatabase();
+  await initMongoDB();
 
   // -------------------------------------------------------------
   // REST API ENDPOINTS
@@ -147,7 +205,11 @@ async function startServer() {
   app.get('/api/state', (_req: Request, res: Response) => {
     try {
       const db = readDatabase();
-      res.json({ success: true, data: db });
+      res.json({
+        success: true,
+        storageEngine: mongoConnected ? 'mongodb_atlas' : 'local_disk',
+        data: db,
+      });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
