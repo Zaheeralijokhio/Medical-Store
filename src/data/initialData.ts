@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
+import type {
   User,
   Medicine,
   Supplier,
@@ -73,12 +73,7 @@ export const LEGACY_DEMO_USER_IDS = new Set([
   'usr-staff-2',
 ]);
 
-export const LEGACY_DEMO_USERNAMES = new Set([
-  'salman',
-  'shafique',
-  'ayesha',
-  'bilal',
-]);
+export const LEGACY_DEMO_USERNAMES = new Set<string>([]);
 
 export const LEGACY_DUMMY_IDS = new Set([
   'med-1',

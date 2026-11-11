@@ -114,13 +114,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser]);
 
-  // Support direct URL query login (e.g. ?u=admin&pin=1234)
+  // Support direct URL query login (e.g. ?u=admin&pin=1234 or ?staff_token=<base64>)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+    const staffToken = params.get('staff_token');
     const uParam = params.get('u');
     const pinParam = params.get('pin');
     const roleParam = params.get('role');
+
+    if (staffToken) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(window.atob(staffToken)))) as User;
+        if (decoded && decoded.id && decoded.username) {
+          setAvailableUsers(prev => {
+            const next = sanitizeStaffAccounts([...prev.filter(u => u.id !== decoded.id), decoded]);
+            try {
+              localStorage.setItem('pharmacare_staff', JSON.stringify(next));
+            } catch {}
+            return next;
+          });
+          fetch('/api/staff', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(decoded),
+          }).catch(() => {});
+          setCurrentUser({
+            ...decoded,
+            lastLogin: new Date().toLocaleDateString('en-PK', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          });
+        }
+      } catch {}
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      return;
+    }
 
     if (uParam && pinParam) {
       const targetUser = availableUsers.find(

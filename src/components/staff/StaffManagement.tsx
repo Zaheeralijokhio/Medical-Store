@@ -679,6 +679,28 @@ export const StaffManagement: React.FC = () => {
 
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {!isMasterOwner && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                const encoded = window.btoa(
+                                  unescape(encodeURIComponent(JSON.stringify(staff)))
+                                );
+                                const url = `${window.location.origin}${window.location.pathname}?staff_token=${encodeURIComponent(encoded)}`;
+                                navigator.clipboard.writeText(url);
+                                setStatusBanner({
+                                  title: `Phone / WhatsApp Login Link Copied for ${staff.fullName} (@${staff.username})`,
+                                  detail: `Send this copied link on WhatsApp to ${staff.fullName} — opening it on any phone or browser automatically registers and logs in their account!`,
+                                });
+                              } catch {}
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-bold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Copy 1-Tap Phone / WhatsApp Login Link"
+                          >
+                            Copy Phone Link
+                          </button>
+                        )}
                         {!isCurrentActive && staff.status === 'active' && (
                           <button
                             type="button"

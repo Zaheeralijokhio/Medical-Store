@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import express, { Request, Response } from 'express';
+import express, { type Request, type Response } from 'express';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { MongoClient, Collection } from 'mongodb';
+import { MongoClient, type Collection } from 'mongodb';
 import { createServer as createViteServer } from 'vite';
 import {
   DATA_CLEAN_VERSION,
@@ -639,41 +639,81 @@ async function startServer() {
     }
   });
 
-  // GET /api/staff: Get all staff accounts from database
-  app.get('/api/staff', (_req: Request, res: Response) => {
+  // Helper to read latest database state merging local disk + MongoDB Atlas staff_accounts
+  async function readLatestDatabaseWithMongo(): Promise<DatabaseSchema> {
+    const localDb = readDatabase();
+    if (!mongoClientInstance || !mongoConnected) {
+      return localDb;
+    }
     try {
-      const db = readDatabase();
+      const db = mongoClientInstance.db(MONGO_DB_NAME);
+      const staffCol = db.collection('staff_accounts');
+      const mongoStaff = await staffCol.find({}).toArray();
+      const stateDoc = await mongoCollection?.findOne({ _id: 'primary_store_state' });
+
+      const mergedStaffMap = new Map<string, any>();
+      (localDb.staffMembers || []).forEach(u => {
+        if (u && u.id) mergedStaffMap.set(u.id, u);
+      });
+      if (stateDoc?.state?.staffMembers && Array.isArray(stateDoc.state.staffMembers)) {
+        stateDoc.state.staffMembers.forEach((u: any) => {
+          if (u && u.id) mergedStaffMap.set(u.id, u);
+        });
+      }
+      mongoStaff.forEach((u: any) => {
+        if (u && u.id) {
+          const { _id, ...rest } = u;
+          mergedStaffMap.set(rest.id, rest);
+        }
+      });
+
+      const mergedDb: DatabaseSchema = {
+        ...(stateDoc?.state || {}),
+        ...localDb,
+        medicines:
+          localDb.medicines.length >= (stateDoc?.state?.medicines?.length || 0)
+            ? localDb.medicines
+            : stateDoc.state.medicines,
+        staffMembers: sanitizeStaffAccounts(Array.from(mergedStaffMap.values())),
+      };
+      writeLocalFileOnly(mergedDb);
+      return mergedDb;
+    } catch {
+      return localDb;
+    }
+  }
+
+  // GET /api/staff: Get all staff accounts from database (local + MongoDB Atlas)
+  app.get('/api/staff', async (_req: Request, res: Response) => {
+    try {
+      const db = await readLatestDatabaseWithMongo();
       res.json({ success: true, staffMembers: db.staffMembers });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // POST /api/staff: Create new staff account and persist immediately
-  app.post('/api/staff', (req: Request, res: Response) => {
+  // POST /api/staff: Create new staff account and persist immediately to Disk + MongoDB Atlas
+  app.post('/api/staff', async (req: Request, res: Response) => {
     try {
       const newStaff = req.body;
       if (!newStaff || !newStaff.username || !newStaff.fullName) {
         return res.status(400).json({ success: false, error: 'Full name and username are required' });
       }
 
-      const db = readDatabase();
-      const cleanUsername = String(newStaff.username).trim().toLowerCase();
+      const db = await readLatestDatabaseWithMongo();
+      const cleanUsername = String(newStaff.username).trim().toLowerCase().replace(/^@/, '');
 
       const existingIdx = db.staffMembers.findIndex(
         u => u.id === newStaff.id || u.username.toLowerCase() === cleanUsername
       );
 
-      if (existingIdx >= 0 && db.staffMembers[existingIdx].id !== newStaff.id) {
-        return res.status(409).json({ success: false, error: `Username @${cleanUsername} already exists` });
-      }
-
       const userToSave = {
         ...newStaff,
-        id: newStaff.id || `usr-staff-${Date.now()}`,
+        id: existingIdx >= 0 ? db.staffMembers[existingIdx].id : newStaff.id || `usr-staff-${Date.now()}`,
         username: cleanUsername,
-        password: newStaff.password || 'seller123',
-        pin: newStaff.pin || '5678',
+        password: String(newStaff.password || 'seller123').trim(),
+        pin: String(newStaff.pin || '5678').trim(),
         status: newStaff.status || 'active',
         joiningDate: newStaff.joiningDate || new Date().toISOString().split('T')[0],
       };
@@ -689,7 +729,7 @@ async function startServer() {
       db.auditLogs.unshift({
         id: `log-${Date.now()}`,
         action: 'STAFF_CREATED',
-        description: `Owner created staff account for ${userToSave.fullName} (@${userToSave.username})`,
+        description: `Owner saved staff account for ${userToSave.fullName} (@${userToSave.username})`,
         userId: 'usr-owner-1',
         userName: 'Dr. Abdul Rehman (Owner)',
         userRole: 'admin',
@@ -697,6 +737,10 @@ async function startServer() {
       });
 
       writeDatabase(db);
+      if (mongoConnected) {
+        await syncCollectionsToMongo(db);
+      }
+
       res.json({ success: true, user: userToSave, staffMembers: db.staffMembers });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -704,11 +748,11 @@ async function startServer() {
   });
 
   // PUT /api/staff/:id: Update staff account and persist immediately
-  app.put('/api/staff/:id', (req: Request, res: Response) => {
+  app.put('/api/staff/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const updates = req.body;
-      const db = readDatabase();
+      const db = await readLatestDatabaseWithMongo();
       const idx = db.staffMembers.findIndex(u => u.id === id);
 
       if (idx === -1) {
@@ -719,6 +763,9 @@ async function startServer() {
       db.staffMembers = sanitizeStaffAccounts(db.staffMembers);
 
       writeDatabase(db);
+      if (mongoConnected) {
+        await syncCollectionsToMongo(db);
+      }
       res.json({ success: true, user: db.staffMembers[idx], staffMembers: db.staffMembers });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
@@ -726,29 +773,44 @@ async function startServer() {
   });
 
   // DELETE /api/staff/:id: Delete a staff account (or 'all-others' to clear non-owner accounts)
-  app.delete('/api/staff/:id', (req: Request, res: Response) => {
+  app.delete('/api/staff/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const db = readDatabase();
+      const db = await readLatestDatabaseWithMongo();
 
       if (id === 'all-others') {
         db.staffMembers = sanitizeStaffAccounts([]);
+        if (mongoClientInstance && mongoConnected) {
+          await mongoClientInstance
+            .db(MONGO_DB_NAME)
+            .collection('staff_accounts')
+            .deleteMany({ id: { $ne: 'usr-owner-1' } });
+        }
       } else {
         if (id === 'usr-owner-1') {
           return res.status(403).json({ success: false, error: 'Owner account cannot be deleted' });
         }
         db.staffMembers = sanitizeStaffAccounts(db.staffMembers.filter(u => u.id !== id));
+        if (mongoClientInstance && mongoConnected) {
+          await mongoClientInstance
+            .db(MONGO_DB_NAME)
+            .collection('staff_accounts')
+            .deleteOne({ id });
+        }
       }
 
       writeDatabase(db);
+      if (mongoConnected) {
+        await syncCollectionsToMongo(db);
+      }
       res.json({ success: true, staffMembers: db.staffMembers });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
   });
 
-  // POST /api/auth/login: Username + Password login verification against server database
-  app.post('/api/auth/login', (req: Request, res: Response) => {
+  // POST /api/auth/login: Username + Password login verification against server + MongoDB database
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
     try {
       const { username, password } = req.body || {};
       if (!username) {
@@ -758,7 +820,7 @@ async function startServer() {
       const rawInput = String(username).trim().toLowerCase().replace(/^@/, '');
       const cleanCompact = rawInput.replace(/\s+/g, '');
       const cleanPass = String(password || '').trim();
-      const db = readDatabase();
+      const db = await readLatestDatabaseWithMongo();
       const user = db.staffMembers.find(u => {
         const uName = (u.username || '').trim().toLowerCase().replace(/^@/, '');
         const uFull = (u.fullName || '').trim().toLowerCase();
@@ -777,7 +839,7 @@ async function startServer() {
       if (!user) {
         return res.status(401).json({
           success: false,
-          error: 'Account not found. Enter "admin" for Owner or a valid staff username.',
+          error: 'Account not found. Enter "admin" for Owner or a valid staff username created by the Owner.',
         });
       }
 
@@ -804,14 +866,14 @@ async function startServer() {
   });
 
   // POST /api/auth/pin-login: PIN Keypad login verification
-  app.post('/api/auth/pin-login', (req: Request, res: Response) => {
+  app.post('/api/auth/pin-login', async (req: Request, res: Response) => {
     try {
       const { pin, username } = req.body;
       if (!pin) {
         return res.status(400).json({ success: false, error: 'PIN is required' });
       }
 
-      const db = readDatabase();
+      const db = await readLatestDatabaseWithMongo();
       const user = db.staffMembers.find(u => {
         const matchesPin = u.pin === pin || (!u.pin && pin === '1234');
         if (username) {
@@ -840,17 +902,21 @@ async function startServer() {
   });
 
   // -------------------------------------------------------------
-  // VITE DEV SERVER INTEGRATION (Dev Mode on port 3000)
+  // VITE DEV SERVER OR PRODUCTION STATIC SERVING
   // -------------------------------------------------------------
-  if (process.env.NODE_ENV !== 'production') {
+  const distPath = path.join(__dirname, 'dist');
+  const isProdMode =
+    process.env.NODE_ENV === 'production' ||
+    (process.env.VITE_DEV !== 'true' && fs.existsSync(path.join(distPath, 'index.html')) && Boolean(process.env.MONGODB_URI));
+
+  if (!isProdMode) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    // Production static serving
-    const distPath = path.join(__dirname, 'dist');
+    // Production static serving (Hostinger / Cloud)
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
       app.get('*', (_req: Request, res: Response) => {
