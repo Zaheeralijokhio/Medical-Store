@@ -102,6 +102,16 @@
   ],
   "notifications": [
     {
+      "id": "notif-1794396370449",
+      "type": "staff_activity",
+      "title": "New Staff Account Created",
+      "message": "Shafique (@shafique) was added as Medicine Seller & Inventory Staff.",
+      "date": "2026-11-11",
+      "timestamp": "11/11/2026, 4:26:10 pm",
+      "read": false,
+      "severity": "info"
+    },
+    {
       "id": "notif-1794403881387",
       "type": "stock_adjustment",
       "title": "New Medicine Registered",
@@ -111,16 +121,6 @@
       "read": false,
       "severity": "info",
       "referenceId": "med-1794403881382"
-    },
-    {
-      "id": "notif-1794396370449",
-      "type": "staff_activity",
-      "title": "New Staff Account Created",
-      "message": "Shafique (@shafique) was added as Medicine Seller & Inventory Staff.",
-      "date": "2026-11-11",
-      "timestamp": "11/11/2026, 4:26:10 pm",
-      "read": false,
-      "severity": "info"
     }
   ],
   "staffMembers": [
@@ -169,7 +169,7 @@
       "joiningDate": "2026-11-11"
     }
   ],
-  "lastUpdated": "2026-11-11T14:17:51.556Z",
+  "lastUpdated": "2026-11-11T14:41:14.037Z",
   "deletedIds": [
     "test-med-verify"
   ]

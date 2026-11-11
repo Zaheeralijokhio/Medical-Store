@@ -38,7 +38,15 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onNavigate,
 }) => {
   const { currentUser, isAdmin, switchUser, availableUsers, logout } = useAuth();
-  const { settings, notifications, isOnline, pendingSyncCount, offlineSyncStatus, syncOfflineQueue } = useStore();
+  const {
+    settings,
+    notifications,
+    isOnline,
+    pendingSyncCount,
+    offlineSyncStatus,
+    syncOfflineQueue,
+    refreshData,
+  } = useStore();
   const isSyncing = offlineSyncStatus === 'syncing';
 
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -219,13 +227,16 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
               {isOnline ? (
                 <button
                   type="button"
-                  onClick={() => syncOfflineQueue()}
+                  onClick={() => {
+                    syncOfflineQueue();
+                    refreshData();
+                  }}
                   disabled={isSyncing}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                  title={pendingSyncCount > 0 ? `${pendingSyncCount} sales pending sync` : 'Connected to Server Database'}
+                  title="Real-time cloud database connected. Click to refresh medicines & state now."
                 >
                   <Wifi className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="hidden md:inline font-semibold">Online</span>
+                  <span className="hidden md:inline font-semibold">Live Cloud Sync</span>
                   {pendingSyncCount > 0 && (
                     <span className="flex items-center gap-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
                       <RefreshCw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin' : ''}`} />

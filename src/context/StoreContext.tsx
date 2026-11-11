@@ -58,6 +58,7 @@ import {
   fetchCloudStoreState,
   pushCloudStoreState,
   pushCloudMedicineRealtime,
+  fetchCloudMedicines,
 } from '../services/cloudSync';
 
 interface StoreContextType {
@@ -169,6 +170,7 @@ interface StoreContextType {
   // Settings & System
   updateSettings: (newSettings: Partial<StoreSettings>) => void;
   resetToDemoData: () => void;
+  refreshData: () => Promise<void>;
 
   // Multi-select POS Queue (from Inventory or Quick Selection)
   queuedPosItems: { medicineId: string; quantity: number }[];
@@ -396,20 +398,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (res?.success && res?.data) {
             applyIncomingState(res.data);
           }
-        }),
-      fetchCloudStoreState().then(cloudData => {
-        if (cloudData) {
-          applyIncomingState(cloudData);
-        }
-      }),
-      fetchCloudStaff().then(cloudStaff => {
-        if (cloudStaff && cloudStaff.length > 0) {
-          setStaffMembers(prevLocal => {
-            const combined = mergeById<User>(prevLocal, cloudStaff, deletedRecordIdsRef.current);
-            return sanitizeStaffAccounts(combined);
-          });
-        }
-      }),
+        })
+        .catch(() => {}),
+      fetchCloudMedicines()
+        .then(cloudMeds => {
+          if (cloudMeds && Array.isArray(cloudMeds.medicines)) {
+            if (Array.isArray(cloudMeds.deletedIds)) {
+              cloudMeds.deletedIds.forEach(id => recordDeletedId(id));
+            }
+            if (cloudMeds.medicines.length > 0) {
+              setMedicines(prev => {
+                const merged = mergeById(prev, cloudMeds.medicines, deletedRecordIdsRef.current);
+                try {
+                  localStorage.setItem('pharmacare_medicines', JSON.stringify(merged));
+                } catch {}
+                return merged;
+              });
+            }
+          }
+        })
+        .catch(() => {}),
+      fetchCloudStoreState()
+        .then(cloudData => {
+          if (cloudData) {
+            applyIncomingState(cloudData);
+          }
+        })
+        .catch(() => {}),
+      fetchCloudStaff()
+        .then(cloudStaff => {
+          if (cloudStaff && cloudStaff.length > 0) {
+            setStaffMembers(prevLocal => {
+              const combined = mergeById<User>(prevLocal, cloudStaff, deletedRecordIdsRef.current);
+              return sanitizeStaffAccounts(combined);
+            });
+          }
+        })
+        .catch(() => {}),
     ]);
   };
 
@@ -454,41 +479,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
 
+    // Fast 2.5-second polling interval for instant cross-device updates
     const interval = setInterval(() => {
       if (navigator.onLine) {
         pullLatestDatabaseState();
       }
-    }, 3500);
+    }, 2500);
 
-    // Live Server-Sent Events stream for instant cross-device updates (<100ms)
-    let sse: EventSource | null = null;
+    // Instant cross-tab & cross-account sync on same device (0ms)
+    let bc: BroadcastChannel | null = null;
     try {
-      if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
-        sse = new EventSource('https://ntfy.sh/pharmacare_edulinker_store_v3/sse');
-        sse.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data?.event === 'message' && typeof data.message === 'string') {
-              const payload = JSON.parse(data.message);
-              if (payload?.cleanVersion === DATA_CLEAN_VERSION) {
-                if (Array.isArray(payload.deletedIds) && payload.deletedIds.length > 0) {
-                  payload.deletedIds.forEach((id: string) => recordDeletedId(id));
-                  setMedicines(prev => prev.filter(m => !deletedRecordIdsRef.current.has(m.id)));
-                }
-                if (payload.medicine && payload.medicine.id) {
-                  if (!deletedRecordIdsRef.current.has(payload.medicine.id)) {
-                    setMedicines(prev => {
-                      const next = [payload.medicine, ...prev.filter(m => m.id !== payload.medicine.id)];
-                      try {
-                        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
-                      } catch {}
-                      return next;
-                    });
-                  }
-                }
-              }
-            }
-          } catch {}
+      if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('pharmacare_erp_realtime_sync');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'MEDICINE_SYNC' && event.data?.medicine) {
+            const incomingMed = event.data.medicine;
+            deletedRecordIdsRef.current.delete(incomingMed.id);
+            setMedicines(prev => {
+              const next = [incomingMed, ...prev.filter(m => m.id !== incomingMed.id)];
+              try {
+                localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+              } catch {}
+              return next;
+            });
+          } else if (event.data?.type === 'MEDICINE_DELETE' && event.data?.id) {
+            recordDeletedId(event.data.id);
+            setMedicines(prev => {
+              const next = prev.filter(m => m.id !== event.data.id);
+              try {
+                localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+              } catch {}
+              return next;
+            });
+          }
         };
       }
     } catch {}
@@ -499,7 +522,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return () => {
       clearInterval(interval);
-      try { sse?.close(); } catch {}
+      try { bc?.close(); } catch {}
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -1898,6 +1921,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         pendingSyncCount,
         syncOfflineQueue,
         offlineSyncStatus,
+        refreshData: pullLatestDatabaseState,
 
         backupSnapshots,
         fetchBackupSnapshots,

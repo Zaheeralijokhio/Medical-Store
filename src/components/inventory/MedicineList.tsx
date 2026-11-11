@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Pill,
   Search,
@@ -221,7 +221,13 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
     addBatch,
     settings,
     queueMedicinesForPos,
+    refreshData,
   } = useStore();
+
+  // Auto-refresh latest medicines from cloud whenever viewing Inventory catalog
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
 
   // Search, Filter & Sort States
   const [searchQuery, setSearchQuery] = useState('');
