@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="pharmagrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d9488"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="crossgrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0fdfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <rect x="32" y="32" width="448" height="448" rx="88" fill="url(#pharmagrad)"/>
+  <!-- Pharmacy Medical Cross with Pill -->
+  <g transform="translate(256, 256)">
+    <!-- Rounded Medical Cross -->
+    <path d="M -56 -144 C -56 -160, -40 -176, -24 -176 L 24 -176 C 40 -176, 56 -160, 56 -144 L 56 -56 L 144 -56 C 160 -56, 176 -40, 176 -24 L 176 24 C 176 40, 160 56, 144 56 L 56 56 L 56 144 C 56 160, 40 176, 24 176 L -24 176 C -40 176, -56 160, -56 144 L -56 56 L -144 56 C -160 56, -176 40, -176 24 L -176 -24 C -176 -40, -160 -56, -144 -56 L -56 -56 Z" fill="url(#crossgrad)" filter="drop-shadow(0 16px 24px rgba(13,148,136,0.35))"/>
+    <!-- Pill Capsule Motif in Center -->
+    <g transform="rotate(-45) scale(0.65)">
+      <rect x="-80" y="-36" width="80" height="72" rx="36" fill="#0f172a"/>
+      <rect x="0" y="-36" width="80" height="72" rx="36" fill="#14b8a6"/>
+    </g>
+  </g>
+</svg>

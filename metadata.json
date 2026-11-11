@@ -1,0 +1,6 @@
+{
+  "name": "PharmaCare Pro - Medical Store Inventory & Pharmacy Management System",
+  "description": "Comprehensive pharmacy and medical store management system featuring dual Admin & Staff portals, FEFO batch-wise inventory tracking, fast POS billing with receipt printing, suppliers, purchases, customer ledgers, expense tracking, and deep profit & loss analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
