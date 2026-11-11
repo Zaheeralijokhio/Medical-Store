@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
 import { sanitizeStaffAccounts } from '../../data/initialData';
+import { fetchCloudStaff } from '../../services/cloudSync';
 import { User } from '../../types/pharmacy';
 
 interface LoginPageProps {
@@ -39,7 +40,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     return sanitizeStaffAccounts([...availableUsers, ...staffMembers]);
   }, [availableUsers, staffMembers]);
 
-  // Also fetch latest staff list from backend database whenever LoginPage mounts
+  // Also fetch latest staff list from backend database + Cross-Device Cloud Sync whenever LoginPage mounts
   useEffect(() => {
     let active = true;
     fetch('/api/staff')
@@ -50,6 +51,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         syncStaffList(merged);
       })
       .catch(() => {});
+
+    fetchCloudStaff()
+      .then(cloudStaff => {
+        if (!active || !cloudStaff || cloudStaff.length === 0) return;
+        const merged = sanitizeStaffAccounts([...allUsers, ...cloudStaff]);
+        try {
+          localStorage.setItem('pharmacare_staff', JSON.stringify(merged));
+        } catch {}
+        syncStaffList(merged);
+      })
+      .catch(() => {});
+
     return () => {
       active = false;
     };

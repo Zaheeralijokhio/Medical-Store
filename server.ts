@@ -9,7 +9,6 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MongoClient, type Collection } from 'mongodb';
-import { createServer as createViteServer } from 'vite';
 import {
   DATA_CLEAN_VERSION,
   INITIAL_SETTINGS,
@@ -243,6 +242,16 @@ function createBackupSnapshot(comment = 'Manual backup'): { snapshotId: string; 
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
+
+  app.use((req: Request, res: Response, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
+  });
 
   app.use(express.json({ limit: '15mb' }));
 
@@ -907,9 +916,10 @@ async function startServer() {
   const distPath = path.join(__dirname, 'dist');
   const isProdMode =
     process.env.NODE_ENV === 'production' ||
-    (process.env.VITE_DEV !== 'true' && fs.existsSync(path.join(distPath, 'index.html')) && Boolean(process.env.MONGODB_URI));
+    (process.env.VITE_DEV !== 'true' && fs.existsSync(path.join(distPath, 'index.html')));
 
   if (!isProdMode) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

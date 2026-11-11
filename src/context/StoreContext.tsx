@@ -52,6 +52,12 @@ import {
   getPendingSalesQueue,
   removePendingSale,
 } from '../services/offlineDb';
+import {
+  fetchCloudStaff,
+  pushCloudStaff,
+  fetchCloudStoreState,
+  pushCloudStoreState,
+} from '../services/cloudSync';
 
 interface StoreContextType {
   // Data
@@ -305,56 +311,71 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return Array.from(map.values());
   };
 
-  // Initial Boot: fetch server state from /api/state and merge with any unsynced local data
+  // Initial Boot: fetch server state from /api/state AND Cross-Device Cloud Sync, then merge with local data
   useEffect(() => {
-    fetch('/api/state')
-      .then(res => res.json())
-      .then(res => {
-        if (res.success && res.data) {
-          const d = res.data;
-          if (d.settings) setSettings(d.settings);
-          if (Array.isArray(d.medicines)) {
-            setMedicines(prev => mergeById(d.medicines, prev));
+    const applyIncomingState = (d: any) => {
+      if (!d) return;
+      if (d.settings) setSettings(d.settings);
+      if (Array.isArray(d.medicines) && d.medicines.length > 0) {
+        setMedicines(prev => mergeById(d.medicines, prev));
+      }
+      if (Array.isArray(d.suppliers) && d.suppliers.length > 0) {
+        setSuppliers(prev => mergeById(d.suppliers, prev));
+      }
+      if (Array.isArray(d.customers) && d.customers.length > 0) {
+        setCustomers(prev => mergeById(d.customers, prev));
+      }
+      if (Array.isArray(d.sales) && d.sales.length > 0) {
+        setSales(prev => mergeById(d.sales, prev));
+      }
+      if (Array.isArray(d.purchases) && d.purchases.length > 0) {
+        setPurchases(prev => mergeById(d.purchases, prev));
+      }
+      if (Array.isArray(d.expenses) && d.expenses.length > 0) {
+        setExpenses(prev => mergeById(d.expenses, prev));
+      }
+      if (Array.isArray(d.adjustments) && d.adjustments.length > 0) {
+        setAdjustments(prev => mergeById(d.adjustments, prev));
+      }
+      if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
+        setAuditLogs(d.auditLogs);
+      }
+      if (Array.isArray(d.notifications) && d.notifications.length > 0) {
+        setNotifications(d.notifications);
+      }
+      if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
+        setStaffMembers(prevLocal => {
+          const combined = mergeById<User>(d.staffMembers, prevLocal);
+          return sanitizeStaffAccounts(combined);
+        });
+      }
+    };
+
+    Promise.allSettled([
+      fetch('/api/state')
+        .then(res => (res.ok ? res.json() : null))
+        .then(res => {
+          if (res?.success && res?.data) {
+            applyIncomingState(res.data);
           }
-          if (Array.isArray(d.suppliers)) {
-            setSuppliers(prev => mergeById(d.suppliers, prev));
-          }
-          if (Array.isArray(d.customers)) {
-            setCustomers(prev => mergeById(d.customers, prev));
-          }
-          if (Array.isArray(d.sales)) {
-            setSales(prev => mergeById(d.sales, prev));
-          }
-          if (Array.isArray(d.purchases)) {
-            setPurchases(prev => mergeById(d.purchases, prev));
-          }
-          if (Array.isArray(d.expenses)) {
-            setExpenses(prev => mergeById(d.expenses, prev));
-          }
-          if (Array.isArray(d.adjustments)) {
-            setAdjustments(prev => mergeById(d.adjustments, prev));
-          }
-          if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
-            setAuditLogs(d.auditLogs);
-          }
-          if (Array.isArray(d.notifications) && d.notifications.length > 0) {
-            setNotifications(d.notifications);
-          }
-          if (Array.isArray(d.staffMembers)) {
-            setStaffMembers(prevLocal => {
-              const combined = mergeById<User>(d.staffMembers, prevLocal);
-              return sanitizeStaffAccounts(combined);
-            });
-          }
+        }),
+      fetchCloudStoreState().then(cloudData => {
+        if (cloudData) {
+          applyIncomingState(cloudData);
         }
-      })
-      .catch(() => {
-        // Standalone or offline fallback
-      })
-      .finally(() => {
-        hasHydratedFromServer.current = true;
-        fetchBackupSnapshots();
-      });
+      }),
+      fetchCloudStaff().then(cloudStaff => {
+        if (cloudStaff && cloudStaff.length > 0) {
+          setStaffMembers(prevLocal => {
+            const combined = mergeById<User>(cloudStaff, prevLocal);
+            return sanitizeStaffAccounts(combined);
+          });
+        }
+      }),
+    ]).finally(() => {
+      hasHydratedFromServer.current = true;
+      fetchBackupSnapshots();
+    });
   }, []);
 
   // Keep AuthContext availableUsers synchronized whenever staffMembers state updates
@@ -383,7 +404,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('pharmacare_audit_logs', JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem('pharmacare_notifications', JSON.stringify(notifications)); }, [notifications]);
 
-  // Fast server sync of full state to /api/sync (persists to Hostinger disk & MongoDB Atlas)
+  // Fast server & Cross-Device Cloud sync of full state
   useEffect(() => {
     if (!hasHydratedFromServer.current) {
       return;
@@ -391,27 +412,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const timer = setTimeout(() => {
       if (isOnline) {
+        const statePayload = {
+          cleanVersion: DATA_CLEAN_VERSION,
+          settings,
+          medicines,
+          suppliers,
+          customers,
+          sales,
+          saleReturns,
+          purchases,
+          expenses,
+          adjustments,
+          auditLogs,
+          notifications,
+          staffMembers,
+        };
         fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cleanVersion: DATA_CLEAN_VERSION,
-            settings,
-            medicines,
-            suppliers,
-            customers,
-            sales,
-            saleReturns,
-            purchases,
-            expenses,
-            adjustments,
-            auditLogs,
-            notifications,
-            staffMembers,
-          }),
+          body: JSON.stringify(statePayload),
+        }).catch(() => {});
+
+        pushCloudStoreState({
+          settings,
+          medicines,
+          suppliers,
+          customers,
+          sales,
+          saleReturns,
+          purchases,
+          expenses,
+          adjustments,
+          staffMembers,
         }).catch(() => {});
       }
-    }, 150);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [
@@ -1456,6 +1491,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body: JSON.stringify(newUser),
     }).catch(() => {});
 
+    pushCloudStaff(nextList).catch(() => {});
+
     logActivity('STAFF_CREATED', `Dr. Abdul Rehman (Owner) created new account for ${newUser.fullName} (${newUser.designation})`);
     addNotification('staff_activity', 'New Staff Account Created', `${newUser.fullName} (@${newUser.username}) was added as ${newUser.designation}.`, 'info');
   };
@@ -1475,6 +1512,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updated),
     }).catch(() => {});
+
+    pushCloudStaff(nextList).catch(() => {});
 
     logActivity('STAFF_UPDATED', `Updated staff account details for ID ${id}`);
   };
@@ -1500,6 +1539,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: toggledStatus }),
     }).catch(() => {});
+
+    pushCloudStaff(nextList).catch(() => {});
   };
 
   const deleteStaff = (id: string) => {
@@ -1515,6 +1556,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetch(`/api/staff/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }).catch(() => {});
+
+    pushCloudStaff(nextList, { forceReplace: true, deletedId: id }).catch(() => {});
 
     logActivity('STAFF_DELETED', `Dr. Abdul Rehman (Owner) removed staff account: ${target?.fullName || id}`);
     if (target) {
@@ -1534,6 +1577,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetch('/api/staff/all-others', {
       method: 'DELETE',
     }).catch(() => {});
+
+    pushCloudStaff(nextList, { forceReplace: true }).catch(() => {});
 
     logActivity('STAFF_CLEARED', 'Dr. Abdul Rehman (Owner) removed all other staff accounts.');
     addNotification('staff_activity', 'All Other Staff Accounts Removed', 'Only Dr. Abdul Rehman (Owner) account remains active.', 'warning');

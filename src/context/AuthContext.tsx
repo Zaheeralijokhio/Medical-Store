@@ -11,6 +11,7 @@ import {
   LEGACY_DEMO_USER_IDS,
   sanitizeStaffAccounts,
 } from '../data/initialData';
+import { fetchCloudStaff, pushCloudStaff } from '../services/cloudSync';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -80,27 +81,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   });
 
-  // Fetch latest staff accounts from Hostinger / Backend Database on startup
+  // Merge helper for incoming staff lists
+  const mergeAndSaveStaff = (incoming: User[]) => {
+    if (!Array.isArray(incoming) || incoming.length === 0) return;
+    setAvailableUsers(prev => {
+      const mergedMap = new Map<string, User>();
+      prev.forEach(u => {
+        if (u && u.username) mergedMap.set(u.username.toLowerCase(), u);
+      });
+      incoming.forEach((u: User) => {
+        if (u && u.username) mergedMap.set(u.username.toLowerCase(), u);
+      });
+      const clean = sanitizeStaffAccounts(Array.from(mergedMap.values()));
+      try {
+        localStorage.setItem('pharmacare_staff', JSON.stringify(clean));
+      } catch {}
+      return clean;
+    });
+  };
+
+  // Fetch latest staff accounts from Backend Database + Cross-Device Cloud Sync on startup
   useEffect(() => {
     let active = true;
     fetch('/api/staff')
       .then(res => (res.ok ? res.json() : null))
       .then(json => {
         if (!active || !json?.staffMembers || !Array.isArray(json.staffMembers)) return;
-        setAvailableUsers(prev => {
-          const mergedMap = new Map<string, User>();
-          prev.forEach(u => mergedMap.set(u.id, u));
-          json.staffMembers.forEach((u: User) => {
-            if (u && u.id) mergedMap.set(u.id, u);
-          });
-          const clean = sanitizeStaffAccounts(Array.from(mergedMap.values()));
-          try {
-            localStorage.setItem('pharmacare_staff', JSON.stringify(clean));
-          } catch {}
-          return clean;
-        });
+        mergeAndSaveStaff(json.staffMembers);
       })
       .catch(() => {});
+
+    fetchCloudStaff()
+      .then(cloudStaff => {
+        if (!active || !cloudStaff || cloudStaff.length === 0) return;
+        mergeAndSaveStaff(cloudStaff);
+      })
+      .catch(() => {});
+
     return () => {
       active = false;
     };
@@ -132,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
               localStorage.setItem('pharmacare_staff', JSON.stringify(next));
             } catch {}
+            pushCloudStaff(next).catch(() => {});
             return next;
           });
           fetch('/api/staff', {
@@ -194,7 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Please enter your username.' };
     }
 
-    // Also check latest localStorage staff list in case it was just updated
+    // Check latest localStorage staff list in case it was just updated
     let currentList = availableUsers;
     try {
       const savedStaff = localStorage.getItem('pharmacare_staff');
@@ -224,13 +242,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let user = findMatchingUser(currentList);
 
-    // Always check backend database if not found locally or if password doesn't match local cache
     const localExpectedPass = user
       ? user.id === OWNER_ACCOUNT.id
         ? (user.password || 'admin').trim()
         : (user.password || '').trim()
       : null;
 
+    // 1. Check backend API if not found locally or password differs
     if (!user || (localExpectedPass && cleanPass !== localExpectedPass)) {
       try {
         const res = await fetch('/api/auth/login', {
@@ -238,21 +256,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: cleanUsername, password: cleanPass }),
         });
-        const data = await res.json();
-        if (res.ok && data?.success && data?.user) {
-          user = data.user as User;
-          const serverList = Array.isArray(data.staffMembers) ? data.staffMembers : [user];
-          setAvailableUsers(prev => {
-            const next = sanitizeStaffAccounts([...prev, ...serverList]);
-            try {
-              localStorage.setItem('pharmacare_staff', JSON.stringify(next));
-            } catch {}
-            return next;
-          });
-          setCurrentUser(user);
-          return { success: true };
-        } else if (!user && data?.error) {
-          return { success: false, error: data.error };
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.success && data?.user) {
+            user = data.user as User;
+            const serverList = Array.isArray(data.staffMembers) ? data.staffMembers : [user];
+            mergeAndSaveStaff(serverList);
+            setCurrentUser(user);
+            return { success: true };
+          }
+        }
+      } catch {
+        // fallback to cloud sync below
+      }
+    }
+
+    // 2. Check Cross-Device Cloud Sync (for Hostinger static CDN / mobile phone login)
+    if (!user || (localExpectedPass && cleanPass !== localExpectedPass)) {
+      try {
+        const cloudStaff = await fetchCloudStaff();
+        if (cloudStaff && cloudStaff.length > 0) {
+          mergeAndSaveStaff(cloudStaff);
+          const merged = sanitizeStaffAccounts([...currentList, ...cloudStaff]);
+          const matchedFromCloud = findMatchingUser(merged);
+          if (matchedFromCloud) {
+            user = matchedFromCloud;
+          }
         }
       } catch {
         // fallback to local check below
@@ -298,7 +327,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithPin = async (pin: string, usernameOrId?: string): Promise<{ success: boolean; error?: string }> => {
-    // Support flexible argument order in case caller passed (userId, pin)
     let actualPin = pin.trim();
     let actualIdent = usernameOrId?.trim();
     if (actualPin.length > 4 && actualIdent && actualIdent.length === 4) {
@@ -311,18 +339,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Please enter a 4-digit security PIN.' };
     }
 
-    let user: User | undefined;
+    const matchByPin = (list: User[]) => {
+      if (actualIdent) {
+        const cleanIdent = actualIdent.toLowerCase();
+        return list.find(
+          u =>
+            (u.id.toLowerCase() === cleanIdent || u.username.toLowerCase() === cleanIdent) &&
+            (u.pin === actualPin || (!u.pin && actualPin === '1234'))
+        );
+      }
+      return list.find(u => u.pin === actualPin || (!u.pin && actualPin === '1234'));
+    };
 
-    if (actualIdent) {
-      const cleanIdent = actualIdent.toLowerCase();
-      user = availableUsers.find(
-        u =>
-          (u.id.toLowerCase() === cleanIdent || u.username.toLowerCase() === cleanIdent) &&
-          (u.pin === actualPin || (!u.pin && actualPin === '1234'))
-      );
-    } else {
-      user = availableUsers.find(u => u.pin === actualPin || (!u.pin && actualPin === '1234'));
-    }
+    let user = matchByPin(availableUsers);
 
     if (!user) {
       try {
@@ -331,22 +360,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pin: actualPin, username: actualIdent }),
         });
-        const data = await res.json();
-        if (res.ok && data?.success && data?.user) {
-          user = data.user as User;
-          setAvailableUsers(prev => {
-            const next = sanitizeStaffAccounts([...prev.filter(u => u.id !== user!.id), user!]);
-            try {
-              localStorage.setItem('pharmacare_staff', JSON.stringify(next));
-            } catch {}
-            return next;
-          });
-          setCurrentUser(user);
-          return { success: true };
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.success && data?.user) {
+            user = data.user as User;
+            mergeAndSaveStaff([user]);
+            setCurrentUser(user);
+            return { success: true };
+          }
         }
-      } catch {
-        // ignore network error and show message below
-      }
+      } catch {}
+    }
+
+    if (!user) {
+      try {
+        const cloudStaff = await fetchCloudStaff();
+        if (cloudStaff && cloudStaff.length > 0) {
+          mergeAndSaveStaff(cloudStaff);
+          user = matchByPin(cloudStaff);
+        }
+      } catch {}
     }
 
     if (!user) {
