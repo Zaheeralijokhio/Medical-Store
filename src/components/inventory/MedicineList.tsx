@@ -246,13 +246,9 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [quickStockMed, setQuickStockMed] = useState<Medicine | null>(null);
 
-  // Staff permission check: allow adding/editing medicines if Owner granted inventory/price/stock/purchase permission
-  const canModifyPrices =
-    isAdmin ||
-    currentUser?.role === 'pharmacist' ||
-    Boolean(currentUser?.permissions?.canModifyPrices) ||
-    Boolean(currentUser?.permissions?.canAdjustStock) ||
-    Boolean(currentUser?.permissions?.canManagePurchases);
+  // Allow adding, editing, managing batches and deleting medicines for both Owner and Staff
+  const canModifyPrices = true;
+  const canDeleteMedicine = true;
 
   const getFixedPrice = (med: Medicine): number => {
     if (med.fixedSalePrice !== undefined && med.fixedSalePrice > 0) {
@@ -494,34 +490,30 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors min-h-[42px]"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
           </button>
 
-          {canModifyPrices && (
-            <>
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
-              >
-                <Upload className="w-3.5 h-3.5 text-teal-600" /> Bulk Import
-              </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors min-h-[42px]"
+          >
+            <Upload className="w-3.5 h-3.5 text-teal-600" /> Bulk Import
+          </button>
 
-              <button
-                onClick={() => {
-                  setMedicineToEdit(null);
-                  setShowAddEditModal(true);
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Add Medicine & Fixed Price
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => {
+              setMedicineToEdit(null);
+              setShowAddEditModal(true);
+            }}
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors min-h-[42px]"
+          >
+            <Plus className="w-4 h-4" /> Add Medicine & Fixed Price
+          </button>
         </div>
       </div>
 
@@ -746,13 +738,14 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                 </div>
 
                 {/* 4 Action Buttons with high touch target (>44px) */}
-                <div className="grid grid-cols-4 gap-2 pt-1 border-t border-slate-100">
+                <div className="grid grid-cols-5 gap-1.5 pt-2 border-t border-slate-100">
                   {/* Sell Button */}
                   <button
                     type="button"
                     disabled={!canSell}
                     onClick={() => handleSellSingleMedicine(med)}
-                    className="flex flex-col items-center justify-center min-h-[44px] py-1.5 px-1 rounded-xl bg-teal-50 hover:bg-teal-100 disabled:opacity-40 text-teal-800 font-bold text-xs transition-colors"
+                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-teal-50 hover:bg-teal-100 disabled:opacity-30 text-teal-800 font-bold text-[11px] transition-colors"
+                    title="Sell at Fixed Price"
                   >
                     <ShoppingCart className="w-4 h-4 text-teal-600 mb-0.5" />
                     <span>Sell</span>
@@ -762,7 +755,8 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                   <button
                     type="button"
                     onClick={() => setQuickStockMed(med)}
-                    className="flex flex-col items-center justify-center min-h-[44px] py-1.5 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
+                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] transition-colors"
+                    title="Add Inward Stock Batch"
                   >
                     <PackagePlus className="w-4 h-4 text-emerald-600 mb-0.5" />
                     <span>+ Stock</span>
@@ -775,36 +769,44 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                       setSelectedMedForBatches(med);
                       setShowBatchModal(true);
                     }}
-                    className="flex flex-col items-center justify-center min-h-[44px] py-1.5 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs transition-colors"
+                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-[11px] transition-colors"
+                    title="View Batches & Expiry"
                   >
                     <Eye className="w-4 h-4 text-slate-600 mb-0.5" />
-                    <span>View</span>
+                    <span>Batches</span>
                   </button>
 
-                  {/* Edit Button (Locked for cashiers) */}
+                  {/* Edit Button */}
                   <button
                     type="button"
-                    disabled={!canModifyPrices}
                     onClick={() => {
-                      if (!canModifyPrices) {
-                        alert('Cashiers are not authorized to modify official medicine prices.');
-                        return;
-                      }
                       setMedicineToEdit(med);
                       setShowAddEditModal(true);
                     }}
-                    className={`flex flex-col items-center justify-center min-h-[44px] py-1.5 px-1 rounded-xl font-semibold text-xs transition-colors ${
-                      canModifyPrices
-                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-                        : 'bg-slate-50 text-slate-400 cursor-not-allowed opacity-60'
-                    }`}
+                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-semibold text-[11px] transition-colors"
+                    title="Edit Formulation & Fixed Price"
                   >
-                    {canModifyPrices ? (
-                      <Edit2 className="w-4 h-4 text-indigo-600 mb-0.5" />
-                    ) : (
-                      <Lock className="w-4 h-4 text-slate-400 mb-0.5" />
-                    )}
-                    <span>Edit Price</span>
+                    <Edit2 className="w-4 h-4 text-indigo-600 mb-0.5" />
+                    <span>Edit</span>
+                  </button>
+
+                  {/* Delete Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Are you sure you want to delete ${med.name}? It will be removed immediately from inventory and database across all devices.`
+                        )
+                      ) {
+                        deleteMedicine(med.id);
+                      }
+                    }}
+                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] transition-colors"
+                    title="Delete Formulation"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-600 mb-0.5" />
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
@@ -1117,19 +1119,21 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                             </span>
                           )}
 
-                          {isAdmin && (
-                            <button
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to delete ${med.name}?`)) {
-                                  deleteMedicine(med.id);
-                                }
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                              title="Delete Formulation"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Are you sure you want to delete ${med.name}? It will be removed immediately from inventory and database across all devices.`
+                                )
+                              ) {
+                                deleteMedicine(med.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Formulation"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>

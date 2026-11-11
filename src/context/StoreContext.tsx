@@ -316,14 +316,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return Array.from(map.values());
   };
 
-  const deletedRecordIdsRef = useRef<Set<string>>(new Set());
+  const initialDeletedIds: string[] = (() => {
+    try {
+      const raw = localStorage.getItem('pharmacare_deleted_ids');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  })();
+  const deletedRecordIdsRef = useRef<Set<string>>(new Set(initialDeletedIds));
+
+  const recordDeletedId = (id: string) => {
+    deletedRecordIdsRef.current.add(id);
+    try {
+      localStorage.setItem('pharmacare_deleted_ids', JSON.stringify(Array.from(deletedRecordIdsRef.current)));
+    } catch {}
+  };
 
   // Pull and merge latest state from both Backend API (/api/state) and Cross-Device Cloud Sync
   const pullLatestDatabaseState = async () => {
     const applyIncomingState = (d: any) => {
       if (!d) return;
       if (Array.isArray(d.deletedIds)) {
-        d.deletedIds.forEach((id: string) => deletedRecordIdsRef.current.add(id));
+        d.deletedIds.forEach((id: string) => recordDeletedId(id));
       }
       const delSet = deletedRecordIdsRef.current;
 
@@ -420,6 +437,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setSales(prev => mergeById(prev, parsed, deletedRecordIdsRef.current));
           }
         } catch {}
+      } else if (e.key === 'pharmacare_deleted_ids' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((id: string) => recordDeletedId(id));
+            setMedicines(prev => prev.filter(m => !deletedRecordIdsRef.current.has(m.id)));
+          }
+        } catch {}
       }
     };
 
@@ -433,7 +458,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (navigator.onLine) {
         pullLatestDatabaseState();
       }
-    }, 4500);
+    }, 3500);
+
+    // Live Server-Sent Events stream for instant cross-device updates (<100ms)
+    let sse: EventSource | null = null;
+    try {
+      if (typeof window !== 'undefined' && typeof EventSource !== 'undefined') {
+        sse = new EventSource('https://ntfy.sh/pharmacare_edulinker_store_v3/sse');
+        sse.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data?.event === 'message' && typeof data.message === 'string') {
+              const payload = JSON.parse(data.message);
+              if (payload?.cleanVersion === DATA_CLEAN_VERSION) {
+                if (Array.isArray(payload.deletedIds) && payload.deletedIds.length > 0) {
+                  payload.deletedIds.forEach((id: string) => recordDeletedId(id));
+                  setMedicines(prev => prev.filter(m => !deletedRecordIdsRef.current.has(m.id)));
+                }
+                if (payload.medicine && payload.medicine.id) {
+                  if (!deletedRecordIdsRef.current.has(payload.medicine.id)) {
+                    setMedicines(prev => {
+                      const next = [payload.medicine, ...prev.filter(m => m.id !== payload.medicine.id)];
+                      try {
+                        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+                      } catch {}
+                      return next;
+                    });
+                  }
+                }
+              }
+            }
+          } catch {}
+        };
+      }
+    } catch {}
 
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('focus', handleVisibilityOrFocus);
@@ -441,6 +499,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     return () => {
       clearInterval(interval);
+      try { sse?.close(); } catch {}
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
@@ -495,6 +554,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           auditLogs,
           notifications,
           staffMembers,
+          deletedIds: Array.from(deletedRecordIdsRef.current),
         };
         fetch('/api/sync', {
           method: 'POST',
@@ -513,6 +573,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           expenses,
           adjustments,
           staffMembers,
+          deletedIds: Array.from(deletedRecordIdsRef.current),
         }).catch(() => {});
       }
     }, 250);
@@ -745,25 +806,44 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       status: 'active',
     };
 
-    setMedicines(prev => {
-      const next = [newMed, ...prev];
-      try {
-        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+    deletedRecordIdsRef.current.delete(medId);
+    try {
+      localStorage.setItem('pharmacare_deleted_ids', JSON.stringify(Array.from(deletedRecordIdsRef.current)));
+    } catch {}
+
+    const nextMedicines = [newMed, ...medicines.filter(m => m.id !== medId)];
+    setMedicines(nextMedicines);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMedicines));
+    } catch {}
+
     fetch('/api/medicine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newMed),
     }).catch(() => {});
     pushCloudMedicineRealtime(newMed).catch(() => {});
+    pushCloudStoreState({
+      settings,
+      medicines: nextMedicines,
+      suppliers,
+      customers,
+      sales,
+      saleReturns,
+      purchases,
+      expenses,
+      adjustments,
+      staffMembers,
+      deletedIds: Array.from(deletedRecordIdsRef.current),
+    }).catch(() => {});
+
     logActivity('MEDICINE_ADDED', `Added new medicine: ${newMed.name} (${newMed.strength}) - Fixed Price Rs. ${resolvedFixedSalePrice}`, { medId });
     addNotification('stock_adjustment', 'New Medicine Registered', `${newMed.name} added to inventory catalog at Fixed Price Rs. ${resolvedFixedSalePrice}.`, 'info', medId);
   };
 
   const updateMedicine = (id: string, updated: Partial<Medicine>) => {
     let updatedTarget: Medicine | null = null;
+    let nextList: Medicine[] = [];
     setMedicines(prev => {
       const next = prev.map(med => {
         if (med.id !== id) return med;
@@ -784,6 +864,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
         return updatedTarget;
       });
+      nextList = next;
       try {
         localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
       } catch {}
@@ -796,26 +877,59 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         body: JSON.stringify(updatedTarget),
       }).catch(() => {});
       pushCloudMedicineRealtime(updatedTarget).catch(() => {});
+      pushCloudStoreState({
+        settings,
+        medicines: nextList,
+        suppliers,
+        customers,
+        sales,
+        saleReturns,
+        purchases,
+        expenses,
+        adjustments,
+        staffMembers,
+        deletedIds: Array.from(deletedRecordIdsRef.current),
+      }).catch(() => {});
     }
     logActivity('MEDICINE_EDITED', `Updated medicine specifications & fixed inventory price for ID: ${id}`);
   };
 
   const deleteMedicine = (id: string) => {
     const target = medicines.find(m => m.id === id);
-    if (!target) return;
-    deletedRecordIdsRef.current.add(id);
-    setMedicines(prev => {
-      const next = prev.filter(m => m.id !== id);
-      try {
-        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
+    recordDeletedId(id);
+    const next = medicines.filter(m => m.id !== id);
+    setMedicines(next);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+    } catch {}
+
+    // 1. Backend DELETE call
     fetch(`/api/medicine/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }).catch(() => {});
+
+    // 2. Immediate push to ntfy real-time topic (all accounts receive within 100ms)
     pushCloudMedicineRealtime(null, id).catch(() => {});
-    logActivity('MEDICINE_DELETED', `Deleted medicine: ${target.name}`);
+
+    // 3. Update cloud persistent store object so other devices/sessions never resurrect it
+    pushCloudStoreState(
+      {
+        settings,
+        medicines: next,
+        suppliers,
+        customers,
+        sales,
+        saleReturns,
+        purchases,
+        expenses,
+        adjustments,
+        staffMembers,
+        deletedIds: Array.from(deletedRecordIdsRef.current),
+      },
+      { deletedId: id }
+    ).catch(() => {});
+
+    logActivity('MEDICINE_DELETED', `Deleted medicine: ${target?.name || id}`);
   };
 
   const addBatch = (medicineId: string, batchData: Omit<MedicineBatch, 'id' | 'medicineId'>) => {
@@ -831,6 +945,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     let updatedMed: Medicine | null = null;
+    let nextList: Medicine[] = [];
     setMedicines(prev => {
       const next = prev.map(med => {
         if (med.id !== medicineId) return med;
@@ -843,6 +958,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
         return updatedMed;
       });
+      nextList = next;
       try {
         localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
       } catch {}
@@ -855,6 +971,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         body: JSON.stringify(updatedMed),
       }).catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
+      pushCloudStoreState({
+        settings,
+        medicines: nextList,
+        suppliers,
+        customers,
+        sales,
+        saleReturns,
+        purchases,
+        expenses,
+        adjustments,
+        staffMembers,
+        deletedIds: Array.from(deletedRecordIdsRef.current),
+      }).catch(() => {});
     }
 
     logActivity('BATCH_ADDED', `Added batch ${newBatch.batchNumber} to medicine ID ${medicineId} (Qty: ${newBatch.quantity})`);

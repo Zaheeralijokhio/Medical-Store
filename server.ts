@@ -56,6 +56,7 @@ interface DatabaseSchema {
   auditLogs: typeof INITIAL_AUDIT_LOGS;
   notifications: typeof INITIAL_NOTIFICATIONS;
   staffMembers: typeof INITIAL_USERS;
+  deletedIds?: string[];
   lastUpdated: string;
 }
 
@@ -75,6 +76,7 @@ function getInitialDatabase(): DatabaseSchema {
     auditLogs: INITIAL_AUDIT_LOGS,
     notifications: INITIAL_NOTIFICATIONS,
     staffMembers: INITIAL_USERS,
+    deletedIds: [],
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -87,20 +89,26 @@ function sanitizeDatabaseState(data: any): DatabaseSchema {
     return clean;
   }
 
+  const deletedSet = new Set<string>(Array.isArray(data.deletedIds) ? data.deletedIds : []);
+
+  const rawMedicines = Array.isArray(data.medicines) ? data.medicines : [];
+  const cleanMedicines = rawMedicines.filter((m: any) => m && m.id && !deletedSet.has(m.id));
+
   return {
     ...data,
     cleanVersion: DATA_CLEAN_VERSION,
-    medicines: Array.isArray(data.medicines) ? data.medicines : [],
-    suppliers: Array.isArray(data.suppliers) ? data.suppliers : [],
-    customers: Array.isArray(data.customers) ? data.customers : [],
+    medicines: cleanMedicines,
+    suppliers: Array.isArray(data.suppliers) ? data.suppliers.filter((s: any) => !deletedSet.has(s.id)) : [],
+    customers: Array.isArray(data.customers) ? data.customers.filter((c: any) => !deletedSet.has(c.id)) : [],
     sales: Array.isArray(data.sales) ? data.sales : [],
     saleReturns: Array.isArray(data.saleReturns) ? data.saleReturns : [],
     purchases: Array.isArray(data.purchases) ? data.purchases : [],
-    expenses: Array.isArray(data.expenses) ? data.expenses : [],
+    expenses: Array.isArray(data.expenses) ? data.expenses.filter((e: any) => !deletedSet.has(e.id)) : [],
     adjustments: Array.isArray(data.adjustments) ? data.adjustments : [],
     auditLogs: Array.isArray(data.auditLogs) ? data.auditLogs : [],
     notifications: Array.isArray(data.notifications) ? data.notifications : [],
-    staffMembers: sanitizeStaffAccounts(data.staffMembers),
+    staffMembers: sanitizeStaffAccounts(data.staffMembers).filter((u: any) => !deletedSet.has(u.id)),
+    deletedIds: Array.from(deletedSet),
     lastUpdated: data.lastUpdated || new Date().toISOString(),
   };
 }
@@ -316,16 +324,20 @@ async function startServer() {
   });
 
   // Helper to merge collections by ID so neither Owner nor Staff sessions overwrite records added by the other
-  function mergeCollectionById<T extends { id: string }>(existingArr: T[] = [], incomingArr: T[] = []): T[] {
+  function mergeCollectionById<T extends { id: string }>(
+    existingArr: T[] = [],
+    incomingArr: T[] = [],
+    deletedSet: Set<string> = new Set()
+  ): T[] {
     const map = new Map<string, T>();
     if (Array.isArray(existingArr)) {
       existingArr.forEach(item => {
-        if (item && item.id) map.set(item.id, item);
+        if (item && item.id && !deletedSet.has(item.id)) map.set(item.id, item);
       });
     }
     if (Array.isArray(incomingArr)) {
       incomingArr.forEach(item => {
-        if (item && item.id) map.set(item.id, item);
+        if (item && item.id && !deletedSet.has(item.id)) map.set(item.id, item);
       });
     }
     return Array.from(map.values());
@@ -354,28 +366,33 @@ async function startServer() {
       }
 
       const existingDb = await readLatestDatabaseWithMongo();
+      const deletedSet = new Set<string>(existingDb.deletedIds || []);
+      if (Array.isArray(incoming.deletedIds)) {
+        incoming.deletedIds.forEach((id: string) => deletedSet.add(id));
+      }
 
       const mergedStaff = incoming.forceStaffReplace
-        ? incoming.staffMembers
-        : mergeCollectionById(existingDb.staffMembers, incoming.staffMembers);
+        ? incoming.staffMembers.filter((u: any) => !deletedSet.has(u.id))
+        : mergeCollectionById(existingDb.staffMembers, incoming.staffMembers, deletedSet);
 
       const mergedMedicines = incoming.forceMedicineReplace
-        ? incoming.medicines
-        : mergeCollectionById(existingDb.medicines, incoming.medicines);
+        ? incoming.medicines.filter((m: any) => !deletedSet.has(m.id))
+        : mergeCollectionById(existingDb.medicines, incoming.medicines, deletedSet);
 
       const nextDb: DatabaseSchema = {
         ...existingDb,
         ...incoming,
         cleanVersion: DATA_CLEAN_VERSION,
         medicines: mergedMedicines,
-        suppliers: mergeCollectionById(existingDb.suppliers, incoming.suppliers),
-        customers: mergeCollectionById(existingDb.customers, incoming.customers),
-        sales: mergeCollectionById(existingDb.sales, incoming.sales),
-        saleReturns: mergeCollectionById(existingDb.saleReturns, incoming.saleReturns),
-        purchases: mergeCollectionById(existingDb.purchases, incoming.purchases),
-        expenses: mergeCollectionById(existingDb.expenses, incoming.expenses),
-        adjustments: mergeCollectionById(existingDb.adjustments, incoming.adjustments),
+        suppliers: mergeCollectionById(existingDb.suppliers, incoming.suppliers, deletedSet),
+        customers: mergeCollectionById(existingDb.customers, incoming.customers, deletedSet),
+        sales: mergeCollectionById(existingDb.sales, incoming.sales, deletedSet),
+        saleReturns: mergeCollectionById(existingDb.saleReturns, incoming.saleReturns, deletedSet),
+        purchases: mergeCollectionById(existingDb.purchases, incoming.purchases, deletedSet),
+        expenses: mergeCollectionById(existingDb.expenses, incoming.expenses, deletedSet),
+        adjustments: mergeCollectionById(existingDb.adjustments, incoming.adjustments, deletedSet),
         staffMembers: sanitizeStaffAccounts(mergedStaff),
+        deletedIds: Array.from(deletedSet),
         lastUpdated: new Date().toISOString(),
       };
 
@@ -509,20 +526,36 @@ async function startServer() {
     }
   });
 
-  // POST /api/medicine: Register new medicine
+  // POST /api/medicine: Register new medicine (Staff or Admin)
   app.post('/api/medicine', (req: Request, res: Response) => {
     try {
       const medicine = req.body;
+      if (!medicine || !medicine.name) {
+        return res.status(400).json({ success: false, error: 'Valid medicine object required' });
+      }
+
       const db = readDatabase();
-      db.medicines.unshift(medicine);
+      if (!Array.isArray(db.deletedIds)) {
+        db.deletedIds = [];
+      }
+      // If this ID was previously marked deleted, unmark it now
+      db.deletedIds = db.deletedIds.filter(delId => delId !== medicine.id);
+
+      // Upsert: replace if exists, otherwise unshift
+      const existingIdx = db.medicines.findIndex(m => m.id === medicine.id);
+      if (existingIdx >= 0) {
+        db.medicines[existingIdx] = medicine;
+      } else {
+        db.medicines.unshift(medicine);
+      }
 
       db.auditLogs.unshift({
         id: `log-${Date.now()}`,
         action: 'MEDICINE_CREATED',
-        description: `Registered formulation ${medicine.name} (${medicine.strength})`,
-        userId: 'admin',
-        userName: 'Store Owner',
-        userRole: 'admin',
+        description: `Registered formulation ${medicine.name} (${medicine.strength || ''})`,
+        userId: 'system',
+        userName: 'Staff / Store Owner',
+        userRole: 'staff',
         timestamp: new Date().toISOString(),
       });
 
@@ -551,9 +584,9 @@ async function startServer() {
         id: `log-${Date.now()}`,
         action: 'MEDICINE_UPDATED',
         description: `Updated medicine ${db.medicines[index].name}`,
-        userId: 'admin',
-        userName: 'Store Owner',
-        userRole: 'admin',
+        userId: 'system',
+        userName: 'Staff / Store Owner',
+        userRole: 'staff',
         timestamp: new Date().toISOString(),
       });
 
@@ -564,7 +597,7 @@ async function startServer() {
     }
   });
 
-  // DELETE /api/medicine/:id: Delete medicine with audit log
+  // DELETE /api/medicine/:id: Delete medicine with audit log and permanent deletedIds recording
   app.delete('/api/medicine/:id', (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -576,14 +609,20 @@ async function startServer() {
       }
 
       db.medicines = db.medicines.filter(m => m.id !== id);
+      if (!Array.isArray(db.deletedIds)) {
+        db.deletedIds = [];
+      }
+      if (!db.deletedIds.includes(id)) {
+        db.deletedIds.push(id);
+      }
 
       db.auditLogs.unshift({
         id: `log-${Date.now()}`,
         action: 'MEDICINE_DELETED',
         description: `Removed medicine formulation ${target.name}`,
-        userId: 'admin',
-        userName: 'Store Owner',
-        userRole: 'admin',
+        userId: 'system',
+        userName: 'Staff / Store Owner',
+        userRole: 'staff',
         timestamp: new Date().toISOString(),
       });
 

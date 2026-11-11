@@ -1,0 +1,176 @@
+{
+  "cleanVersion": "pharmacare_clean_v3",
+  "settings": {
+    "storeName": "PharmaCare Medical & General Store",
+    "storeTagline": "Quality Medicines • Licensed Pharmacist on Duty • 24/7 Service",
+    "storeLogoUrl": "",
+    "storeAddress": "Main Commercial Market",
+    "city": "Pakistan",
+    "phone": "",
+    "email": "admin@pharmacare.pk",
+    "drugLicenseNumber": "DRAP-LIC-0001",
+    "taxRegistrationNumber": "",
+    "currency": "PKR",
+    "currencySymbol": "Rs.",
+    "timezone": "Asia/Karachi",
+    "taxRatePercentage": 0,
+    "lowStockThresholdDefault": 20,
+    "expiryAlertDays": 90,
+    "invoiceHeader": "COMPUTERIZED PHARMACY CASH MEMO",
+    "invoiceFooter": "Medicines once sold will not be returned without cash memo within 7 days. Cold chain products & cut strips non-returnable.",
+    "allowStaffDiscounts": true,
+    "maxStaffDiscountPercentage": 10,
+    "businessOpeningHours": "08:00 AM",
+    "businessClosingHours": "12:00 AM (Midnight)"
+  },
+  "medicines": [
+    {
+      "code": "MED-944",
+      "name": "Panadol",
+      "genericName": "Panadol",
+      "brandName": "Panadol",
+      "category": "Antibiotics",
+      "manufacturer": "GlaxoSmithKline (GSK)",
+      "medicineType": "Tablet",
+      "strength": "500mg",
+      "packingSize": "Box of 100 Tablets",
+      "barcode": "8964000434379",
+      "minStockLevel": 25,
+      "storageLocation": "Shelf A-1",
+      "description": "",
+      "requiresPrescription": false,
+      "fixedSalePrice": 20,
+      "fixedPurchasePrice": 15,
+      "status": "active",
+      "batches": [
+        {
+          "id": "bat-1794403881382",
+          "medicineId": "med-1794403881382",
+          "batchNumber": "BAT-26X62",
+          "purchasePrice": 15,
+          "salePrice": 20,
+          "wholesalePrice": 18,
+          "quantity": 100,
+          "initialQuantity": 100,
+          "mfgDate": "2025-01-10",
+          "expiryDate": "2027-12-31",
+          "receivedDate": "2026-11-11"
+        }
+      ],
+      "id": "med-1794403881382",
+      "totalQuantity": 100
+    }
+  ],
+  "suppliers": [],
+  "customers": [],
+  "sales": [],
+  "saleReturns": [],
+  "purchases": [],
+  "expenses": [],
+  "adjustments": [],
+  "auditLogs": [
+    {
+      "id": "log-1794403881383-2zs5",
+      "action": "MEDICINE_ADDED",
+      "description": "Added new medicine: Panadol (500mg) - Fixed Price Rs. 20",
+      "userId": "usr-owner-1",
+      "userName": "Dr. Abdul Rehman (Owner)",
+      "userRole": "admin",
+      "timestamp": "11 Nov 2026, 06:31:21 pm",
+      "details": {
+        "medId": "med-1794403881382"
+      }
+    },
+    {
+      "id": "log-1794396431001-jgkh",
+      "action": "STAFF_UPDATED",
+      "description": "Updated staff account details for ID usr-owner-1",
+      "userId": "usr-owner-1",
+      "userName": "Dr. Abdul Rehman (Owner)",
+      "userRole": "admin",
+      "timestamp": "11 Nov 2026, 04:27:11 pm"
+    },
+    {
+      "id": "log-1794396370448-7lag",
+      "action": "STAFF_CREATED",
+      "description": "Dr. Abdul Rehman (Owner) created new account for Shafique (Medicine Seller & Inventory Staff)",
+      "userId": "usr-owner-1",
+      "userName": "Dr. Abdul Rehman (Owner)",
+      "userRole": "admin",
+      "timestamp": "11 Nov 2026, 04:26:10 pm"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "notif-1794403881387",
+      "type": "stock_adjustment",
+      "title": "New Medicine Registered",
+      "message": "Panadol added to inventory catalog at Fixed Price Rs. 20.",
+      "date": "2026-11-11",
+      "timestamp": "11/11/2026, 6:31:21 pm",
+      "read": false,
+      "severity": "info",
+      "referenceId": "med-1794403881382"
+    },
+    {
+      "id": "notif-1794396370449",
+      "type": "staff_activity",
+      "title": "New Staff Account Created",
+      "message": "Shafique (@shafique) was added as Medicine Seller & Inventory Staff.",
+      "date": "2026-11-11",
+      "timestamp": "11/11/2026, 4:26:10 pm",
+      "read": false,
+      "severity": "info"
+    }
+  ],
+  "staffMembers": [
+    {
+      "id": "usr-owner-1",
+      "username": "admin",
+      "fullName": "Dr. Abdul Rehman (Owner)",
+      "email": "admin@pharmacare.pk",
+      "phone": "",
+      "role": "admin",
+      "pin": "1234",
+      "password": "admin",
+      "designation": "Store Owner & Administrator",
+      "status": "active",
+      "joiningDate": "2026-11-11",
+      "permissions": {
+        "canMakeSales": true,
+        "canViewInventory": true,
+        "canAddCustomer": true,
+        "canViewReports": true,
+        "canAdjustStock": true,
+        "canManagePurchases": true,
+        "canModifyPrices": true
+      }
+    },
+    {
+      "fullName": "shafique",
+      "username": "shafique",
+      "email": "shafique@pharmacare.pk",
+      "phone": "+92 300 0000000",
+      "designation": "Medicine Seller & Inventory Staff",
+      "role": "staff",
+      "pin": "5678",
+      "password": "1234",
+      "status": "active",
+      "permissions": {
+        "canMakeSales": true,
+        "canViewInventory": true,
+        "canAddCustomer": true,
+        "canViewReports": false,
+        "canAdjustStock": true,
+        "canManagePurchases": true,
+        "canModifyPrices": true
+      },
+      "id": "usr-staff-1794402296131",
+      "joiningDate": "2026-11-11"
+    }
+  ],
+  "lastUpdated": "2026-11-11T14:17:51.556Z",
+  "deletedIds": [
+    "test-med-verify"
+  ]
+}

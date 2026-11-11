@@ -816,7 +816,7 @@ export const POSScreen: React.FC = () => {
         </div>
 
         {/* Right Column (5 Cols): POS Cart, Customer Details & Cashier Checkout */}
-        <div className="lg:col-span-5 space-y-4">
+        <div id="pos-cart-section" className="lg:col-span-5 space-y-4">
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {/* Cart Header */}
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
@@ -1211,6 +1211,35 @@ export const POSScreen: React.FC = () => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Mobile Floating Cart Summary Bar (<1024px) */}
+      {cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-14 left-0 right-0 z-30 p-2.5 bg-slate-900/95 backdrop-blur-md border-t border-teal-500/50 shadow-2xl flex items-center justify-between gap-2 safe-area-pb animate-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-2.5 pl-2">
+            <span className="w-8 h-8 rounded-lg bg-teal-500 text-slate-950 font-black text-xs flex items-center justify-center">
+              {cart.length}
+            </span>
+            <div>
+              <p className="text-white text-xs font-bold leading-tight font-mono">
+                {formatPKR(grandTotal)}
+              </p>
+              <p className="text-[10px] text-teal-300">
+                {cart.reduce((s, i) => s + i.quantity, 0)} units in cart
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              document.getElementById('pos-cart-section')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-md active:scale-95 transition-all"
+          >
+            <ShoppingCart className="w-4 h-4" />
+            <span>Checkout &rarr;</span>
+          </button>
         </div>
       )}
     </div>
