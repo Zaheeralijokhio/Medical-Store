@@ -112,34 +112,68 @@ const MONGODB_URI =
   process.env.MONGO_URI ||
   (process.env.DATABASE_URL?.startsWith('mongodb') ? process.env.DATABASE_URL : '');
 
+let mongoClientInstance: MongoClient | null = null;
 let mongoCollection: Collection<any> | null = null;
 let mongoConnected = false;
+let lastMongoSyncAt: string | null = null;
+let mongoErrorMsg: string | null = null;
+const MONGO_DB_NAME = process.env.MONGODB_DB_NAME || 'pharmacare_erp';
+
+async function syncCollectionsToMongo(clean: DatabaseSchema): Promise<void> {
+  if (!mongoClientInstance || !mongoConnected || !mongoCollection) return;
+  try {
+    const db = mongoClientInstance.db(MONGO_DB_NAME);
+    await mongoCollection.updateOne(
+      { _id: 'primary_store_state' },
+      { $set: { state: clean, updatedAt: clean.lastUpdated } },
+      { upsert: true }
+    );
+
+    // Also mirror key collections so they are directly inspectable in MongoDB Atlas Data Explorer
+    const staffCol = db.collection('staff_accounts');
+    if (Array.isArray(clean.staffMembers) && clean.staffMembers.length > 0) {
+      await Promise.all(
+        clean.staffMembers.map(user =>
+          staffCol.updateOne({ id: user.id }, { $set: { ...user, updatedAt: clean.lastUpdated } }, { upsert: true })
+        )
+      );
+      const validIds = clean.staffMembers.map(u => u.id);
+      await staffCol.deleteMany({ id: { $nin: validIds } });
+    }
+
+    lastMongoSyncAt = new Date().toISOString();
+    mongoErrorMsg = null;
+  } catch (err: any) {
+    mongoErrorMsg = err?.message || 'Failed to sync to MongoDB Atlas';
+    console.error('Failed to sync state to MongoDB Atlas:', err);
+  }
+}
 
 async function initMongoDB(): Promise<void> {
   if (!MONGODB_URI) return;
   try {
-    const client = new MongoClient(MONGODB_URI);
-    await client.connect();
-    const db = client.db(process.env.MONGODB_DB_NAME || 'pharmacare_erp');
+    mongoClientInstance = new MongoClient(MONGODB_URI);
+    await mongoClientInstance.connect();
+    const db = mongoClientInstance.db(MONGO_DB_NAME);
     mongoCollection = db.collection('pharmacy_store_state');
     mongoConnected = true;
+    mongoErrorMsg = null;
     console.log('Connected to MongoDB Atlas cloud database successfully.');
 
     const existingDoc = await mongoCollection.findOne({ _id: 'primary_store_state' });
     if (existingDoc && existingDoc.state && existingDoc.state.cleanVersion === DATA_CLEAN_VERSION) {
       const cloudState = sanitizeDatabaseState(existingDoc.state);
       writeLocalFileOnly(cloudState);
+      lastMongoSyncAt = new Date().toISOString();
       console.log('Synchronized clean state from MongoDB Atlas.');
     } else {
       const currentLocal = readDatabase();
-      await mongoCollection.updateOne(
-        { _id: 'primary_store_state' },
-        { $set: { state: currentLocal, updatedAt: new Date().toISOString() } },
-        { upsert: true }
-      );
+      await syncCollectionsToMongo(currentLocal);
       console.log('Seeded clean pharmacy database to MongoDB Atlas.');
     }
-  } catch (err) {
+  } catch (err: any) {
+    mongoConnected = false;
+    mongoErrorMsg = err?.message || 'Connection error';
     console.error('MongoDB Atlas connection warning (using local disk database fallback):', err);
   }
 }
@@ -184,13 +218,7 @@ function writeDatabase(data: DatabaseSchema): void {
   const clean = sanitizeDatabaseState(data);
   writeLocalFileOnly(clean);
   if (mongoCollection && mongoConnected) {
-    mongoCollection
-      .updateOne(
-        { _id: 'primary_store_state' },
-        { $set: { state: clean, updatedAt: clean.lastUpdated } },
-        { upsert: true }
-      )
-      .catch(err => console.error('Failed to sync state to MongoDB Atlas:', err));
+    syncCollectionsToMongo(clean);
   }
 }
 
@@ -226,6 +254,58 @@ async function startServer() {
   // REST API ENDPOINTS
   // -------------------------------------------------------------
 
+  // GET /api/db-status: Live diagnostic info on where the database is currently stored
+  app.get('/api/db-status', (_req: Request, res: Response) => {
+    try {
+      const db = readDatabase();
+      res.json({
+        success: true,
+        storageEngine: mongoConnected ? 'hostinger_mongodb_atlas' : 'server_local_disk',
+        mongoConfigured: Boolean(MONGODB_URI),
+        mongoConnected,
+        mongoDbName: MONGO_DB_NAME,
+        lastMongoSyncAt,
+        mongoErrorMsg,
+        localFilePath: 'data/pharmacy_database.json',
+        lastUpdated: db.lastUpdated,
+        counts: {
+          staffAccounts: db.staffMembers.length,
+          medicines: db.medicines.length,
+          sales: db.sales.length,
+          purchases: db.purchases.length,
+          suppliers: db.suppliers.length,
+          customers: db.customers.length,
+          expenses: db.expenses.length,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // POST /api/db-sync-now: Force immediate write to both Server Disk and Hostinger MongoDB Atlas
+  app.post('/api/db-sync-now', async (_req: Request, res: Response) => {
+    try {
+      const db = readDatabase();
+      writeLocalFileOnly(db);
+      if (MONGODB_URI && !mongoConnected) {
+        await initMongoDB();
+      }
+      if (mongoConnected) {
+        await syncCollectionsToMongo(db);
+      }
+      res.json({
+        success: true,
+        storageEngine: mongoConnected ? 'hostinger_mongodb_atlas' : 'server_local_disk',
+        mongoConnected,
+        lastUpdated: db.lastUpdated,
+        lastMongoSyncAt,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // GET /api/state: Full database state
   app.get('/api/state', (_req: Request, res: Response) => {
     try {
@@ -240,7 +320,7 @@ async function startServer() {
     }
   });
 
-  // POST /api/sync: Bulk synchronize or update state from client
+  // POST /api/sync: Synchronize state from client without letting an unhydrated tab wipe existing records
   app.post('/api/sync', (req: Request, res: Response) => {
     try {
       const incoming = req.body;
@@ -248,9 +328,47 @@ async function startServer() {
         return res.status(400).json({ success: false, error: 'Invalid state payload' });
       }
 
-      incoming.cleanVersion = DATA_CLEAN_VERSION;
-      writeDatabase(incoming);
-      res.json({ success: true, message: 'Database state updated and persisted' });
+      const existingDb = readDatabase();
+
+      // Merge staffMembers by ID so an unhydrated tab with only [OWNER_ACCOUNT] never wipes created staff
+      const mergedStaffMap = new Map<string, any>();
+      if (!incoming.forceStaffReplace) {
+        (existingDb.staffMembers || []).forEach(u => {
+          if (u && u.id) mergedStaffMap.set(u.id, u);
+        });
+      }
+      (incoming.staffMembers || []).forEach((u: any) => {
+        if (u && u.id) mergedStaffMap.set(u.id, u);
+      });
+
+      // Merge medicines if incoming is empty and forceReplace is not set
+      let resolvedMedicines = incoming.medicines;
+      if (
+        Array.isArray(resolvedMedicines) &&
+        resolvedMedicines.length === 0 &&
+        existingDb.medicines.length > 0 &&
+        !incoming.forceMedicineReplace
+      ) {
+        resolvedMedicines = existingDb.medicines;
+      }
+
+      const nextDb: DatabaseSchema = {
+        ...existingDb,
+        ...incoming,
+        cleanVersion: DATA_CLEAN_VERSION,
+        medicines: resolvedMedicines,
+        staffMembers: sanitizeStaffAccounts(Array.from(mergedStaffMap.values())),
+        lastUpdated: new Date().toISOString(),
+      };
+
+      writeDatabase(nextDb);
+      res.json({
+        success: true,
+        storageEngine: mongoConnected ? 'mongodb_atlas' : 'local_disk',
+        message: 'Database state updated and persisted',
+        staffCount: nextDb.staffMembers.length,
+        medicineCount: nextDb.medicines.length,
+      });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }
@@ -637,14 +755,24 @@ async function startServer() {
         return res.status(400).json({ success: false, error: 'Username is required' });
       }
 
-      const cleanUsername = String(username).trim().toLowerCase();
+      const rawInput = String(username).trim().toLowerCase().replace(/^@/, '');
+      const cleanCompact = rawInput.replace(/\s+/g, '');
+      const cleanPass = String(password || '').trim();
       const db = readDatabase();
-      const user = db.staffMembers.find(
-        u =>
-          u.username.toLowerCase() === cleanUsername ||
-          u.email.toLowerCase() === cleanUsername ||
-          (u.id === 'usr-owner-1' && ['admin', 'owner', 'abdulrehman'].includes(cleanUsername))
-      );
+      const user = db.staffMembers.find(u => {
+        const uName = (u.username || '').trim().toLowerCase().replace(/^@/, '');
+        const uFull = (u.fullName || '').trim().toLowerCase();
+        const uCompact = uFull.replace(/[^a-z0-9]/g, '');
+        const uEmail = (u.email || '').trim().toLowerCase();
+        return (
+          uName === rawInput ||
+          uName === cleanCompact ||
+          uFull === rawInput ||
+          uCompact === cleanCompact ||
+          uEmail === rawInput ||
+          (u.id === 'usr-owner-1' && ['admin', 'owner', 'abdulrehman'].includes(cleanCompact))
+        );
+      });
 
       if (!user) {
         return res.status(401).json({
@@ -657,8 +785,9 @@ async function startServer() {
         return res.status(403).json({ success: false, error: 'This staff account is deactivated.' });
       }
 
-      const expectedPassword = user.id === 'usr-owner-1' ? (user.password || 'admin') : (user.password || '');
-      if (expectedPassword && password !== expectedPassword) {
+      const expectedPassword =
+        user.id === 'usr-owner-1' ? (user.password || 'admin').trim() : (user.password || '').trim();
+      if (expectedPassword && cleanPass !== expectedPassword) {
         return res.status(401).json({
           success: false,
           error:

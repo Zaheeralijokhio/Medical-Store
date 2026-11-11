@@ -50,6 +50,14 @@ export const StaffManagement: React.FC = () => {
     detail: string;
   } | null>(null);
 
+  // Quick Inline Create State
+  const [quickName, setQuickName] = useState('');
+  const [quickUsername, setQuickUsername] = useState('');
+  const [quickPassword, setQuickPassword] = useState('seller123');
+  const [quickPin, setQuickPin] = useState('5678');
+  const [quickRole, setQuickRole] = useState<UserRole>('staff');
+  const [quickError, setQuickError] = useState('');
+
   // Form State
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -340,6 +348,169 @@ export const StaffManagement: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* Always-Visible 1-Click Quick Create Staff Account Card */}
+      <form
+        onSubmit={e => {
+          e.preventDefault();
+          setQuickError('');
+          const cleanName = quickName.trim();
+          const autoUser = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14);
+          const cleanUser = (quickUsername.trim() || autoUser).toLowerCase().replace(/^@/, '').replace(/\s+/g, '');
+          const cleanPass = quickPassword.trim() || 'seller123';
+          const digitsPin = quickPin.replace(/\D/g, '');
+          const cleanPin = digitsPin.length === 4 ? digitsPin : '5678';
+
+          if (!cleanName || !cleanUser) {
+            setQuickError('Please enter Staff Name and Username.');
+            return;
+          }
+
+          if (staffMembers.some(s => s.username.toLowerCase() === cleanUser)) {
+            setQuickError(`Username "@${cleanUser}" already exists. Choose a different username.`);
+            return;
+          }
+
+          const roleDesignation =
+            quickRole === 'pharmacist'
+              ? 'Registered Pharmacist / Dispenser'
+              : quickRole === 'cashier'
+              ? 'POS Counter Cashier'
+              : quickRole === 'admin'
+              ? 'Store Manager'
+              : 'Medicine Seller & Inventory Staff';
+
+          addStaff({
+            fullName: cleanName,
+            username: cleanUser,
+            email: `${cleanUser}@pharmacare.pk`,
+            phone: '+92 300 0000000',
+            designation: roleDesignation,
+            role: quickRole,
+            pin: cleanPin,
+            password: cleanPass,
+            status: 'active',
+            permissions: {
+              canMakeSales: true,
+              canViewInventory: true,
+              canAddCustomer: true,
+              canViewReports: quickRole === 'admin',
+              canAdjustStock: quickRole !== 'cashier',
+              canManagePurchases: quickRole !== 'cashier',
+              canModifyPrices: quickRole !== 'cashier',
+            },
+          });
+
+          setStatusBanner({
+            title: `Staff Account Created & Automatically Saved to Database: ${cleanName}`,
+            detail: `Username: "${cleanUser}" • Password: "${cleanPass}" • 4-Digit PIN: "${cleanPin}" (Ready to Sign In immediately)`,
+          });
+          setQuickName('');
+          setQuickUsername('');
+          setQuickPassword('seller123');
+          setQuickPin('5678');
+        }}
+        className="bg-white p-4 rounded-2xl border-2 border-teal-500/30 shadow-xs space-y-3 text-xs"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-teal-600" />
+            <h3 className="font-black text-slate-900 text-sm">
+              Quick Create Staff / Seller Account (Auto-Saves to Database)
+            </h3>
+          </div>
+          <span className="text-[11px] text-slate-500">
+            Staff can immediately log in using the Username &amp; Password below
+          </span>
+        </div>
+
+        {quickError && (
+          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-bold">
+            {quickError}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 items-end">
+          <div className="lg:col-span-1">
+            <label className="font-bold text-slate-700 block mb-1 text-[11px]">Staff Full Name *</label>
+            <input
+              type="text"
+              required
+              value={quickName}
+              onChange={e => {
+                const prevAuto = quickName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14);
+                const val = e.target.value;
+                setQuickName(val);
+                if (!quickUsername || quickUsername === prevAuto) {
+                  setQuickUsername(val.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14));
+                }
+              }}
+              placeholder="e.g. Ali Raza"
+              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-semibold"
+            />
+          </div>
+
+          <div className="lg:col-span-1">
+            <label className="font-bold text-slate-700 block mb-1 text-[11px]">Login Username *</label>
+            <input
+              type="text"
+              required
+              value={quickUsername}
+              onChange={e => setQuickUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+              placeholder="e.g. aliraza"
+              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono font-bold text-teal-900"
+            />
+          </div>
+
+          <div className="lg:col-span-1">
+            <label className="font-bold text-slate-700 block mb-1 text-[11px]">Login Password *</label>
+            <input
+              type="text"
+              required
+              value={quickPassword}
+              onChange={e => setQuickPassword(e.target.value)}
+              placeholder="seller123"
+              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono font-bold"
+            />
+          </div>
+
+          <div className="lg:col-span-1">
+            <label className="font-bold text-slate-700 block mb-1 text-[11px]">4-Digit PIN *</label>
+            <input
+              type="text"
+              maxLength={4}
+              value={quickPin}
+              onChange={e => setQuickPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="5678"
+              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono font-bold tracking-widest"
+            />
+          </div>
+
+          <div className="lg:col-span-1">
+            <label className="font-bold text-slate-700 block mb-1 text-[11px]">Account Role</label>
+            <select
+              value={quickRole}
+              onChange={e => setQuickRole(e.target.value as UserRole)}
+              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-bold"
+            >
+              <option value="staff">Seller &amp; Inventory</option>
+              <option value="pharmacist">Pharmacist</option>
+              <option value="cashier">POS Cashier</option>
+              <option value="admin">Store Manager</option>
+            </select>
+          </div>
+
+          <div className="lg:col-span-1">
+            <button
+              type="submit"
+              className="w-full py-2 px-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-black shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Save Staff Account</span>
+            </button>
+          </div>
+        </div>
+      </form>
 
       {/* Summary & Search Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

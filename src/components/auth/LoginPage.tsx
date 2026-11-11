@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Pill,
   Lock,
@@ -20,21 +20,44 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
+import { sanitizeStaffAccounts } from '../../data/initialData';
+import { User } from '../../types/pharmacy';
 
 interface LoginPageProps {
   onLoginSuccess?: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const { login, loginWithPin, availableUsers } = useAuth();
-  const { settings } = useStore();
+  const { login, loginWithPin, availableUsers, syncStaffList } = useAuth();
+  const { settings, staffMembers } = useStore();
 
   const [authMode, setAuthMode] = useState<'password' | 'pin'>('password');
   const [portalType, setPortalType] = useState<'admin' | 'staff'>('admin');
 
+  // Always merge AuthContext availableUsers + StoreContext staffMembers so newly created staff show up immediately
+  const allUsers = useMemo(() => {
+    return sanitizeStaffAccounts([...availableUsers, ...staffMembers]);
+  }, [availableUsers, staffMembers]);
+
+  // Also fetch latest staff list from backend database whenever LoginPage mounts
+  useEffect(() => {
+    let active = true;
+    fetch('/api/staff')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (!active || !Array.isArray(data?.staffMembers)) return;
+        const merged = sanitizeStaffAccounts([...allUsers, ...data.staffMembers]);
+        syncStaffList(merged);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // PIN mode state
   const [selectedUserId, setSelectedUserId] = useState<string>(
-    availableUsers[0]?.id || 'usr-owner-1'
+    allUsers[0]?.id || 'usr-owner-1'
   );
   const [pinDigits, setPinDigits] = useState<string>('');
   const [pinLoading, setPinLoading] = useState(false);
@@ -47,7 +70,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const staffAccounts = availableUsers.filter(u => u.id !== 'usr-owner-1');
+  const staffAccounts: User[] = allUsers.filter(u => u.id !== 'usr-owner-1');
 
   // Handle PIN input
   const handlePinDigit = async (digit: string) => {
@@ -103,7 +126,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const selectedUser = availableUsers.find(u => u.id === selectedUserId) || availableUsers[0];
+  const selectedUser = allUsers.find(u => u.id === selectedUserId) || allUsers[0];
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -231,11 +254,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </button>
               </div>
 
-              {/* If Staff tab is selected and staff accounts exist, show quick account selector pills */}
-              {portalType === 'staff' && staffAccounts.length > 0 && (
+              {/* Always show available Staff Accounts when any exist so user can click to select immediately */}
+              {staffAccounts.length > 0 && (
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Select Your Staff Account:
+                    Available Staff Accounts (Click to select):
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {staffAccounts.map(staff => (
@@ -243,6 +266,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         key={staff.id}
                         type="button"
                         onClick={() => {
+                          setPortalType('staff');
                           setUsername(staff.username);
                           setErrorMessage('');
                         }}
@@ -356,7 +380,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   Select Account for PIN Sign-In:
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {availableUsers.map(user => {
+                  {allUsers.map(user => {
                     const isSelected = user.id === selectedUserId;
                     return (
                       <button

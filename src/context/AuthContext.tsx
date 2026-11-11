@@ -151,31 +151,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [availableUsers]);
 
   const login = async (username: string, password?: string): Promise<{ success: boolean; error?: string }> => {
-    const cleanUsername = username.trim().toLowerCase();
+    const rawInput = username.trim().toLowerCase();
+    const cleanUsername = rawInput.replace(/^@/, '').trim();
+    const cleanCompact = cleanUsername.replace(/\s+/g, '');
+    const cleanPass = (password || '').trim();
+
     if (!cleanUsername) {
       return { success: false, error: 'Please enter your username.' };
     }
 
-    let user = availableUsers.find(
-      u =>
-        u.username.toLowerCase() === cleanUsername ||
-        u.email.toLowerCase() === cleanUsername ||
-        (u.id === OWNER_ACCOUNT.id && ['admin', 'owner', 'abdulrehman'].includes(cleanUsername))
-    );
+    // Also check latest localStorage staff list in case it was just updated
+    let currentList = availableUsers;
+    try {
+      const savedStaff = localStorage.getItem('pharmacare_staff');
+      if (savedStaff) {
+        const parsed = JSON.parse(savedStaff);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          currentList = sanitizeStaffAccounts([...availableUsers, ...parsed]);
+        }
+      }
+    } catch {}
 
-    // If not found in local memory yet, check backend database directly
-    if (!user) {
+    const findMatchingUser = (list: User[]) =>
+      list.find(u => {
+        const uName = (u.username || '').trim().toLowerCase().replace(/^@/, '');
+        const uFull = (u.fullName || '').trim().toLowerCase();
+        const uCompact = uFull.replace(/[^a-z0-9]/g, '');
+        const uEmail = (u.email || '').trim().toLowerCase();
+        return (
+          uName === cleanUsername ||
+          uName === cleanCompact ||
+          uFull === cleanUsername ||
+          uCompact === cleanCompact ||
+          uEmail === cleanUsername ||
+          (u.id === OWNER_ACCOUNT.id && ['admin', 'owner', 'abdulrehman'].includes(cleanCompact))
+        );
+      });
+
+    let user = findMatchingUser(currentList);
+
+    // Always check backend database if not found locally or if password doesn't match local cache
+    const localExpectedPass = user
+      ? user.id === OWNER_ACCOUNT.id
+        ? (user.password || 'admin').trim()
+        : (user.password || '').trim()
+      : null;
+
+    if (!user || (localExpectedPass && cleanPass !== localExpectedPass)) {
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: cleanUsername, password }),
+          body: JSON.stringify({ username: cleanUsername, password: cleanPass }),
         });
         const data = await res.json();
         if (res.ok && data?.success && data?.user) {
           user = data.user as User;
+          const serverList = Array.isArray(data.staffMembers) ? data.staffMembers : [user];
           setAvailableUsers(prev => {
-            const next = sanitizeStaffAccounts([...prev.filter(u => u.id !== user!.id), user!]);
+            const next = sanitizeStaffAccounts([...prev, ...serverList]);
             try {
               localStorage.setItem('pharmacare_staff', JSON.stringify(next));
             } catch {}
@@ -183,11 +217,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           setCurrentUser(user);
           return { success: true };
-        } else if (data?.error) {
+        } else if (!user && data?.error) {
           return { success: false, error: data.error };
         }
       } catch {
-        // fallback to local check error message below
+        // fallback to local check below
       }
     }
 
@@ -202,8 +236,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'This staff account has been deactivated by the Owner.' };
     }
 
-    const expectedPassword = user.id === OWNER_ACCOUNT.id ? (user.password || 'admin') : (user.password || '');
-    if (expectedPassword && (!password || password !== expectedPassword)) {
+    const expectedPassword =
+      user.id === OWNER_ACCOUNT.id ? (user.password || 'admin').trim() : (user.password || '').trim();
+    if (expectedPassword && cleanPass !== expectedPassword) {
       return {
         success: false,
         error:

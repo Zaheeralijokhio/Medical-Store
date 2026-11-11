@@ -252,7 +252,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setQueuedPosItems([]);
   };
 
-  const isInitialMount = useRef(true);
+  const hasHydratedFromServer = useRef(false);
 
   // Connectivity Listener
   useEffect(() => {
@@ -293,6 +293,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     refreshPendingQueueCount();
   }, [sales]);
 
+  // Helper to merge arrays by ID so neither server nor local unsynced items are ever lost
+  const mergeById = <T extends { id: string }>(serverArr: T[] = [], localArr: T[] = []): T[] => {
+    const map = new Map<string, T>();
+    localArr.forEach(item => {
+      if (item && item.id) map.set(item.id, item);
+    });
+    serverArr.forEach(item => {
+      if (item && item.id) map.set(item.id, item);
+    });
+    return Array.from(map.values());
+  };
+
   // Initial Boot: fetch server state from /api/state and merge with any unsynced local data
   useEffect(() => {
     fetch('/api/state')
@@ -301,19 +313,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (res.success && res.data) {
           const d = res.data;
           if (d.settings) setSettings(d.settings);
-          if (Array.isArray(d.medicines) && d.medicines.length > 0) setMedicines(d.medicines);
-          if (Array.isArray(d.suppliers) && d.suppliers.length > 0) setSuppliers(d.suppliers);
-          if (Array.isArray(d.customers) && d.customers.length > 0) setCustomers(d.customers);
-          if (Array.isArray(d.sales) && d.sales.length > 0) setSales(d.sales);
-          if (Array.isArray(d.purchases) && d.purchases.length > 0) setPurchases(d.purchases);
-          if (Array.isArray(d.expenses) && d.expenses.length > 0) setExpenses(d.expenses);
-          if (Array.isArray(d.adjustments) && d.adjustments.length > 0) setAdjustments(d.adjustments);
-          if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) setAuditLogs(d.auditLogs);
-          if (Array.isArray(d.notifications) && d.notifications.length > 0) setNotifications(d.notifications);
+          if (Array.isArray(d.medicines)) {
+            setMedicines(prev => mergeById(d.medicines, prev));
+          }
+          if (Array.isArray(d.suppliers)) {
+            setSuppliers(prev => mergeById(d.suppliers, prev));
+          }
+          if (Array.isArray(d.customers)) {
+            setCustomers(prev => mergeById(d.customers, prev));
+          }
+          if (Array.isArray(d.sales)) {
+            setSales(prev => mergeById(d.sales, prev));
+          }
+          if (Array.isArray(d.purchases)) {
+            setPurchases(prev => mergeById(d.purchases, prev));
+          }
+          if (Array.isArray(d.expenses)) {
+            setExpenses(prev => mergeById(d.expenses, prev));
+          }
+          if (Array.isArray(d.adjustments)) {
+            setAdjustments(prev => mergeById(d.adjustments, prev));
+          }
+          if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
+            setAuditLogs(d.auditLogs);
+          }
+          if (Array.isArray(d.notifications) && d.notifications.length > 0) {
+            setNotifications(d.notifications);
+          }
           if (Array.isArray(d.staffMembers)) {
             setStaffMembers(prevLocal => {
-              // Merge server staffMembers with any locally created staff accounts so nothing is lost
-              const combined = [...d.staffMembers, ...prevLocal];
+              const combined = mergeById<User>(d.staffMembers, prevLocal);
               return sanitizeStaffAccounts(combined);
             });
           }
@@ -323,13 +352,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Standalone or offline fallback
       })
       .finally(() => {
+        hasHydratedFromServer.current = true;
         fetchBackupSnapshots();
       });
   }, []);
 
   // Keep AuthContext availableUsers synchronized whenever staffMembers state updates
   useEffect(() => {
-    localStorage.setItem('pharmacare_staff', JSON.stringify(staffMembers));
+    try {
+      localStorage.setItem('pharmacare_staff', JSON.stringify(staffMembers));
+    } catch {}
     syncStaffList(staffMembers);
   }, [staffMembers]);
 
@@ -353,8 +385,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Fast server sync of full state to /api/sync (persists to Hostinger disk & MongoDB Atlas)
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    if (!hasHydratedFromServer.current) {
       return;
     }
 
@@ -380,7 +411,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }),
         }).catch(() => {});
       }
-    }, 250);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [
@@ -610,14 +641,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       status: 'active',
     };
 
-    setMedicines(prev => [newMed, ...prev]);
+    setMedicines(prev => {
+      const next = [newMed, ...prev];
+      try {
+        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    fetch('/api/medicine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newMed),
+    }).catch(() => {});
     logActivity('MEDICINE_ADDED', `Added new medicine: ${newMed.name} (${newMed.strength}) - Fixed Price Rs. ${resolvedFixedSalePrice}`, { medId });
     addNotification('stock_adjustment', 'New Medicine Registered', `${newMed.name} added to inventory catalog at Fixed Price Rs. ${resolvedFixedSalePrice}.`, 'info', medId);
   };
 
   const updateMedicine = (id: string, updated: Partial<Medicine>) => {
-    setMedicines(prev =>
-      prev.map(med => {
+    let updatedTarget: Medicine | null = null;
+    setMedicines(prev => {
+      const next = prev.map(med => {
         if (med.id !== id) return med;
         let newBatches = updated.batches || med.batches;
         if (updated.fixedSalePrice !== undefined || updated.fixedPurchasePrice !== undefined) {
@@ -628,21 +671,42 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }));
         }
         const totalQuantity = newBatches.reduce((sum, b) => sum + b.quantity, 0);
-        return {
+        updatedTarget = {
           ...med,
           ...updated,
           batches: newBatches,
           totalQuantity,
         };
-      })
-    );
+        return updatedTarget;
+      });
+      try {
+        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (updatedTarget) {
+      fetch(`/api/medicine/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedTarget),
+      }).catch(() => {});
+    }
     logActivity('MEDICINE_EDITED', `Updated medicine specifications & fixed inventory price for ID: ${id}`);
   };
 
   const deleteMedicine = (id: string) => {
     const target = medicines.find(m => m.id === id);
     if (!target) return;
-    setMedicines(prev => prev.filter(m => m.id !== id));
+    setMedicines(prev => {
+      const next = prev.filter(m => m.id !== id);
+      try {
+        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    fetch(`/api/medicine/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
     logActivity('MEDICINE_DELETED', `Deleted medicine: ${target.name}`);
   };
 
@@ -1373,49 +1437,85 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newUser: User = {
       ...userData,
       id: `usr-staff-${Date.now()}`,
+      username: userData.username.trim().toLowerCase(),
+      password: userData.password || 'seller123',
+      pin: userData.pin || '5678',
       joiningDate: new Date().toISOString().split('T')[0],
       status: 'active',
     };
-    setStaffMembers(prev => {
-      const next = sanitizeStaffAccounts([...prev, newUser]);
-      syncStaffList(next);
-      return next;
-    });
+    const nextList = sanitizeStaffAccounts([...staffMembers, newUser]);
+    setStaffMembers(nextList);
+    try {
+      localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
+    } catch {}
+    syncStaffList(nextList);
+
+    fetch('/api/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newUser),
+    }).catch(() => {});
+
     logActivity('STAFF_CREATED', `Dr. Abdul Rehman (Owner) created new account for ${newUser.fullName} (${newUser.designation})`);
     addNotification('staff_activity', 'New Staff Account Created', `${newUser.fullName} (@${newUser.username}) was added as ${newUser.designation}.`, 'info');
   };
 
   const updateStaff = (id: string, updated: Partial<User>) => {
-    setStaffMembers(prev => {
-      const next = prev.map(u => (u.id === id ? { ...u, ...updated } : u));
-      syncStaffList(next);
-      return next;
-    });
+    const nextList = sanitizeStaffAccounts(
+      staffMembers.map(u => (u.id === id ? { ...u, ...updated } : u))
+    );
+    setStaffMembers(nextList);
+    try {
+      localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
+    } catch {}
+    syncStaffList(nextList);
+
+    fetch(`/api/staff/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    }).catch(() => {});
+
     logActivity('STAFF_UPDATED', `Updated staff account details for ID ${id}`);
   };
 
   const toggleStaffStatus = (id: string) => {
     if (id === OWNER_ACCOUNT.id) return;
-    setStaffMembers(prev => {
-      const next = prev.map(u => {
+    let toggledStatus: 'active' | 'inactive' = 'active';
+    const nextList = sanitizeStaffAccounts(
+      staffMembers.map(u => {
         if (u.id !== id) return u;
-        const newStatus = u.status === 'active' ? 'inactive' : 'active';
-        logActivity('STAFF_STATUS_CHANGE', `${u.fullName} account status changed to ${newStatus}`);
-        return { ...u, status: newStatus as any };
-      });
-      syncStaffList(next);
-      return next;
-    });
+        toggledStatus = u.status === 'active' ? 'inactive' : 'active';
+        return { ...u, status: toggledStatus };
+      })
+    );
+    setStaffMembers(nextList);
+    try {
+      localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
+    } catch {}
+    syncStaffList(nextList);
+
+    fetch(`/api/staff/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: toggledStatus }),
+    }).catch(() => {});
   };
 
   const deleteStaff = (id: string) => {
     if (id === OWNER_ACCOUNT.id) return;
     const target = staffMembers.find(u => u.id === id);
-    setStaffMembers(prev => {
-      const next = prev.filter(u => u.id !== id);
-      syncStaffList(next);
-      return next;
-    });
+    const nextList = sanitizeStaffAccounts(staffMembers.filter(u => u.id !== id));
+    setStaffMembers(nextList);
+    try {
+      localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
+    } catch {}
+    syncStaffList(nextList);
+
+    fetch(`/api/staff/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
+
     logActivity('STAFF_DELETED', `Dr. Abdul Rehman (Owner) removed staff account: ${target?.fullName || id}`);
     if (target) {
       addNotification('staff_activity', 'Staff Account Removed', `Account for ${target.fullName} (@${target.username}) was removed.`, 'warning');
@@ -1423,12 +1523,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const removeAllOtherStaff = () => {
-    setStaffMembers(prev => {
-      const ownerOnly = prev.filter(u => u.id === OWNER_ACCOUNT.id);
-      const next = ownerOnly.length > 0 ? ownerOnly : [OWNER_ACCOUNT];
-      syncStaffList(next);
-      return next;
-    });
+    const ownerOnly = staffMembers.filter(u => u.id === OWNER_ACCOUNT.id);
+    const nextList = ownerOnly.length > 0 ? ownerOnly : [OWNER_ACCOUNT];
+    setStaffMembers(nextList);
+    try {
+      localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
+    } catch {}
+    syncStaffList(nextList);
+
+    fetch('/api/staff/all-others', {
+      method: 'DELETE',
+    }).catch(() => {});
+
     logActivity('STAFF_CLEARED', 'Dr. Abdul Rehman (Owner) removed all other staff accounts.');
     addNotification('staff_activity', 'All Other Staff Accounts Removed', 'Only Dr. Abdul Rehman (Owner) account remains active.', 'warning');
   };

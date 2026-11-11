@@ -49,13 +49,56 @@ export const SystemSettingsView: React.FC = () => {
   const [successSaved, setSuccessSaved] = useState(false);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [snapshotToast, setSnapshotToast] = useState('');
+  const [dbStatus, setDbStatus] = useState<{
+    storageEngine: string;
+    mongoConfigured: boolean;
+    mongoConnected: boolean;
+    mongoDbName: string;
+    lastMongoSyncAt: string | null;
+    localFilePath: string;
+    lastUpdated: string;
+    counts?: {
+      staffAccounts: number;
+      medicines: number;
+      sales: number;
+      purchases: number;
+      suppliers: number;
+      customers: number;
+      expenses: number;
+    };
+  } | null>(null);
+  const [syncingDb, setSyncingDb] = useState(false);
 
   // Staff PINs editable state
   const [staffUsers, setStaffUsers] = useState<User[]>(availableUsers);
 
+  const fetchDbStatus = async () => {
+    try {
+      const res = await fetch('/api/db-status');
+      if (res.ok) {
+        const data = await res.json();
+        setDbStatus(data);
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     fetchBackupSnapshots();
+    fetchDbStatus();
   }, []);
+
+  const handleForceDatabaseSync = async () => {
+    setSyncingDb(true);
+    try {
+      const res = await fetch('/api/db-sync-now', { method: 'POST' });
+      if (res.ok) {
+        await fetchDbStatus();
+        setSnapshotToast('All store & staff data synced to database!');
+        setTimeout(() => setSnapshotToast(''), 4000);
+      }
+    } catch {}
+    setSyncingDb(false);
+  };
 
   const handleChange = (field: keyof StoreSettings, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -165,29 +208,85 @@ export const SystemSettingsView: React.FC = () => {
             Pharmacy Profile, Security & Disaster Recovery
           </h3>
           <p className="text-xs text-slate-500">
-            DRAP Drug Licensing, NTN tax registrations, staff PIN security, and rolling server backups
+            DRAP Drug Licensing, NTN tax registrations, staff PIN security, and Hostinger / Server database sync
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleForceDatabaseSync}
+            disabled={syncingDb}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingDb ? 'animate-spin' : ''}`} />
+            Sync Database Now
+          </button>
+
           <button
             onClick={handleExportBackup}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" /> Export JSON
           </button>
+        </div>
+      </div>
 
-          <button
-            onClick={() => {
-              if (confirm('Reset store database back to default realistic Pakistani demo data?')) {
-                resetToDemoData();
-                setForm(settings);
-              }
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs border border-amber-200 transition-colors"
+      {/* Live Database Storage Architecture Status Card */}
+      <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 p-4 shadow-sm space-y-3 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <Database className="w-5 h-5 text-teal-400 shrink-0" />
+            <div>
+              <h4 className="font-black text-sm text-white">
+                Where Your Pharmacy Database Is Stored (Dual-Layer Persistence)
+              </h4>
+              <p className="text-[11px] text-slate-400">
+                Every staff account, medicine, invoice, and supplier is automatically saved in real time
+              </p>
+            </div>
+          </div>
+          <span
+            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+              dbStatus?.mongoConnected
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                : 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+            }`}
           >
-            <RotateCcw className="w-3.5 h-3.5 text-amber-600" /> Reset Demo Data
-          </button>
+            {dbStatus?.mongoConnected
+              ? 'Connected: Hostinger MongoDB Atlas + Server Disk'
+              : 'Active: Server Disk (Auto-Connects MongoDB on Hostinger)'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="p-3 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400 block">
+              1. Hostinger Cloud Database (MongoDB Atlas)
+            </span>
+            <p className="text-xs font-bold text-white">
+              Database: <code className="text-teal-300">{dbStatus?.mongoDbName || 'pharmacare_erp'}</code> (Collections: <code className="text-teal-300">pharmacy_store_state</code> &amp; <code className="text-teal-300">staff_accounts</code>)
+            </p>
+            <p className="text-[11px] text-slate-300">
+              {dbStatus?.mongoConnected
+                ? `Live synced with your Hostinger MongoDB Atlas cluster (${dbStatus.lastMongoSyncAt ? new Date(dbStatus.lastMongoSyncAt).toLocaleTimeString() : 'Active'}).`
+                : 'When deployed on Hostinger (medicalstore.edulinker.online), Hostinger automatically injects MONGODB_URI and stores all records in your MongoDB Atlas Cluster0.'}
+            </p>
+          </div>
+
+          <div className="p-3 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block">
+              2. Server Disk Database + Instant Browser Cache
+            </span>
+            <p className="text-xs font-bold text-white">
+              Server File: <code className="text-indigo-300">{dbStatus?.localFilePath || 'data/pharmacy_database.json'}</code>
+            </p>
+            <p className="text-[11px] text-slate-300">
+              Saved records: <strong>{dbStatus?.counts?.staffAccounts ?? availableUsers.length}</strong> Staff Accounts •{' '}
+              <strong>{dbStatus?.counts?.medicines ?? medicines.length}</strong> Medicines •{' '}
+              <strong>{dbStatus?.counts?.sales ?? sales.length}</strong> Sales
+            </p>
+          </div>
         </div>
       </div>
 
