@@ -53,9 +53,12 @@ export const ExpenseManagement: React.FC = () => {
     let yearly = 0;
 
     expenses.forEach(e => {
-      if (e.date === todayStr) daily += e.amount;
-      if (e.date.startsWith(currentMonthStr)) monthly += e.amount;
-      if (e.date.startsWith(currentYearStr)) yearly += e.amount;
+      if (!e) return;
+      const eDate = String(e.date || '');
+      const amt = Number(e.amount || 0);
+      if (eDate === todayStr) daily += amt;
+      if (eDate.startsWith(currentMonthStr)) monthly += amt;
+      if (eDate.startsWith(currentYearStr)) yearly += amt;
     });
 
     return { daily, monthly, yearly };

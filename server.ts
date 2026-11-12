@@ -27,6 +27,9 @@ import {
   INITIAL_NOTIFICATIONS,
   sanitizeStaffAccounts,
 } from './src/data/initialData.ts';
+import { requireAuth } from './src/middleware/auth.ts';
+import { getOrCreateUser } from './src/db/users.ts';
+import { loadStateFromCloudSql, syncStateToCloudSql } from './src/db/pharmacyStoreRepo.ts';
 
 dotenv.config();
 
@@ -500,8 +503,27 @@ function writeDatabase(data: DatabaseSchema, event = 'STATE_SYNC'): DatabaseSche
   if (mongoCollection && mongoConnected) {
     syncCollectionsToMongo(clean);
   }
+  if (process.env.SQL_HOST) {
+    syncStateToCloudSql(clean).catch(() => {});
+  }
   broadcastRealtimeUpdate(clean, event);
   return clean;
+}
+
+async function initCloudSql(): Promise<void> {
+  if (!process.env.SQL_HOST) return;
+  try {
+    const cloudState = await loadStateFromCloudSql();
+    if (cloudState && cloudState.cleanVersion === DATA_CLEAN_VERSION) {
+      const clean = sanitizeDatabaseState(cloudState);
+      writeLocalFileOnly(clean);
+    } else {
+      const currentLocal = readDatabase();
+      await syncStateToCloudSql(currentLocal);
+    }
+  } catch (err: any) {
+    console.error('[Database Error]:', { message: err?.message });
+  }
 }
 
 function createBackupSnapshot(comment = 'Manual backup'): { snapshotId: string; filename: string } {
@@ -530,7 +552,15 @@ async function startServer() {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   wssInstance = wss;
 
+  wss.on('error', () => {
+    // Ignore transient WebSocket server errors
+  });
+
   wss.on('connection', ws => {
+    ws.on('error', () => {
+      // Ignore client connection drop errors
+    });
+
     try {
       const db = readDatabase();
       ws.send(
@@ -578,6 +608,18 @@ async function startServer() {
 
   readDatabase();
   await initMongoDB();
+  initCloudSql().catch(() => {});
+
+  // Firebase Auth + Cloud SQL user synchronization endpoint
+  app.post('/api/auth/google-sync', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const decodedToken = (req as any).user;
+      const syncedUser = await getOrCreateUser(decodedToken);
+      res.json({ success: true, user: syncedUser });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Failed to synchronize user account' });
+    }
+  });
 
   // Helper to inspect request actor role & permissions
   function getActorFromReq(req: Request, db: DatabaseSchema) {

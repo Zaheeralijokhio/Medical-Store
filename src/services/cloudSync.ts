@@ -11,6 +11,10 @@
 import { User } from '../types/pharmacy';
 import { DATA_CLEAN_VERSION, sanitizeStaffAccounts } from '../data/initialData';
 
+// Primary Cloud SQL (PostgreSQL) Backend Server URL (works from Hostinger medicalstore.edulinker.online & all devices)
+export const CLOUD_SQL_BACKEND_URL =
+  'https://ais-pre-7lndyrwswjnhb2fqfm5wmy-728386787870.asia-southeast1.run.app';
+
 // Dedicated, Highly-Available HTTPS Cloud Objects on api.restful-api.dev
 export const MEDICINES_CLOUD_PRIMARY =
   'https://api.restful-api.dev/objects/ff808181a09d98f701a1cb0e8bd70a30';
@@ -78,11 +82,35 @@ function mergeArraysById<T extends { id: string }>(
 }
 
 /**
- * Direct fetch of dedicated medicines cloud registry
+ * Direct fetch of dedicated medicines cloud registry + Cloud SQL Backend
  */
 export async function fetchCloudMedicines(): Promise<{ medicines: any[]; deletedIds: string[] } | null> {
-  const endpoints = [MEDICINES_CLOUD_PRIMARY, MEDICINES_CLOUD_BACKUP];
+  const deletedSet = new Set<string>();
+  let mergedMeds: any[] = [];
+  let foundAny = false;
 
+  // 1. Check live Cloud SQL PostgreSQL backend (works from Hostinger too)
+  try {
+    const res = await fetch(`${CLOUD_SQL_BACKEND_URL}/api/state`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const d = json?.data;
+      if (d && Array.isArray(d.medicines)) {
+        foundAny = true;
+        if (Array.isArray(d.deletedIds)) {
+          d.deletedIds.forEach((id: string) => deletedSet.add(id));
+        }
+        mergedMeds = mergeArraysById(mergedMeds, d.medicines, deletedSet);
+      }
+    }
+  } catch {}
+
+  // 2. Check dedicated cloud objects
+  const endpoints = [MEDICINES_CLOUD_PRIMARY, MEDICINES_CLOUD_BACKUP];
   for (const url of endpoints) {
     try {
       const res = await fetch(url, {
@@ -94,22 +122,26 @@ export async function fetchCloudMedicines(): Promise<{ medicines: any[]; deleted
         const json = await res.json();
         const data = json?.data;
         if (data && Array.isArray(data.medicines)) {
-          const deletedSet = new Set<string>(Array.isArray(data.deletedIds) ? data.deletedIds : []);
-          const cleanMedicines = data.medicines.filter((m: any) => m && m.id && !deletedSet.has(m.id));
-          return {
-            medicines: cleanMedicines,
-            deletedIds: Array.from(deletedSet),
-          };
+          foundAny = true;
+          if (Array.isArray(data.deletedIds)) {
+            data.deletedIds.forEach((id: string) => deletedSet.add(id));
+          }
+          mergedMeds = mergeArraysById(mergedMeds, data.medicines, deletedSet);
         }
       }
     } catch {}
   }
 
-  return null;
+  if (!foundAny) return null;
+
+  return {
+    medicines: mergedMeds.filter((m: any) => m && m.id && !deletedSet.has(m.id)),
+    deletedIds: Array.from(deletedSet),
+  };
 }
 
 /**
- * Push an added, updated, or deleted medicine immediately to cloud storage
+ * Push an added, updated, or deleted medicine immediately to Cloud SQL Backend + Cloud Storage
  */
 export async function pushCloudMedicineRealtime(medicine: any, deletedId?: string): Promise<boolean> {
   // 1. Broadcast immediately to any other tab / account open in the same browser (0ms)
@@ -118,6 +150,21 @@ export async function pushCloudMedicineRealtime(medicine: any, deletedId?: strin
       broadcast?.postMessage({ type: 'MEDICINE_SYNC', medicine });
     } else if (deletedId) {
       broadcast?.postMessage({ type: 'MEDICINE_DELETE', id: deletedId });
+    }
+  } catch {}
+
+  // 1b. Push directly to live Cloud SQL PostgreSQL Backend (for Hostinger & cross-domain sync)
+  try {
+    if (medicine && medicine.id) {
+      fetch(`${CLOUD_SQL_BACKEND_URL}/api/medicine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(medicine),
+      }).catch(() => {});
+    } else if (deletedId) {
+      fetch(`${CLOUD_SQL_BACKEND_URL}/api/medicine/${encodeURIComponent(deletedId)}`, {
+        method: 'DELETE',
+      }).catch(() => {});
     }
   } catch {}
 
@@ -280,6 +327,25 @@ export async function fetchCloudStoreState(): Promise<CloudStorePayload | null> 
   let combined: CloudStorePayload | null = null;
   const deletedIds = new Set<string>();
 
+  // 0. Live Cloud SQL PostgreSQL Backend (works from Hostinger medicalstore.edulinker.online & all devices)
+  try {
+    const res = await fetch(`${CLOUD_SQL_BACKEND_URL}/api/state`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const data = json?.data as CloudStorePayload | undefined;
+      if (data && isValidCleanVersion(data.cleanVersion)) {
+        if (Array.isArray(data.deletedIds)) {
+          data.deletedIds.forEach(id => deletedIds.add(id));
+        }
+        combined = { ...data };
+      }
+    }
+  } catch {}
+
   // 1. Primary Full Store Cloud Object
   try {
     const res = await fetch(STORE_CLOUD_OBJECT_URL, {
@@ -294,7 +360,21 @@ export async function fetchCloudStoreState(): Promise<CloudStorePayload | null> 
         if (Array.isArray(data.deletedIds)) {
           data.deletedIds.forEach(id => deletedIds.add(id));
         }
-        combined = { ...data };
+        if (!combined) {
+          combined = { ...data };
+        } else {
+          combined.medicines = mergeArraysById(combined.medicines, data.medicines, deletedIds);
+          combined.suppliers = mergeArraysById(combined.suppliers, data.suppliers, deletedIds);
+          combined.customers = mergeArraysById(combined.customers, data.customers, deletedIds);
+          combined.sales = mergeArraysById(combined.sales, data.sales, deletedIds);
+          combined.saleReturns = mergeArraysById(combined.saleReturns, data.saleReturns, deletedIds);
+          combined.purchases = mergeArraysById(combined.purchases, data.purchases, deletedIds);
+          combined.expenses = mergeArraysById(combined.expenses, data.expenses, deletedIds);
+          combined.adjustments = mergeArraysById(combined.adjustments, data.adjustments, deletedIds);
+          combined.staffMembers = sanitizeStaffAccounts(
+            mergeArraysById(combined.staffMembers, data.staffMembers, deletedIds)
+          );
+        }
       }
     }
   } catch {}
@@ -379,6 +459,13 @@ export async function pushCloudStoreState(
     ),
   };
 
+  // Push to live Cloud SQL PostgreSQL Backend (works from Hostinger too)
+  fetch(`${CLOUD_SQL_BACKEND_URL}/api/sync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(mergedPayload),
+  }).catch(() => {});
+
   // Also sync dedicated medicine objects in parallel
   if (Array.isArray(mergedMedicines) && mergedMedicines.length > 0) {
     const medPayload = {
@@ -414,3 +501,4 @@ export async function pushCloudStoreState(
 
   return ok;
 }
+

@@ -42,13 +42,15 @@ export const ReportsAnalytics: React.FC = () => {
   const currentYearStr = useMemo(() => todayStr.substring(0, 4), [todayStr]);
 
   // Date filtering helper
-  const filterByDate = (dateString: string) => {
+  const filterByDate = (dateString?: string) => {
+    const safeDate = String(dateString || '');
     if (dateRange === 'all') return true;
-    if (dateRange === 'today') return dateString === todayStr;
-    if (dateRange === 'month') return dateString.startsWith(currentMonthStr);
-    if (dateRange === 'year') return dateString.startsWith(currentYearStr);
+    if (dateRange === 'today') return safeDate === todayStr;
+    if (dateRange === 'month') return safeDate.startsWith(currentMonthStr);
+    if (dateRange === 'year') return safeDate.startsWith(currentYearStr);
     if (dateRange === '7days') {
-      const d = new Date(dateString);
+      if (!safeDate) return false;
+      const d = new Date(safeDate);
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       return d >= sevenDaysAgo;

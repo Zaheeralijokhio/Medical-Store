@@ -51,8 +51,9 @@ export const SalesHistory: React.FC = () => {
 
     return effectiveStaffSales.filter(sale => {
       // Date filter
-      if (dateFilter === 'today' && sale.date !== todayStr) return false;
-      if (dateFilter === 'month' && !sale.date.startsWith(todayStr.substring(0, 7))) return false;
+      const saleDate = String(sale?.date || '');
+      if (dateFilter === 'today' && saleDate !== todayStr) return false;
+      if (dateFilter === 'month' && !saleDate.startsWith(todayStr.substring(0, 7))) return false;
 
       // Staff filter
       if (selectedStaff !== 'All' && sale.staffId !== selectedStaff) return false;

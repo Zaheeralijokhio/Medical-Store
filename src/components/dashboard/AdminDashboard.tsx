@@ -63,7 +63,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     let expiredCount = 0;
 
     medicines.forEach(med => {
-      totalStockQty += med.totalQuantity;
+      if (!med) return;
+      totalStockQty += Number(med.totalQuantity || 0);
 
       if (med.totalQuantity === 0) {
         outOfStockCount++;
@@ -71,9 +72,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         lowStockCount++;
       }
 
-      med.batches.forEach(b => {
-        purchaseVal += b.quantity * b.purchasePrice;
-        saleVal += b.quantity * b.salePrice;
+      (med.batches || []).forEach(b => {
+        if (!b) return;
+        purchaseVal += Number(b.quantity || 0) * Number(b.purchasePrice || 0);
+        saleVal += Number(b.quantity || 0) * Number(b.salePrice || 0);
 
         if (b.quantity > 0) {
           if (isExpired(b.expiryDate)) {
@@ -110,17 +112,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     let totalCOGS = 0;
 
     // Exclude returned/cancelled sales from Revenue & Profit calculations
-    const activeSales = sales.filter(s => s.status !== 'returned');
+    const activeSales = sales.filter(s => s && s.status !== 'returned');
 
     activeSales.forEach(sale => {
-      const isToday = sale.date === todayStr;
-      const isThisMonth = sale.date.startsWith(currentMonthStr);
+      const saleDate = String(sale.date || '');
+      const isToday = saleDate === todayStr;
+      const isThisMonth = saleDate.startsWith(currentMonthStr);
 
       // Net sales excluding discounts (subtotal - discountTotal)
-      const lineDiscounts = (sale.items || []).reduce((sum, i) => sum + Number(i.discountAmount || 0), 0);
+      const lineDiscounts = (sale.items || []).reduce((sum, i) => sum + Number(i?.discountAmount || 0), 0);
       const netSaleExclDiscount = Math.max(
         0,
-        Number(sale.subtotal || sale.grandTotal) - Number(sale.discountTotal || 0) - lineDiscounts
+        Number(sale.subtotal || sale.grandTotal || 0) - Number(sale.discountTotal || 0) - lineDiscounts
       );
 
       totalRevenue += Number(sale.grandTotal || 0);
@@ -128,7 +131,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
       // Exact COGS based on batch unit purchase cost
       const saleCogs = (sale.items || []).reduce(
-        (sum, item) => sum + Number(item.quantity || 0) * Number(item.purchaseCost || 0),
+        (sum, item) => sum + Number(item?.quantity || 0) * Number(item?.purchaseCost || 0),
         0
       );
       totalCOGS += saleCogs;
@@ -149,17 +152,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     let todayPurchases = 0;
     let monthPurchases = 0;
     purchases.forEach(p => {
-      if (p.purchaseDate === todayStr) todayPurchases += Number(p.totalAmount || 0);
-      if (p.purchaseDate.startsWith(currentMonthStr)) monthPurchases += Number(p.totalAmount || 0);
+      if (!p) return;
+      const pDate = String(p.purchaseDate || '');
+      if (pDate === todayStr) todayPurchases += Number(p.totalAmount || 0);
+      if (pDate.startsWith(currentMonthStr)) monthPurchases += Number(p.totalAmount || 0);
     });
 
     // Today, Month, & Total Expenses
     let monthExpenses = 0;
     let totalExpenses = 0;
     expenses.forEach(e => {
+      if (!e) return;
+      const eDate = String(e.date || '');
       const amt = Number(e.amount || 0);
       totalExpenses += amt;
-      if (e.date.startsWith(currentMonthStr)) monthExpenses += amt;
+      if (eDate.startsWith(currentMonthStr)) monthExpenses += amt;
     });
 
     const todayGrossProfit = todayNetSales - todayCost;
