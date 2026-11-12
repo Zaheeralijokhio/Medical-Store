@@ -97,31 +97,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     };
   }, [medicines, settings.expiryAlertDays]);
 
-  // Financial & Sales Aggregations
+  // Financial & Sales Aggregations (Part 4 Strict Definitions)
   const salesStats = useMemo(() => {
     let todaySales = 0;
+    let todayNetSales = 0;
     let todayCost = 0;
     let monthSales = 0;
+    let monthNetSales = 0;
     let monthCost = 0;
     let totalRevenue = 0;
+    let totalNetSales = 0;
     let totalCOGS = 0;
 
-    sales.forEach(sale => {
+    // Exclude returned/cancelled sales from Revenue & Profit calculations
+    const activeSales = sales.filter(s => s.status !== 'returned');
+
+    activeSales.forEach(sale => {
       const isToday = sale.date === todayStr;
       const isThisMonth = sale.date.startsWith(currentMonthStr);
 
-      totalRevenue += sale.grandTotal;
+      // Net sales excluding discounts (subtotal - discountTotal)
+      const lineDiscounts = (sale.items || []).reduce((sum, i) => sum + Number(i.discountAmount || 0), 0);
+      const netSaleExclDiscount = Math.max(
+        0,
+        Number(sale.subtotal || sale.grandTotal) - Number(sale.discountTotal || 0) - lineDiscounts
+      );
+
+      totalRevenue += Number(sale.grandTotal || 0);
+      totalNetSales += netSaleExclDiscount;
 
       // Exact COGS based on batch unit purchase cost
-      const saleCogs = sale.items.reduce((sum, item) => sum + item.quantity * item.purchaseCost, 0);
+      const saleCogs = (sale.items || []).reduce(
+        (sum, item) => sum + Number(item.quantity || 0) * Number(item.purchaseCost || 0),
+        0
+      );
       totalCOGS += saleCogs;
 
       if (isToday) {
-        todaySales += sale.grandTotal;
+        todaySales += Number(sale.grandTotal || 0);
+        todayNetSales += netSaleExclDiscount;
         todayCost += saleCogs;
       }
       if (isThisMonth) {
-        monthSales += sale.grandTotal;
+        monthSales += Number(sale.grandTotal || 0);
+        monthNetSales += netSaleExclDiscount;
         monthCost += saleCogs;
       }
     });
@@ -130,19 +149,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     let todayPurchases = 0;
     let monthPurchases = 0;
     purchases.forEach(p => {
-      if (p.purchaseDate === todayStr) todayPurchases += p.totalAmount;
-      if (p.purchaseDate.startsWith(currentMonthStr)) monthPurchases += p.totalAmount;
+      if (p.purchaseDate === todayStr) todayPurchases += Number(p.totalAmount || 0);
+      if (p.purchaseDate.startsWith(currentMonthStr)) monthPurchases += Number(p.totalAmount || 0);
     });
 
-    // Today & Month Expenses
+    // Today, Month, & Total Expenses
     let monthExpenses = 0;
+    let totalExpenses = 0;
     expenses.forEach(e => {
-      if (e.date.startsWith(currentMonthStr)) monthExpenses += e.amount;
+      const amt = Number(e.amount || 0);
+      totalExpenses += amt;
+      if (e.date.startsWith(currentMonthStr)) monthExpenses += amt;
     });
 
-    const todayGrossProfit = Math.max(0, todaySales - todayCost);
-    const monthlyGrossProfit = Math.max(0, monthSales - monthCost);
+    const todayGrossProfit = todayNetSales - todayCost;
+    const monthlyGrossProfit = monthNetSales - monthCost;
     const monthlyNetProfit = monthlyGrossProfit - monthExpenses;
+    const totalGrossProfit = totalNetSales - totalCOGS;
+    const totalNetProfit = totalGrossProfit - totalExpenses;
 
     return {
       todaySales,
@@ -154,26 +178,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       monthlyNetProfit,
       totalRevenue,
       totalCOGS,
+      totalExpenses,
+      totalGrossProfit,
+      totalNetProfit,
     };
   }, [sales, purchases, expenses, todayStr, currentMonthStr]);
 
-  // Top 10 Best-Selling Medicines
+  // Top Best-Selling Medicines (excluding returned sales)
   const topSellingMedicines = useMemo(() => {
     const medSalesMap: Record<string, { name: string; quantity: number; revenue: number }> = {};
 
-    sales.forEach(s => {
-      s.items.forEach(item => {
-        if (!medSalesMap[item.medicineId]) {
-          medSalesMap[item.medicineId] = {
-            name: item.medicineName,
-            quantity: 0,
-            revenue: 0,
-          };
-        }
-        medSalesMap[item.medicineId].quantity += item.quantity;
-        medSalesMap[item.medicineId].revenue += item.totalAmount;
+    sales
+      .filter(s => s.status !== 'returned')
+      .forEach(s => {
+        s.items.forEach(item => {
+          if (!medSalesMap[item.medicineId]) {
+            medSalesMap[item.medicineId] = {
+              name: item.medicineName,
+              quantity: 0,
+              revenue: 0,
+            };
+          }
+          medSalesMap[item.medicineId].quantity += item.quantity;
+          medSalesMap[item.medicineId].revenue += item.totalAmount;
+        });
       });
-    });
 
     return Object.values(medSalesMap)
       .sort((a, b) => b.quantity - a.quantity)
@@ -187,7 +216,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       const cat = m.category || 'General';
       if (!catMap[cat]) catMap[cat] = { count: 0, value: 0 };
       catMap[cat].count += m.totalQuantity;
-      const catVal = m.batches.reduce((sum, b) => sum + b.quantity * b.salePrice, 0);
+      const catVal = m.batches.reduce((sum, b) => sum + b.quantity * b.purchasePrice, 0);
       catMap[cat].value += catVal;
     });
 
@@ -204,12 +233,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       staffMap[sm.id] = { name: sm.fullName, totalSales: 0, count: 0 };
     });
 
-    sales.forEach(s => {
-      if (staffMap[s.staffId]) {
-        staffMap[s.staffId].totalSales += s.grandTotal;
-        staffMap[s.staffId].count += 1;
-      }
-    });
+    sales
+      .filter(s => s.status !== 'returned')
+      .forEach(s => {
+        if (staffMap[s.staffId]) {
+          staffMap[s.staffId].totalSales += s.grandTotal;
+          staffMap[s.staffId].count += 1;
+        }
+      });
 
     return Object.values(staffMap).sort((a, b) => b.totalSales - a.totalSales);
   }, [staffMembers, sales]);
@@ -224,7 +255,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       const label = d.toLocaleDateString('en-PK', { weekday: 'short', day: 'numeric' });
 
       const daySales = sales
-        .filter(s => s.date === dateStr)
+        .filter(s => s.date === dateStr && s.status !== 'returned')
         .reduce((sum, s) => sum + s.grandTotal, 0);
 
       const dayPurchases = purchases
@@ -277,189 +308,289 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         </div>
       )}
 
-      {/* Row 1: Core Financial KPI Cards */}
+      {/* Row 1: Primary Financial & Inventory KPI Cards (8 Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Today's Sales */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+        {/* 1. Today's Sales */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Today's Sales
             </span>
             <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-              <TrendingUp className="w-5 h-5" />
+              <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <h3 className="text-2xl font-black text-slate-900 tracking-tight">
               {formatPKR(salesStats.todaySales)}
             </h3>
-            <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-              <span className="font-medium text-emerald-600 flex items-center">
-                <ArrowUpRight className="w-3.5 h-3.5" /> Gross Profit:
-              </span>
-              <span className="font-semibold text-slate-700">
-                {formatPKR(salesStats.todayGrossProfit)}
-              </span>
-            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Today Gross Profit: <span className="font-bold text-emerald-600">{formatPKR(salesStats.todayGrossProfit)}</span>
+            </p>
           </div>
         </div>
 
-        {/* Monthly Sales & Net Profit */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+        {/* 2. Monthly Sales */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Monthly Sales (PKR)
+              Monthly Sales
             </span>
             <div className="p-2 rounded-xl bg-teal-50 text-teal-600">
-              <DollarSign className="w-5 h-5" />
+              <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <h3 className="text-2xl font-black text-slate-900 tracking-tight">
               {formatPKR(salesStats.monthSales)}
             </h3>
-            <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-              <span>Gross: {formatPKR(salesStats.monthlyGrossProfit)}</span>
-              <span>•</span>
-              <span className="text-teal-700 font-medium">
-                Net: {formatPKR(salesStats.monthlyNetProfit)}
-              </span>
-            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Monthly Net: <span className="font-bold text-teal-700">{formatPKR(salesStats.monthlyNetProfit)}</span>
+            </p>
           </div>
         </div>
 
-        {/* Inventory Stock Value */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+        {/* 3. Today's Purchases */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Stock Retail Value
+              Today's Purchases
+            </span>
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+              <ShoppingCart className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+              {formatPKR(salesStats.todayPurchases)}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Monthly POs: <span className="font-bold text-slate-700">{formatPKR(salesStats.monthPurchases)}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* 4. Total Revenue */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Total Revenue
             </span>
             <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-              <Package className="w-5 h-5" />
+              <BarChart3 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-2.5">
             <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-              {formatPKR(inventoryStats.saleVal)}
+              {formatPKR(salesStats.totalRevenue)}
             </h3>
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-              <span>Cost Basis:</span>
-              <span className="font-medium text-slate-700">
-                {formatPKR(inventoryStats.purchaseVal)}
-              </span>
-            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Completed Sales ({sales.filter(s => s.status !== 'returned').length} invoices)
+            </p>
           </div>
         </div>
 
-        {/* Total Stock Quantity & Medicines */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+        {/* 5. Gross Profit */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Catalog & Quantity
+              Gross Profit
             </span>
-            <div className="p-2 rounded-xl bg-cyan-50 text-cyan-600">
-              <Pill className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+              <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-                {inventoryStats.totalStockQty.toLocaleString()}
-              </h3>
-              <span className="text-xs text-slate-500">units in stock</span>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-emerald-700 tracking-tight">
+              {formatPKR(salesStats.totalGrossProfit)}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Net Sales minus COGS ({formatPKR(salesStats.totalCOGS)})
+            </p>
+          </div>
+        </div>
+
+        {/* 6. Net Profit */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Net Profit
+            </span>
+            <div className="p-2 rounded-xl bg-teal-50 text-teal-600">
+              <CheckCircle2 className="w-4 h-4" />
             </div>
-            <div className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-              <span className="font-semibold text-slate-700">{inventoryStats.totalMedicines}</span>
-              <span>active medicine formulations</span>
+          </div>
+          <div className="mt-2.5">
+            <h3 className={`text-2xl font-black tracking-tight ${salesStats.totalNetProfit >= 0 ? 'text-teal-700' : 'text-rose-600'}`}>
+              {formatPKR(salesStats.totalNetProfit)}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Gross Profit minus Total Expenses
+            </p>
+          </div>
+        </div>
+
+        {/* 7. Total Expenses */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Total Expenses
+            </span>
+            <div className="p-2 rounded-xl bg-rose-50 text-rose-600">
+              <ArrowDownRight className="w-4 h-4" />
             </div>
+          </div>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+              {formatPKR(salesStats.totalExpenses)}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              {expenses.length} recorded store expense(s)
+            </p>
+          </div>
+        </div>
+
+        {/* 8. Total Stock Value (Cost Price Basis) */}
+        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Total Stock Value
+            </span>
+            <div className="p-2 rounded-xl bg-violet-50 text-violet-600">
+              <Package className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2.5">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+              {formatPKR(inventoryStats.purchaseVal)}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Retail Value: <span className="font-semibold text-slate-700">{formatPKR(inventoryStats.saleVal)}</span>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Row 2: Secondary Operational Status Badges (Stock & Alert Grid) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+      {/* Row 2: Complete Operational & Entity Validation Grid (Remaining 8 KPI Cards = All 16 Cards Verified) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        {/* 9. Total Medicines */}
+        <button
+          onClick={() => onNavigate('inventory')}
+          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-cyan-400 text-left transition-all group"
+        >
+          <div className="flex items-center justify-between text-cyan-600 mb-1">
+            <span className="text-[11px] font-bold">Total Medicines</span>
+            <Pill className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-black text-slate-800">
+            {inventoryStats.totalMedicines}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5">Formulations</p>
+        </button>
+
+        {/* 10. Total Stock Quantity */}
+        <button
+          onClick={() => onNavigate('inventory')}
+          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 text-left transition-all group"
+        >
+          <div className="flex items-center justify-between text-emerald-600 mb-1">
+            <span className="text-[11px] font-bold">Total Stock Qty</span>
+            <Layers className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-black text-slate-800">
+            {inventoryStats.totalStockQty.toLocaleString()}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5">Available units</p>
+        </button>
+
+        {/* 11. Low Stock */}
         <button
           onClick={() => onNavigate('inventory')}
           className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-yellow-400 text-left transition-all group"
         >
           <div className="flex items-center justify-between text-yellow-600 mb-1">
-            <span className="text-xs font-semibold">Low Stock</span>
+            <span className="text-[11px] font-bold">Low Stock</span>
             <AlertTriangle className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-bold text-slate-800">
+          <div className="text-xl font-black text-slate-800">
             {inventoryStats.lowStockCount}
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">Below alert level</p>
         </button>
 
-        <button
-          onClick={() => onNavigate('inventory')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-rose-400 text-left transition-all group"
-        >
-          <div className="flex items-center justify-between text-rose-600 mb-1">
-            <span className="text-xs font-semibold">Out of Stock</span>
-            <AlertOctagon className="w-4 h-4 group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-xl font-bold text-slate-800">
-            {inventoryStats.outOfStockCount}
-          </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">0 units available</p>
-        </button>
-
+        {/* 12. Near Expiry Medicines */}
         <button
           onClick={() => onNavigate('inventory')}
           className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-amber-400 text-left transition-all group"
         >
           <div className="flex items-center justify-between text-amber-600 mb-1">
-            <span className="text-xs font-semibold">Near Expiry</span>
+            <span className="text-[11px] font-bold">Near Expiry</span>
             <Clock className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-bold text-slate-800">
+          <div className="text-xl font-black text-slate-800">
             {inventoryStats.nearExpiryCount}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Expiring &lt;90 days</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Expiring &lt;{settings.expiryAlertDays}d</p>
         </button>
 
+        {/* 13. Expired Medicines */}
         <button
           onClick={() => onNavigate('inventory')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-rose-950 text-left transition-all group"
+          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-rose-600 text-left transition-all group"
         >
-          <div className="flex items-center justify-between text-rose-900 mb-1">
-            <span className="text-xs font-semibold">Expired</span>
+          <div className="flex items-center justify-between text-rose-700 mb-1">
+            <span className="text-[11px] font-bold">Expired</span>
             <AlertOctagon className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-bold text-rose-900">
+          <div className="text-xl font-black text-rose-700">
             {inventoryStats.expiredCount}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Locked & segregated</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Locked batches</p>
         </button>
 
-        <button
-          onClick={() => onNavigate('suppliers')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 text-left transition-all group"
-        >
-          <div className="flex items-center justify-between text-blue-600 mb-1">
-            <span className="text-xs font-semibold">Suppliers</span>
-            <Building2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-xl font-bold text-slate-800">
-            {suppliers.length}
-          </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Pharma vendors</p>
-        </button>
-
+        {/* 14. Total Customers */}
         <button
           onClick={() => onNavigate('customers')}
           className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-teal-400 text-left transition-all group"
         >
           <div className="flex items-center justify-between text-teal-600 mb-1">
-            <span className="text-xs font-semibold">Customers</span>
+            <span className="text-[11px] font-bold">Total Customers</span>
             <Users className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-bold text-slate-800">
+          <div className="text-xl font-black text-slate-800">
             {customers.length}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Registered accounts</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Registered</p>
+        </button>
+
+        {/* 15. Total Suppliers */}
+        <button
+          onClick={() => onNavigate('suppliers')}
+          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 text-left transition-all group"
+        >
+          <div className="flex items-center justify-between text-blue-600 mb-1">
+            <span className="text-[11px] font-bold">Total Suppliers</span>
+            <Building2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-black text-slate-800">
+            {suppliers.length}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5">Pharma vendors</p>
+        </button>
+
+        {/* 16. Total Staff */}
+        <button
+          onClick={() => onNavigate('staff')}
+          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 text-left transition-all group"
+        >
+          <div className="flex items-center justify-between text-indigo-600 mb-1">
+            <span className="text-[11px] font-bold">Total Staff</span>
+            <Users className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl font-black text-slate-800">
+            {staffMembers.length}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-0.5">Store accounts</p>
         </button>
       </div>
 

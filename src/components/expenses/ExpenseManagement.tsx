@@ -11,6 +11,7 @@ import {
   Download,
   Calendar,
   DollarSign,
+  Edit2,
   Trash2,
   X,
   CreditCard,
@@ -26,11 +27,12 @@ import { Expense, ExpenseCategory, PaymentMethod } from '../../types/pharmacy';
 import { formatPKR, exportToCSV } from '../../utils/helpers';
 
 export const ExpenseManagement: React.FC = () => {
-  const { expenses, addExpense, deleteExpense } = useStore();
+  const { expenses, addExpense, updateExpense, deleteExpense } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Form State
   const [category, setCategory] = useState<ExpenseCategory>('Shop Rent');
@@ -72,23 +74,56 @@ export const ExpenseManagement: React.FC = () => {
     });
   }, [expenses, searchQuery, selectedCategory]);
 
+  const handleOpenAdd = () => {
+    setEditingExpense(null);
+    setCategory('Shop Rent');
+    setDescription('');
+    setAmount(1000);
+    setDate(new Date().toISOString().split('T')[0]);
+    setPaymentMethod('Cash');
+    setReceiptRef('');
+    setShowAddModal(true);
+  };
+
+  const handleOpenEdit = (exp: Expense) => {
+    setEditingExpense(exp);
+    setCategory(exp.category);
+    setDescription(exp.description);
+    setAmount(exp.amount);
+    setDate(exp.date);
+    setPaymentMethod(exp.paymentMethod);
+    setReceiptRef(exp.receiptRef || '');
+    setShowAddModal(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim() || amount <= 0) {
-      alert('Please enter a valid description and positive expense amount.');
       return;
     }
 
-    addExpense({
-      category,
-      description: description.trim(),
-      amount: Number(amount),
-      date,
-      paymentMethod,
-      receiptRef: receiptRef.trim() || undefined,
-    });
+    if (editingExpense) {
+      updateExpense(editingExpense.id, {
+        category,
+        description: description.trim(),
+        amount: Number(amount),
+        date,
+        paymentMethod,
+        receiptRef: receiptRef.trim() || undefined,
+      });
+    } else {
+      addExpense({
+        category,
+        description: description.trim(),
+        amount: Number(amount),
+        date,
+        paymentMethod,
+        receiptRef: receiptRef.trim() || undefined,
+      });
+    }
 
     setShowAddModal(false);
+    setEditingExpense(null);
     setDescription('');
     setAmount(1000);
     setReceiptRef('');
@@ -150,7 +185,7 @@ export const ExpenseManagement: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={handleOpenAdd}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors"
           >
             <Plus className="w-4 h-4" /> Add New Expense
@@ -236,7 +271,7 @@ export const ExpenseManagement: React.FC = () => {
                 <th className="py-3 px-3">Recorded By</th>
                 <th className="py-3 px-3">Voucher Ref</th>
                 <th className="py-3 px-3 text-right">Amount (PKR)</th>
-                <th className="py-3 px-3 text-right">Action</th>
+                <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -276,17 +311,22 @@ export const ExpenseManagement: React.FC = () => {
                       {formatPKR(exp.amount)}
                     </td>
                     <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={() => {
-                          if (confirm('Delete this expense entry?')) {
-                            deleteExpense(exp.id);
-                          }
-                        }}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleOpenEdit(exp)}
+                          className="p-1 text-slate-400 hover:text-indigo-600 rounded"
+                          title="Edit Expense"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteExpense(exp.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                          title="Delete Expense"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -296,13 +336,13 @@ export const ExpenseManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Add Expense Modal */}
+      {/* Add / Edit Expense Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-5 border border-slate-200 shadow-2xl space-y-3 text-xs">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <h4 className="font-bold text-sm text-slate-900">
-                Record New Pharmacy Operational Expense
+                {editingExpense ? 'Edit Pharmacy Operational Expense' : 'Record New Pharmacy Operational Expense'}
               </h4>
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
@@ -402,7 +442,7 @@ export const ExpenseManagement: React.FC = () => {
                   type="submit"
                   className="flex-1 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold"
                 >
-                  Record Expense
+                  {editingExpense ? 'Save Updates' : 'Record Expense'}
                 </button>
               </div>
             </form>

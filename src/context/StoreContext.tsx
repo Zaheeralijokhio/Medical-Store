@@ -141,9 +141,11 @@ interface StoreContextType {
   addCustomer: (customer: Omit<Customer, 'id' | 'totalPurchases' | 'outstandingBalance' | 'createdAt'>) => Customer;
   updateCustomer: (id: string, updated: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
+  recordCustomerPayment: (customerId: string, amount: number) => void;
 
   // Expenses
   addExpense: (expense: Omit<Expense, 'id' | 'addedBy' | 'addedByName'>) => void;
+  updateExpense: (id: string, updated: Partial<Expense>) => void;
   deleteExpense: (id: string) => void;
 
   // Stock Adjustment
@@ -479,12 +481,84 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
 
-    // Fast 2.5-second polling interval for instant cross-device updates
+    // Fast 2.5-second polling interval for cross-device cloud updates
     const interval = setInterval(() => {
       if (navigator.onLine) {
         pullLatestDatabaseState();
       }
     }, 2500);
+
+    // Real-Time WebSocket connection to /ws with automatic reconnect & cleanup (Part 3)
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let isUnmounted = false;
+
+    const connectWebSocket = () => {
+      if (isUnmounted || typeof window === 'undefined') return;
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(String(event.data));
+            if ((msg.type === 'DB_UPDATED' || msg.type === 'CONNECTED') && msg.data) {
+              const d = msg.data;
+              if (Array.isArray(d.deletedIds)) {
+                d.deletedIds.forEach((id: string) => recordDeletedId(id));
+              }
+              const delSet = deletedRecordIdsRef.current;
+              if (d.settings) setSettings(d.settings);
+              if (Array.isArray(d.medicines)) {
+                setMedicines(d.medicines.filter((m: any) => !delSet.has(m.id)));
+              }
+              if (Array.isArray(d.suppliers)) {
+                setSuppliers(d.suppliers.filter((s: any) => !delSet.has(s.id)));
+              }
+              if (Array.isArray(d.customers)) {
+                setCustomers(d.customers.filter((c: any) => !delSet.has(c.id)));
+              }
+              if (Array.isArray(d.sales)) {
+                setSales(d.sales.filter((s: any) => !delSet.has(s.id)));
+              }
+              if (Array.isArray(d.saleReturns)) {
+                setSaleReturns(d.saleReturns);
+              }
+              if (Array.isArray(d.purchases)) {
+                setPurchases(d.purchases);
+              }
+              if (Array.isArray(d.expenses)) {
+                setExpenses(d.expenses.filter((e: any) => !delSet.has(e.id)));
+              }
+              if (Array.isArray(d.adjustments)) {
+                setAdjustments(d.adjustments);
+              }
+              if (Array.isArray(d.auditLogs)) {
+                setAuditLogs(d.auditLogs);
+              }
+              if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
+                setStaffMembers(sanitizeStaffAccounts(d.staffMembers.filter((u: any) => !delSet.has(u.id))));
+              }
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          if (!isUnmounted) {
+            reconnectTimer = setTimeout(connectWebSocket, 2000);
+          }
+        };
+
+        ws.onerror = () => {
+          try {
+            ws?.close();
+          } catch {}
+        };
+      } catch {}
+    };
+
+    connectWebSocket();
 
     // Instant cross-tab & cross-account sync on same device (0ms)
     let bc: BroadcastChannel | null = null;
@@ -511,6 +585,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               } catch {}
               return next;
             });
+          } else if (event.data?.type === 'FULL_REFRESH') {
+            pullLatestDatabaseState();
           }
         };
       }
@@ -521,7 +597,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
 
     return () => {
+      isUnmounted = true;
       clearInterval(interval);
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      try { ws?.close(); } catch {}
       try { bc?.close(); } catch {}
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleVisibilityOrFocus);
@@ -1454,6 +1533,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setSaleReturns(prev => [returnRecord, ...prev]);
 
+    fetch('/api/sale-return', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(returnRecord),
+    }).catch(() => {});
+
     logActivity(
       'SALE_RETURN',
       `Processed return for invoice ${sale.invoiceNumber}. Restored items and refunded Rs. ${totalRefund}`,
@@ -1604,6 +1689,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
+    fetch(`/api/purchase/${encodeURIComponent(purchaseId)}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount }),
+    }).catch(() => {});
+
     logActivity('PAYMENT_RECORDED', `Paid Rs. ${amount} for Purchase ID ${purchaseId}`);
   };
 
@@ -1618,16 +1709,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString().split('T')[0],
     };
     setSuppliers(prev => [newSup, ...prev]);
+    fetch('/api/supplier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSup),
+    }).catch(() => {});
     logActivity('SUPPLIER_ADDED', `Registered supplier: ${newSup.companyName}`);
   };
 
   const updateSupplier = (id: string, updated: Partial<Supplier>) => {
     setSuppliers(prev => prev.map(s => (s.id === id ? { ...s, ...updated } : s)));
+    fetch(`/api/supplier/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    }).catch(() => {});
     logActivity('SUPPLIER_UPDATED', `Updated supplier ID ${id}`);
   };
 
   const deleteSupplier = (id: string) => {
+    recordDeletedId(id);
     setSuppliers(prev => prev.filter(s => s.id !== id));
+    fetch(`/api/supplier/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
     logActivity('SUPPLIER_DELETED', `Deleted supplier ID ${id}`);
   };
 
@@ -1636,7 +1741,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       prev.map(s => {
         if (s.id !== supplierId) return s;
         const totalPaid = s.totalPaid + amount;
-        const outstandingBalance = Math.max(0, s.totalPurchases - totalPaid);
+        const outstandingBalance = Math.max(0, s.outstandingBalance - amount);
         return {
           ...s,
           totalPaid,
@@ -1644,6 +1749,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
       })
     );
+    fetch(`/api/supplier/${encodeURIComponent(supplierId)}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount }),
+    }).catch(() => {});
     logActivity('SUPPLIER_PAYMENT', `Disbursed supplier payment of Rs. ${amount} to ID: ${supplierId}`);
   };
 
@@ -1656,16 +1766,50 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString().split('T')[0],
     };
     setCustomers(prev => [newCust, ...prev]);
+    fetch('/api/customer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newCust),
+    }).catch(() => {});
     logActivity('CUSTOMER_ADDED', `Registered customer: ${newCust.name} (${newCust.phone})`);
     return newCust;
   };
 
   const updateCustomer = (id: string, updated: Partial<Customer>) => {
     setCustomers(prev => prev.map(c => (c.id === id ? { ...c, ...updated } : c)));
+    fetch(`/api/customer/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    }).catch(() => {});
+    logActivity('CUSTOMER_UPDATED', `Updated customer ID ${id}`);
   };
 
   const deleteCustomer = (id: string) => {
+    recordDeletedId(id);
     setCustomers(prev => prev.filter(c => c.id !== id));
+    fetch(`/api/customer/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
+    logActivity('CUSTOMER_DELETED', `Deleted customer ID ${id}`);
+  };
+
+  const recordCustomerPayment = (customerId: string, amount: number) => {
+    setCustomers(prev =>
+      prev.map(c => {
+        if (c.id !== customerId) return c;
+        return {
+          ...c,
+          outstandingBalance: Math.max(0, c.outstandingBalance - amount),
+        };
+      })
+    );
+    fetch(`/api/customer/${encodeURIComponent(customerId)}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount }),
+    }).catch(() => {});
+    logActivity('CUSTOMER_PAYMENT', `Received Rs. ${amount} credit recovery from customer ID ${customerId}`);
   };
 
   // Expenses
@@ -1677,11 +1821,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addedByName: currentUser?.fullName || 'Pharmacist',
     };
     setExpenses(prev => [newExp, ...prev]);
+    fetch('/api/expense', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newExp),
+    }).catch(() => {});
     logActivity('EXPENSE_ADDED', `Recorded ${newExp.category} expense: Rs. ${newExp.amount} - ${newExp.description}`);
   };
 
+  const updateExpense = (id: string, updated: Partial<Expense>) => {
+    setExpenses(prev => prev.map(e => (e.id === id ? { ...e, ...updated } : e)));
+    fetch(`/api/expense/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    }).catch(() => {});
+    logActivity('EXPENSE_UPDATED', `Updated expense record ID: ${id}`);
+  };
+
   const deleteExpense = (id: string) => {
+    recordDeletedId(id);
     setExpenses(prev => prev.filter(e => e.id !== id));
+    fetch(`/api/expense/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
     logActivity('EXPENSE_DELETED', `Removed expense record ID: ${id}`);
   };
 
@@ -1732,6 +1895,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     setAdjustments(prev => [adjRecord, ...prev]);
+
+    fetch('/api/adjustment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(adjRecord),
+    }).catch(() => {});
 
     logActivity(
       'STOCK_ADJUSTED',
@@ -1880,7 +2049,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Settings
   const updateSettings = (newSettings: Partial<StoreSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
+    setSettings(prev => {
+      const merged = { ...prev, ...newSettings };
+      fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(merged),
+      }).catch(() => {});
+      return merged;
+    });
     logActivity('SETTINGS_UPDATED', 'Updated store configuration & parameters');
   };
 
@@ -1951,8 +2128,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addCustomer,
         updateCustomer,
         deleteCustomer,
+        recordCustomerPayment,
 
         addExpense,
+        updateExpense,
         deleteExpense,
 
         recordStockAdjustment,

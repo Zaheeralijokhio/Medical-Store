@@ -97,26 +97,30 @@ export function sanitizeStaffAccounts(users?: User[]): User[] {
     return [OWNER_ACCOUNT];
   }
 
-  // Keep all custom staff created by the Owner; only strip the 4 old hardcoded demo IDs
-  const customStaff: User[] = [];
-  const seenIds = new Set<string>([OWNER_ACCOUNT.id]);
+  // Keep all custom staff created by the Owner; deduplicate by ID and username (keeping latest)
+  const byUsername = new Map<string, User>();
 
   for (const u of users) {
     if (
       u &&
       u.id &&
-      !seenIds.has(u.id) &&
+      u.id !== OWNER_ACCOUNT.id &&
       !LEGACY_DEMO_USER_IDS.has(u.id)
     ) {
-      seenIds.add(u.id);
-      customStaff.push({
-        ...u,
-        status: u.status || 'active',
-        pin: u.pin || '5678',
-        password: u.password || 'seller123',
-      });
+      const uname = String(u.username || u.id).trim().toLowerCase().replace(/^@/, '');
+      if (uname && uname !== 'admin') {
+        byUsername.set(uname, {
+          ...u,
+          username: uname,
+          status: u.status || 'active',
+          pin: u.pin || '5678',
+          password: u.password || 'seller123',
+        });
+      }
     }
   }
+
+  const customStaff: User[] = Array.from(byUsername.values());
 
   const existingOwner = users.find(u => u && u.id === OWNER_ACCOUNT.id);
   const ownerToUse: User = existingOwner

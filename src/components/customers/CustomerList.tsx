@@ -24,7 +24,7 @@ import { Customer } from '../../types/pharmacy';
 import { formatPKR, exportToCSV } from '../../utils/helpers';
 
 export const CustomerList: React.FC = () => {
-  const { customers, sales, addCustomer, updateCustomer, deleteCustomer, settings } = useStore();
+  const { customers, sales, addCustomer, updateCustomer, deleteCustomer, recordCustomerPayment, settings } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddEditModal, setShowAddEditModal] = useState(false);
@@ -304,10 +304,35 @@ export const CustomerList: React.FC = () => {
               <div className="text-right">
                 <span className="text-[10px] text-slate-500 uppercase block">Current Credit Due</span>
                 <span className="text-base font-black font-mono text-rose-700">
-                  {formatPKR(selectedCustomerForStatement.outstandingBalance)}
+                  {formatPKR(
+                    customers.find(c => c.id === selectedCustomerForStatement.id)?.outstandingBalance ??
+                      selectedCustomerForStatement.outstandingBalance
+                  )}
                 </span>
               </div>
             </div>
+
+            {/* Credit Payment Recovery Box */}
+            {(customers.find(c => c.id === selectedCustomerForStatement.id)?.outstandingBalance ??
+              selectedCustomerForStatement.outstandingBalance) > 0 && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">
+                <div>
+                  <span className="font-bold text-emerald-900 block">Settle Outstanding Patient Credit</span>
+                  <span className="text-[10px] text-emerald-700">Record cash/transfer received against credit balance</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentCust =
+                      customers.find(c => c.id === selectedCustomerForStatement.id) || selectedCustomerForStatement;
+                    recordCustomerPayment(currentCust.id, currentCust.outstandingBalance);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shrink-0"
+                >
+                  Mark Full Balance Paid
+                </button>
+              </div>
+            )}
 
             {/* Invoices History for this customer */}
             <div>

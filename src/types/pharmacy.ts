@@ -17,6 +17,8 @@ export interface StaffPermission {
 
 export interface User {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   username: string;
   fullName: string;
   email: string;
@@ -24,6 +26,7 @@ export interface User {
   role: UserRole;
   pin?: string; // 4-digit numeric keypad PIN
   password?: string; // Staff login password set by Owner
+  passwordHash?: string;
   designation: string;
   status: 'active' | 'inactive';
   permissions: StaffPermission;
@@ -62,6 +65,8 @@ export interface MedicineBatch {
 
 export interface Medicine {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   code: string;
   name: string;
   genericName: string;
@@ -91,6 +96,9 @@ export type StockStatusType =
   | 'expired';     // Dark Red: expiryDate < today
 
 export interface SaleItem {
+  id?: string;
+  saleId?: string;
+  storeId?: string;
   medicineId: string;
   medicineName: string;
   genericName: string;
@@ -108,6 +116,8 @@ export type PaymentMethod = 'Cash' | 'Card' | 'Bank Transfer' | 'EasyPaisa' | 'J
 
 export interface Sale {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   invoiceNumber: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm:ss
@@ -141,6 +151,8 @@ export interface SaleReturnItem {
 
 export interface SaleReturn {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   saleId: string;
   invoiceNumber: string;
   returnDate: string;
@@ -154,6 +166,8 @@ export interface SaleReturn {
 
 export interface Supplier {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   companyName: string;
   contactPerson: string;
   phone: string;
@@ -168,6 +182,9 @@ export interface Supplier {
 }
 
 export interface PurchaseItem {
+  id?: string;
+  purchaseId?: string;
+  storeId?: string;
   medicineId: string;
   medicineName: string;
   batchNumber: string;
@@ -181,6 +198,8 @@ export interface PurchaseItem {
 
 export interface Purchase {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   purchaseNumber: string;
   supplierId: string;
   supplierName: string;
@@ -198,6 +217,8 @@ export interface Purchase {
 
 export interface Customer {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   name: string;
   phone: string;
   email?: string;
@@ -220,6 +241,8 @@ export type ExpenseCategory =
 
 export interface Expense {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   category: ExpenseCategory;
   description: string;
   amount: number;
@@ -240,6 +263,8 @@ export type AdjustmentType =
 
 export interface StockAdjustment {
   id: string;
+  storeId?: string;
+  createdBy?: string;
   medicineId: string;
   medicineName: string;
   batchId: string;
@@ -313,6 +338,82 @@ export interface StoreSettings {
   businessClosingHours: string;
 }
 
+export interface StoreRecord {
+  id: string;
+  name: string;
+  ownerId: string;
+  drugLicenseNumber: string;
+  taxRegistrationNumber: string;
+  address: string;
+  city: string;
+  phone: string;
+  email: string;
+  createdAt: string;
+}
+
+export interface MedicineCategory {
+  id: string;
+  storeId: string;
+  name: string;
+  description?: string;
+  createdBy?: string;
+  createdAt: string;
+}
+
+export interface StockTransaction {
+  id: string;
+  storeId: string;
+  medicineId: string;
+  medicineName: string;
+  batchId: string;
+  batchNumber: string;
+  type: 'opening' | 'purchase' | 'sale' | 'return' | 'adjustment';
+  quantityChange: number;
+  previousQuantity: number;
+  newQuantity: number;
+  referenceId?: string;
+  createdBy: string;
+  createdByName: string;
+  timestamp: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  storeId: string;
+  type: 'supplier_payment' | 'purchase_payment' | 'customer_payment' | 'expense_payment';
+  referenceId: string;
+  partyId?: string;
+  partyName: string;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  date: string;
+  createdBy: string;
+  createdByName: string;
+  notes?: string;
+}
+
+export interface CashMemo {
+  id: string;
+  storeId: string;
+  saleId: string;
+  invoiceNumber: string;
+  date: string;
+  time: string;
+  createdBy: string;
+  createdByName: string;
+  customerId?: string;
+  customerName: string;
+  customerPhone?: string;
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  amountPaid: number;
+  changeGiven: number;
+  paymentMethod: PaymentMethod;
+  itemsCount: number;
+}
+
 export interface BackupSnapshot {
   id: string;
   filename: string;
@@ -326,3 +427,4 @@ export interface BackupSnapshot {
     suppliers: number;
   };
 }
+

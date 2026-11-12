@@ -19,6 +19,7 @@ import {
   Receipt,
   FileText,
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { Sale, StoreSettings } from '../../types/pharmacy';
 import { formatPKR } from '../../utils/helpers';
 
@@ -46,56 +47,154 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     window.print();
   };
 
-  const handleDownloadTextPDF = () => {
-    const receiptContent = `
-============================================================
-              ${settings.storeName.toUpperCase()}
-       ${settings.storeTagline}
-${settings.storeAddress}, ${settings.city}
-Phone: ${settings.phone}
-Drug License: ${settings.drugLicenseNumber} | NTN: ${settings.taxRegistrationNumber}
-============================================================
-${settings.invoiceHeader}
-Invoice #:     ${sale.invoiceNumber}
-Date & Time:   ${sale.date} ${sale.time}
-Pharmacist:    ${sale.staffName}
-Customer:      ${sale.customerName} ${sale.customerPhone ? '(' + sale.customerPhone + ')' : ''}
-Payment Mode:  ${sale.paymentMethod}
-============================================================
-ITEMS SOLD:
-------------------------------------------------------------
-${sale.items
-  .map(
-    (item, idx) =>
-      `${idx + 1}. ${item.medicineName} [Batch: ${item.batchNumber}]
-   Exp: ${item.expiryDate} | Qty: ${item.quantity} x Rs. ${item.unitPrice.toFixed(2)} - Disc: Rs. ${item.discountAmount.toFixed(2)} = Rs. ${item.totalAmount.toFixed(2)}`
-  )
-  .join('\n')}
-------------------------------------------------------------
-Subtotal:                    ${formatPKR(sale.subtotal)}
-Discount:                    -${formatPKR(sale.discountTotal)}
-Tax:                         ${formatPKR(sale.taxTotal)}
-------------------------------------------------------------
-NET PAYABLE AMOUNT:          ${formatPKR(sale.grandTotal)}
-Amount Tendered (Cash):      ${formatPKR(sale.amountPaid)}
-Change Returned:             ${formatPKR(sale.changeGiven)}
-============================================================
-${settings.invoiceFooter}
-Thank you for choosing ${settings.storeName}!
-============================================================
-`;
-    const blob = new Blob([receiptContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${sale.invoiceNumber}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const handleDownloadRealPDF = () => {
+    const isThermal58 = printFormat === '58mm';
+    const isThermal80 = printFormat === '80mm';
+    const pageWidth = isThermal58 ? 58 : isThermal80 ? 80 : 210;
+    const estimatedHeight = Math.max(160, 110 + sale.items.length * 12);
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: printFormat === 'A4' ? 'a4' : [pageWidth, estimatedHeight],
+    });
+
+    const margin = isThermal58 ? 4 : isThermal80 ? 5 : 15;
+    const contentWidth = pageWidth - margin * 2;
+    let y = margin + 4;
+
+    // Store Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(printFormat === 'A4' ? 16 : isThermal58 ? 10 : 12);
+    doc.text(settings.storeName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+    y += printFormat === 'A4' ? 6 : 4.5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(printFormat === 'A4' ? 9 : 7);
+    doc.text(settings.storeTagline || 'Registered Retail & Clinical Pharmacy', pageWidth / 2, y, { align: 'center' });
+    y += 4;
+    doc.text(`${settings.storeAddress}, ${settings.city}`, pageWidth / 2, y, { align: 'center' });
+    y += 4;
+    doc.text(`Ph: ${settings.phone} | DRAP: ${settings.drugLicenseNumber}`, pageWidth / 2, y, { align: 'center' });
+    y += 3.5;
+    doc.text(`NTN: ${settings.taxRegistrationNumber}`, pageWidth / 2, y, { align: 'center' });
+    y += 3;
+
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4.5;
+
+    // Invoice Meta
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(printFormat === 'A4' ? 10 : 7.5);
+    doc.text(`INVOICE: #${sale.invoiceNumber}`, margin, y);
+    y += 4;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(printFormat === 'A4' ? 9 : 7);
+    doc.text(`Date & Time: ${sale.date} ${sale.time}`, margin, y);
+    y += 3.8;
+    doc.text(`Dispenser: ${sale.staffName}`, margin, y);
+    y += 3.8;
+    doc.text(
+      `Customer: ${sale.customerName}${sale.customerPhone ? ` (${sale.customerPhone})` : ''}`,
+      margin,
+      y
+    );
+    y += 3.8;
+    doc.text(`Payment Method: ${sale.paymentMethod} | Status: ${sale.status.toUpperCase()}`, margin, y);
+    y += 3.5;
+
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4;
+
+    // Table Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(printFormat === 'A4' ? 9 : 7);
+    doc.text('Medicine / Batch', margin, y);
+    doc.text('Qty', margin + contentWidth * 0.58, y, { align: 'center' });
+    doc.text('Rate', margin + contentWidth * 0.76, y, { align: 'right' });
+    doc.text('Total', pageWidth - margin, y, { align: 'right' });
+    y += 2.5;
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4;
+
+    // Items
+    doc.setFont('helvetica', 'normal');
+    sale.items.forEach((item, idx) => {
+      const itemTitle = `${idx + 1}. ${item.medicineName}`;
+      doc.setFont('helvetica', 'bold');
+      doc.text(itemTitle.substring(0, isThermal58 ? 20 : 34), margin, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(String(item.quantity), margin + contentWidth * 0.58, y, { align: 'center' });
+      doc.text(item.unitPrice.toFixed(0), margin + contentWidth * 0.76, y, { align: 'right' });
+      doc.text(item.totalAmount.toFixed(0), pageWidth - margin, y, { align: 'right' });
+      y += 3.5;
+
+      doc.setFontSize(printFormat === 'A4' ? 7.5 : 6);
+      doc.text(
+        `   Batch: ${item.batchNumber} | Exp: ${item.expiryDate}${
+          item.discountAmount > 0 ? ` | Disc: -Rs.${item.discountAmount}` : ''
+        }`,
+        margin,
+        y
+      );
+      doc.setFontSize(printFormat === 'A4' ? 9 : 7);
+      y += 4.2;
+    });
+
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4.5;
+
+    // Summary Totals
+    doc.setFont('helvetica', 'normal');
+    doc.text('Subtotal:', margin + contentWidth * 0.35, y);
+    doc.text(formatPKR(sale.subtotal), pageWidth - margin, y, { align: 'right' });
+    y += 4;
+
+    if (sale.discountTotal > 0) {
+      doc.text('Discount:', margin + contentWidth * 0.35, y);
+      doc.text(`-${formatPKR(sale.discountTotal)}`, pageWidth - margin, y, { align: 'right' });
+      y += 4;
+    }
+
+    if (sale.taxTotal > 0) {
+      doc.text(`Tax (${settings.taxRatePercentage}%):`, margin + contentWidth * 0.35, y);
+      doc.text(formatPKR(sale.taxTotal), pageWidth - margin, y, { align: 'right' });
+      y += 4;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(printFormat === 'A4' ? 11 : 8.5);
+    doc.text('NET TOTAL:', margin + contentWidth * 0.35, y);
+    doc.text(formatPKR(sale.grandTotal), pageWidth - margin, y, { align: 'right' });
+    y += 4.5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(printFormat === 'A4' ? 8.5 : 7);
+    doc.text('Amount Paid:', margin + contentWidth * 0.35, y);
+    doc.text(formatPKR(sale.amountPaid), pageWidth - margin, y, { align: 'right' });
+    y += 3.8;
+
+    doc.text('Change Returned:', margin + contentWidth * 0.35, y);
+    doc.text(formatPKR(sale.changeGiven), pageWidth - margin, y, { align: 'right' });
+    y += 5;
+
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 4.5;
+
+    doc.setFontSize(printFormat === 'A4' ? 8 : 6.5);
+    doc.text(settings.invoiceFooter || 'Thank you for choosing our pharmacy!', pageWidth / 2, y, {
+      align: 'center',
+      maxWidth: contentWidth,
+    });
+
+    doc.save(`${sale.invoiceNumber}.pdf`);
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className={`relative w-full ${printFormat === '58mm' ? 'max-w-sm' : printFormat === '80mm' ? 'max-w-md' : 'max-w-3xl'} bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transition-all`}>
+    <div className="print-invoice-modal fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 print:static print:bg-white print:p-0">
+      <div className={`relative w-full ${printFormat === '58mm' ? 'max-w-sm' : printFormat === '80mm' ? 'max-w-md' : 'max-w-3xl'} bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transition-all print:shadow-none print:border-none print:rounded-none`}>
         {/* Action Header bar (no-print) */}
         <div className="no-print p-4 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -155,10 +254,10 @@ Thank you for choosing ${settings.storeName}!
               <Printer className="w-4 h-4" /> Print
             </button>
             <button
-              onClick={handleDownloadTextPDF}
+              onClick={handleDownloadRealPDF}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-colors"
             >
-              <Download className="w-4 h-4" /> Save
+              <Download className="w-4 h-4" /> Download PDF
             </button>
             <button
               onClick={onClose}
