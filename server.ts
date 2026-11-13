@@ -459,10 +459,22 @@ async function initMongoDB(): Promise<void> {
 function writeLocalFileOnly(data: DatabaseSchema): void {
   data.cleanVersion = DATA_CLEAN_VERSION;
   data.lastUpdated = new Date().toISOString();
+  const serialized = JSON.stringify(data, null, 2);
   const tmpFile = `${DB_FILE}.tmp.${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   try {
-    fs.writeFileSync(tmpFile, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(tmpFile, serialized, 'utf-8');
     fs.renameSync(tmpFile, DB_FILE);
+
+    const hasRealData =
+      (Array.isArray(data.staffMembers) && data.staffMembers.length > 1) ||
+      (Array.isArray(data.medicines) && data.medicines.length > 0) ||
+      (Array.isArray(data.sales) && data.sales.length > 0);
+    if (hasRealData) {
+      const autoBackup = path.join(BACKUPS_DIR, 'auto_latest.json');
+      const autoTmp = `${autoBackup}.tmp.${Date.now()}`;
+      fs.writeFileSync(autoTmp, serialized, 'utf-8');
+      fs.renameSync(autoTmp, autoBackup);
+    }
   } catch (err) {
     console.error('Failed atomic write to database:', err);
     if (fs.existsSync(tmpFile)) {
@@ -485,6 +497,21 @@ function readDatabase(): DatabaseSchema {
   } catch (err) {
     console.error('Error reading pharmacy_database.json:', err);
   }
+
+  // Try rolling backup recovery before ever falling back to clean initial DB
+  try {
+    const autoBackup = path.join(BACKUPS_DIR, 'auto_latest.json');
+    if (fs.existsSync(autoBackup)) {
+      const rawBak = fs.readFileSync(autoBackup, 'utf-8');
+      const parsedBak = JSON.parse(rawBak);
+      const payload = parsedBak?.data || parsedBak;
+      if (payload && payload.cleanVersion === DATA_CLEAN_VERSION) {
+        const recovered = sanitizeDatabaseState(payload);
+        writeLocalFileOnly(recovered);
+        return recovered;
+      }
+    }
+  } catch {}
 
   const initial = getInitialDatabase();
   writeLocalFileOnly(initial);

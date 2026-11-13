@@ -33,7 +33,7 @@ if (!is_dir($backupsDir)) {
 
 function sendJson(array $payload, int $status = 200): void {
     http_response_code($status);
-    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
 }
 
@@ -77,12 +77,15 @@ function normalizeUserPermissions($rawPerms, string $role = 'staff'): array {
     ];
 }
 
-function acquireDbWriteLock(string $sqliteFile): void {
+function acquireDbLock(string $sqliteFile, bool $exclusive = true): void {
     static $lockFp = null;
-    if ($lockFp !== null) return;
+    if ($lockFp !== null) {
+        @flock($lockFp, $exclusive ? LOCK_EX : LOCK_SH);
+        return;
+    }
     $fp = @fopen($sqliteFile . '.lock', 'c+');
     if ($fp) {
-        @flock($fp, LOCK_EX);
+        @flock($fp, $exclusive ? LOCK_EX : LOCK_SH);
         $lockFp = $fp;
         register_shutdown_function(function () use (&$lockFp) {
             if ($lockFp) {
@@ -92,6 +95,10 @@ function acquireDbWriteLock(string $sqliteFile): void {
             }
         });
     }
+}
+
+function acquireDbWriteLock(string $sqliteFile): void {
+    acquireDbLock($sqliteFile, true);
 }
 
 function getOwnerTemplate(): array {
@@ -453,8 +460,9 @@ function getDatabaseConnection(string $sqliteFile): PDO {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
-    $pdo->exec('PRAGMA journal_mode = WAL;');
-    $pdo->exec('PRAGMA busy_timeout = 5000;');
+    $pdo->exec('PRAGMA busy_timeout = 8000;');
+    $pdo->exec('PRAGMA journal_mode = DELETE;');
+    $pdo->exec('PRAGMA synchronous = FULL;');
     $pdo->exec('PRAGMA foreign_keys = ON;');
 
     // Initialize all 18 relational SQL tables + store snapshot table
@@ -690,13 +698,18 @@ function getDatabaseConnection(string $sqliteFile): PDO {
 function syncNormalizedTables(PDO $pdo, array $clean): void {
     $now = gmdate('c');
 
+    $snapJson = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+    if (!is_string($snapJson) || $snapJson === '') {
+        throw new RuntimeException('Failed to encode state snapshot safely');
+    }
+
     // Sync state_snapshot in store_settings (atomic single source of truth + relational mirrors)
     $stmtSettings = $pdo->prepare('INSERT OR REPLACE INTO store_settings (id, store_id, store_name, state_snapshot, updated_at) VALUES (?, ?, ?, ?, ?)');
     $stmtSettings->execute([
         'settings-1',
         DEFAULT_STORE_ID,
         (string)($clean['settings']['storeName'] ?? 'PharmaCare'),
-        json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        $snapJson,
         $now,
     ]);
 
@@ -885,6 +898,180 @@ function syncNormalizedTables(PDO $pdo, array $clean): void {
     }
 }
 
+function reconstructFromRelationalTables(PDO $pdo): ?array {
+    $staffRows = $pdo->query('SELECT * FROM staff_members')->fetchAll() ?: [];
+    $medRows = $pdo->query('SELECT * FROM medicines')->fetchAll() ?: [];
+    $salesRows = $pdo->query('SELECT * FROM sales')->fetchAll() ?: [];
+    $supRows = $pdo->query('SELECT * FROM suppliers')->fetchAll() ?: [];
+    $custRows = $pdo->query('SELECT * FROM customers')->fetchAll() ?: [];
+    $purRows = $pdo->query('SELECT * FROM purchases')->fetchAll() ?: [];
+    $expRows = $pdo->query('SELECT * FROM expenses')->fetchAll() ?: [];
+
+    if (
+        count($staffRows) <= 1 &&
+        count($medRows) === 0 &&
+        count($salesRows) === 0 &&
+        count($supRows) === 0 &&
+        count($custRows) === 0 &&
+        count($purRows) === 0 &&
+        count($expRows) === 0
+    ) {
+        return null;
+    }
+
+    $base = getInitialDatabase();
+    if (count($staffRows) > 0) {
+        $base['staffMembers'] = array_map(function ($r) {
+            return [
+                'id' => $r['id'],
+                'storeId' => $r['store_id'] ?? DEFAULT_STORE_ID,
+                'fullName' => $r['full_name'] ?? '',
+                'username' => $r['username'] ?? '',
+                'password' => $r['password'] ?? '',
+                'passwordHash' => $r['password_hash'] ?? '',
+                'pin' => $r['pin'] ?? '5678',
+                'role' => $r['role'] ?? 'staff',
+                'designation' => $r['designation'] ?? 'Staff Dispenser',
+                'phone' => $r['phone'] ?? '',
+                'email' => $r['email'] ?? '',
+                'status' => $r['status'] ?? 'active',
+                'joiningDate' => $r['joining_date'] ?? '',
+                'lastLogin' => $r['last_login'] ?? '',
+                'permissions' => json_decode((string)($r['permissions_json'] ?? '{}'), true) ?: [],
+                'createdBy' => $r['created_by'] ?? 'usr-owner-1',
+            ];
+        }, $staffRows);
+    }
+
+    $base['medicines'] = array_map(function ($m) {
+        $batches = json_decode((string)($m['batches_json'] ?? '[]'), true) ?: [];
+        return [
+            'id' => $m['id'],
+            'storeId' => $m['store_id'] ?? DEFAULT_STORE_ID,
+            'code' => $m['code'] ?? '',
+            'name' => $m['name'] ?? '',
+            'genericName' => $m['generic_name'] ?? '',
+            'brandName' => $m['brand_name'] ?? '',
+            'category' => $m['category'] ?? 'General',
+            'manufacturer' => $m['manufacturer'] ?? '',
+            'medicineType' => $m['medicine_type'] ?? 'Tablet',
+            'strength' => $m['strength'] ?? '',
+            'packingSize' => $m['packing_size'] ?? '',
+            'barcode' => $m['barcode'] ?? '',
+            'minStockLevel' => (int)($m['min_stock_level'] ?? 15),
+            'storageLocation' => $m['storage_location'] ?? '',
+            'fixedSalePrice' => (float)($m['fixed_sale_price'] ?? 0),
+            'fixedPurchasePrice' => (float)($m['fixed_purchase_price'] ?? 0),
+            'batches' => $batches,
+            'totalQuantity' => (float)($m['total_quantity'] ?? 0),
+            'status' => $m['status'] ?? 'active',
+            'createdBy' => $m['created_by'] ?? 'usr-owner-1',
+        ];
+    }, $medRows);
+
+    $base['suppliers'] = array_map(fn($s) => [
+        'id' => $s['id'],
+        'storeId' => $s['store_id'] ?? DEFAULT_STORE_ID,
+        'companyName' => $s['company_name'] ?? '',
+        'contactPerson' => $s['contact_person'] ?? '',
+        'phone' => $s['phone'] ?? '',
+        'email' => $s['email'] ?? '',
+        'address' => $s['address'] ?? '',
+        'totalPurchases' => (float)($s['total_purchases'] ?? 0),
+        'totalPaid' => (float)($s['total_paid'] ?? 0),
+        'outstandingBalance' => (float)($s['outstanding_balance'] ?? 0),
+        'createdBy' => $s['created_by'] ?? 'usr-owner-1',
+        'createdAt' => $s['created_at'] ?? '',
+    ], $supRows);
+
+    $base['customers'] = array_map(fn($c) => [
+        'id' => $c['id'],
+        'storeId' => $c['store_id'] ?? DEFAULT_STORE_ID,
+        'name' => $c['name'] ?? '',
+        'phone' => $c['phone'] ?? '',
+        'address' => $c['address'] ?? '',
+        'totalPurchases' => (float)($c['total_purchases'] ?? 0),
+        'outstandingBalance' => (float)($c['outstanding_balance'] ?? 0),
+        'createdBy' => $c['created_by'] ?? 'usr-owner-1',
+        'createdAt' => $c['created_at'] ?? '',
+    ], $custRows);
+
+    $base['sales'] = array_map(fn($s) => [
+        'id' => $s['id'],
+        'storeId' => $s['store_id'] ?? DEFAULT_STORE_ID,
+        'invoiceNumber' => $s['invoice_number'] ?? '',
+        'date' => $s['date'] ?? '',
+        'time' => $s['time'] ?? '',
+        'staffId' => $s['staff_id'] ?? '',
+        'staffName' => $s['staff_name'] ?? '',
+        'customerId' => $s['customer_id'] ?? '',
+        'customerName' => $s['customer_name'] ?? 'Walk-in Customer',
+        'subtotal' => (float)($s['subtotal'] ?? 0),
+        'discountTotal' => (float)($s['discount_total'] ?? 0),
+        'taxTotal' => (float)($s['tax_total'] ?? 0),
+        'grandTotal' => (float)($s['grand_total'] ?? 0),
+        'amountPaid' => (float)($s['amount_paid'] ?? 0),
+        'paymentMethod' => $s['payment_method'] ?? 'Cash',
+        'status' => $s['status'] ?? 'completed',
+        'items' => json_decode((string)($s['items_json'] ?? '[]'), true) ?: [],
+        'createdBy' => $s['created_by'] ?? 'usr-owner-1',
+    ], $salesRows);
+
+    $base['purchases'] = array_map(fn($p) => [
+        'id' => $p['id'],
+        'storeId' => $p['store_id'] ?? DEFAULT_STORE_ID,
+        'purchaseNumber' => $p['purchase_number'] ?? '',
+        'supplierId' => $p['supplier_id'] ?? '',
+        'supplierName' => $p['supplier_name'] ?? '',
+        'invoiceNumber' => $p['invoice_number'] ?? '',
+        'purchaseDate' => $p['purchase_date'] ?? '',
+        'totalAmount' => (float)($p['total_amount'] ?? 0),
+        'paidAmount' => (float)($p['paid_amount'] ?? 0),
+        'balanceAmount' => (float)($p['balance_amount'] ?? 0),
+        'paymentStatus' => $p['payment_status'] ?? 'Paid',
+        'items' => json_decode((string)($p['items_json'] ?? '[]'), true) ?: [],
+        'createdBy' => $p['created_by'] ?? 'usr-owner-1',
+    ], $purRows);
+
+    $base['expenses'] = array_map(fn($e) => [
+        'id' => $e['id'],
+        'storeId' => $e['store_id'] ?? DEFAULT_STORE_ID,
+        'category' => $e['category'] ?? '',
+        'description' => $e['description'] ?? '',
+        'amount' => (float)($e['amount'] ?? 0),
+        'date' => $e['date'] ?? '',
+        'paymentMethod' => $e['payment_method'] ?? 'Cash',
+        'addedBy' => $e['added_by'] ?? 'usr-owner-1',
+        'createdBy' => $e['created_by'] ?? 'usr-owner-1',
+    ], $expRows);
+
+    return sanitizeDatabaseState($base);
+}
+
+function readLatestAutoBackup(string $sqliteFile): ?array {
+    $backupsDir = dirname($sqliteFile) . '/backups';
+    $candidates = [];
+    if (file_exists($backupsDir . '/auto_latest.json')) {
+        $candidates[] = $backupsDir . '/auto_latest.json';
+    }
+    $snaps = glob($backupsDir . '/backup_*.json') ?: [];
+    rsort($snaps);
+    foreach ($snaps as $s) {
+        $candidates[] = $s;
+    }
+    foreach ($candidates as $path) {
+        $raw = @file_get_contents($path);
+        if (!$raw) continue;
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) continue;
+        $payload = is_array($decoded['data'] ?? null) ? $decoded['data'] : $decoded;
+        if (is_array($payload) && ($payload['cleanVersion'] ?? '') === DATA_CLEAN_VERSION) {
+            return sanitizeDatabaseState($payload);
+        }
+    }
+    return null;
+}
+
 function readDatabase(string $sqliteFile): array {
     $pdo = getDatabaseConnection($sqliteFile);
     $stmt = $pdo->prepare('SELECT state_snapshot FROM store_settings WHERE id = ? LIMIT 1');
@@ -896,6 +1083,18 @@ function readDatabase(string $sqliteFile): array {
             return sanitizeDatabaseState($decoded);
         }
     }
+
+    // Never wipe existing data if snapshot failed to read — recover from relational SQL tables or auto backup first
+    $recovered = reconstructFromRelationalTables($pdo);
+    if ($recovered !== null) {
+        return writeDatabase($sqliteFile, $recovered);
+    }
+
+    $backup = readLatestAutoBackup($sqliteFile);
+    if ($backup !== null) {
+        return writeDatabase($sqliteFile, $backup);
+    }
+
     $initial = getInitialDatabase();
     return writeDatabase($sqliteFile, $initial);
 }
@@ -912,6 +1111,24 @@ function writeDatabase(string $sqliteFile, array $data): array {
         if ($pdo->inTransaction()) $pdo->rollBack();
         throw $e;
     }
+
+    // Atomically save rolling safety snapshot whenever real store data exists
+    $hasRealData =
+        count($clean['staffMembers'] ?? []) > 1 ||
+        count($clean['medicines'] ?? []) > 0 ||
+        count($clean['sales'] ?? []) > 0 ||
+        count($clean['purchases'] ?? []) > 0;
+    if ($hasRealData) {
+        $autoFile = dirname($sqliteFile) . '/backups/auto_latest.json';
+        $tmpFile = $autoFile . '.tmp.' . getmypid();
+        $json = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        if (is_string($json) && $json !== '' && @file_put_contents($tmpFile, $json) !== false) {
+            @rename($tmpFile, $autoFile);
+        } else {
+            @unlink($tmpFile);
+        }
+    }
+
     return $clean;
 }
 
@@ -961,9 +1178,7 @@ if ($route === '') $route = '/';
 $method = $_SERVER['REQUEST_METHOD'];
 
 try {
-    if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
-        acquireDbWriteLock($sqliteFile);
-    }
+    acquireDbLock($sqliteFile, in_array($method, ['POST', 'PUT', 'DELETE'], true));
     // 1. Audit Schema
     if ($method === 'GET' && $route === '/audit-schema') {
         $db = readDatabase($sqliteFile);
@@ -1838,12 +2053,22 @@ try {
             foreach ($db['staffMembers'] as $i => $u) if (($u['id'] ?? '') === $sid) { $idx = $i; break; }
             if ($idx === -1) sendJson(['success' => false, 'error' => 'Staff account not found'], 404);
             $nextPass = isset($upd['password']) ? trim((string)$upd['password']) : (string)($db['staffMembers'][$idx]['password'] ?? '');
+            $nextRole = (string)($upd['role'] ?? ($db['staffMembers'][$idx]['role'] ?? 'staff'));
             $db['staffMembers'][$idx] = array_merge($db['staffMembers'][$idx], $upd, [
                 'password' => $nextPass,
                 'passwordHash' => $nextPass !== '' ? hashPasswordStr($nextPass) : ($db['staffMembers'][$idx]['passwordHash'] ?? ''),
+                'permissions' => normalizeUserPermissions($upd['permissions'] ?? ($db['staffMembers'][$idx]['permissions'] ?? null), $nextRole),
             ]);
+            $db['staffMembers'] = sanitizeStaffAccounts($db['staffMembers']);
             $saved = writeDatabase($sqliteFile, $db);
-            sendJson(['success' => true, 'user' => $saved['staffMembers'][$idx] ?? null, 'staffMembers' => $saved['staffMembers']]);
+            $updatedUser = null;
+            foreach ($saved['staffMembers'] as $su) {
+                if (($su['id'] ?? '') === $sid) {
+                    $updatedUser = $su;
+                    break;
+                }
+            }
+            sendJson(['success' => true, 'user' => $updatedUser, 'staffMembers' => $saved['staffMembers']]);
         }
         if ($method === 'DELETE') {
             if ($sid === 'all-others') {

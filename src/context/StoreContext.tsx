@@ -272,6 +272,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     medicinesRef.current = medicines;
   }, [medicines]);
 
+  const staffMembersRef = useRef<User[]>(staffMembers);
+  useEffect(() => {
+    staffMembersRef.current = staffMembers;
+  }, [staffMembers]);
+
   // Connectivity & Sync States
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isHydrating, setIsHydrating] = useState<boolean>(true);
@@ -416,9 +421,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Pull and sync latest state from same-origin SQL Backend API (/api/state)
   const pullLatestDatabaseState = async (force = false): Promise<boolean> => {
-    if (!force && Date.now() - lastLocalMutationAtRef.current < 1200) {
+    if (!force && Date.now() - lastLocalMutationAtRef.current < 2500) {
       return false;
     }
+
+    const fetchStartedDirtyVersion = localDirtyVersionRef.current;
+    const fetchStartedAt = Date.now();
 
     const applyIncomingState = (d: any) => {
       if (!d) return;
@@ -426,7 +434,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         d.deletedIds.forEach((id: string) => recordDeletedId(id));
       }
       const delSet = deletedRecordIdsRef.current;
-      const hasUnsyncedLocalEdits = localDirtyVersionRef.current > lastSyncedVersionRef.current;
+      const mutatedDuringFetch =
+        localDirtyVersionRef.current !== fetchStartedDirtyVersion ||
+        Date.now() - lastLocalMutationAtRef.current < 3000;
+      const hasUnsyncedLocalEdits =
+        localDirtyVersionRef.current > lastSyncedVersionRef.current || mutatedDuringFetch;
 
       if (d.settings) {
         const cleanSettings = normalizeSettings(d.settings);
@@ -442,8 +454,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .filter((m: Medicine | null): m is Medicine => m !== null && !delSet.has(m.id));
         setMedicines(prev => {
           const next = hasUnsyncedLocalEdits
-            ? mergeById(prev, cleanIncomingMeds, delSet)
+            ? mergeById(cleanIncomingMeds, prev, delSet)
             : cleanIncomingMeds;
+          medicinesRef.current = next;
           try {
             localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
           } catch {}
@@ -454,7 +467,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.suppliers)) {
         const cleanIncoming = d.suppliers.filter((s: any) => s && s.id && !delSet.has(s.id));
         setSuppliers(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanIncoming, delSet) : cleanIncoming;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanIncoming, prev, delSet) : cleanIncoming;
           try {
             localStorage.setItem('pharmacare_suppliers', JSON.stringify(next));
           } catch {}
@@ -465,7 +478,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.customers)) {
         const cleanIncoming = d.customers.filter((c: any) => c && c.id && !delSet.has(c.id));
         setCustomers(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanIncoming, delSet) : cleanIncoming;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanIncoming, prev, delSet) : cleanIncoming;
           try {
             localStorage.setItem('pharmacare_customers', JSON.stringify(next));
           } catch {}
@@ -478,7 +491,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(normalizeSale)
           .filter((s: Sale | null): s is Sale => s !== null && !delSet.has(s.id));
         setSales(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanSales, delSet) : cleanSales;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanSales, prev, delSet) : cleanSales;
           try {
             localStorage.setItem('pharmacare_sales', JSON.stringify(next));
           } catch {}
@@ -489,7 +502,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.saleReturns)) {
         const cleanReturns = d.saleReturns.filter((r: any) => r && r.id && !delSet.has(r.id));
         setSaleReturns(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanReturns, delSet) : cleanReturns;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanReturns, prev, delSet) : cleanReturns;
           try {
             localStorage.setItem('pharmacare_returns', JSON.stringify(next));
           } catch {}
@@ -502,7 +515,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(normalizePurchase)
           .filter((p: Purchase | null): p is Purchase => p !== null && !delSet.has(p.id));
         setPurchases(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanPurchases, delSet) : cleanPurchases;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanPurchases, prev, delSet) : cleanPurchases;
           try {
             localStorage.setItem('pharmacare_purchases', JSON.stringify(next));
           } catch {}
@@ -513,7 +526,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.expenses)) {
         const cleanExpenses = d.expenses.filter((e: any) => e && e.id && !delSet.has(e.id));
         setExpenses(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanExpenses, delSet) : cleanExpenses;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanExpenses, prev, delSet) : cleanExpenses;
           try {
             localStorage.setItem('pharmacare_expenses', JSON.stringify(next));
           } catch {}
@@ -524,7 +537,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.adjustments)) {
         const cleanAdjustments = d.adjustments.filter((a: any) => a && a.id && !delSet.has(a.id));
         setAdjustments(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanAdjustments, delSet) : cleanAdjustments;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanAdjustments, prev, delSet) : cleanAdjustments;
           try {
             localStorage.setItem('pharmacare_adjustments', JSON.stringify(next));
           } catch {}
@@ -537,7 +550,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(normalizeAuditLog)
           .filter((l: AuditLog | null): l is AuditLog => l !== null && !delSet.has(l.id));
         setAuditLogs(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanLogs, delSet) : cleanLogs;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanLogs, prev, delSet) : cleanLogs;
           try {
             localStorage.setItem('pharmacare_audit_logs', JSON.stringify(next));
           } catch {}
@@ -550,7 +563,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(normalizeNotification)
           .filter((n: PharmacyNotification | null): n is PharmacyNotification => n !== null && !delSet.has(n.id));
         setNotifications(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanNotifs, delSet) : cleanNotifs;
+          const next = hasUnsyncedLocalEdits ? mergeById(cleanNotifs, prev, delSet) : cleanNotifs;
           try {
             localStorage.setItem('pharmacare_notifications', JSON.stringify(next));
           } catch {}
@@ -564,13 +577,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         );
         staffForceReplaceRef.current = !hasUnsyncedLocalEdits;
         if (!hasUnsyncedLocalEdits) {
+          staffMembersRef.current = incomingStaff;
           try {
             localStorage.setItem('pharmacare_staff', JSON.stringify(incomingStaff));
           } catch {}
           setStaffMembers(incomingStaff);
         } else {
           setStaffMembers(prevLocal => {
-            const nextStaff = normalizeStaffList(mergeById<User>(prevLocal, incomingStaff, delSet));
+            const nextStaff = normalizeStaffList(mergeById<User>(incomingStaff, prevLocal, delSet));
+            staffMembersRef.current = nextStaff;
             try {
               localStorage.setItem('pharmacare_staff', JSON.stringify(nextStaff));
             } catch {}
@@ -591,6 +606,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (res.ok) {
         const json = await res.json();
         if (json?.success && json?.data) {
+          // If a local mutation occurred while this poll was in flight, do NOT overwrite with stale server data
+          if (
+            !force &&
+            (localDirtyVersionRef.current !== fetchStartedDirtyVersion ||
+              lastLocalMutationAtRef.current >= fetchStartedAt - 500)
+          ) {
+            return false;
+          }
           hasHydratedFromServer.current = true;
           applyIncomingState(json.data);
           return true;
@@ -697,58 +720,75 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const msg = JSON.parse(String(event.data));
             if ((msg.type === 'DB_UPDATED' || msg.type === 'CONNECTED') && msg.data) {
               const d = msg.data;
+              const hasUnsyncedLocalEdits =
+                localDirtyVersionRef.current > lastSyncedVersionRef.current ||
+                Date.now() - lastLocalMutationAtRef.current < 3000;
               if (Array.isArray(d.deletedIds)) {
                 d.deletedIds.forEach((id: string) => recordDeletedId(id));
               }
               const delSet = deletedRecordIdsRef.current;
               if (d.settings) setSettings(normalizeSettings(d.settings));
               if (Array.isArray(d.medicines)) {
-                setMedicines(
-                  d.medicines
-                    .filter((m: any) => m && !delSet.has(m.id))
-                    .map(normalizeMedicine)
-                    .filter((m: Medicine | null): m is Medicine => m !== null)
-                );
+                const incomingMeds = d.medicines
+                  .filter((m: any) => m && !delSet.has(m.id))
+                  .map(normalizeMedicine)
+                  .filter((m: Medicine | null): m is Medicine => m !== null);
+                setMedicines(prev => {
+                  const next = hasUnsyncedLocalEdits ? mergeById(incomingMeds, prev, delSet) : incomingMeds;
+                  medicinesRef.current = next;
+                  return next;
+                });
               }
               if (Array.isArray(d.suppliers)) {
-                setSuppliers(d.suppliers.filter((s: any) => s && !delSet.has(s.id)));
+                const incoming = d.suppliers.filter((s: any) => s && !delSet.has(s.id));
+                setSuppliers(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
               }
               if (Array.isArray(d.customers)) {
-                setCustomers(d.customers.filter((c: any) => c && !delSet.has(c.id)));
+                const incoming = d.customers.filter((c: any) => c && !delSet.has(c.id));
+                setCustomers(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
               }
               if (Array.isArray(d.sales)) {
-                setSales(
-                  d.sales
-                    .filter((s: any) => s && !delSet.has(s.id))
-                    .map(normalizeSale)
-                    .filter((s: Sale | null): s is Sale => s !== null)
-                );
+                const incoming = d.sales
+                  .filter((s: any) => s && !delSet.has(s.id))
+                  .map(normalizeSale)
+                  .filter((s: Sale | null): s is Sale => s !== null);
+                setSales(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
               }
               if (Array.isArray(d.saleReturns)) {
-                setSaleReturns(d.saleReturns);
+                setSaleReturns(prev => (hasUnsyncedLocalEdits ? mergeById(d.saleReturns, prev, delSet) : d.saleReturns));
               }
               if (Array.isArray(d.purchases)) {
-                setPurchases(
-                  d.purchases
-                    .map(normalizePurchase)
-                    .filter((p: Purchase | null): p is Purchase => p !== null)
-                );
+                const incoming = d.purchases
+                  .map(normalizePurchase)
+                  .filter((p: Purchase | null): p is Purchase => p !== null);
+                setPurchases(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
               }
               if (Array.isArray(d.expenses)) {
-                setExpenses(d.expenses.filter((e: any) => e && !delSet.has(e.id)));
+                const incoming = d.expenses.filter((e: any) => e && !delSet.has(e.id));
+                setExpenses(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
               }
               if (Array.isArray(d.adjustments)) {
-                setAdjustments(d.adjustments);
+                setAdjustments(prev => (hasUnsyncedLocalEdits ? mergeById(d.adjustments, prev, delSet) : d.adjustments));
               }
               if (Array.isArray(d.auditLogs)) {
-                setAuditLogs(
-                  d.auditLogs
-                    .map(normalizeAuditLog)
-                    .filter((l: AuditLog | null): l is AuditLog => l !== null)
-                );
+                const incoming = d.auditLogs
+                  .map(normalizeAuditLog)
+                  .filter((l: AuditLog | null): l is AuditLog => l !== null);
+                setAuditLogs(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
               }
               if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
-                setStaffMembers(normalizeStaffList(d.staffMembers.filter((u: any) => u && !delSet.has(u.id))));
+                const incomingStaff = normalizeStaffList(d.staffMembers.filter((u: any) => u && !delSet.has(u.id)));
+                staffForceReplaceRef.current = !hasUnsyncedLocalEdits;
+                setStaffMembers(prev => {
+                  const nextStaff = hasUnsyncedLocalEdits
+                    ? normalizeStaffList(mergeById<User>(incomingStaff, prev, delSet))
+                    : incomingStaff;
+                  staffMembersRef.current = nextStaff;
+                  try {
+                    localStorage.setItem('pharmacare_staff', JSON.stringify(nextStaff));
+                  } catch {}
+                  return nextStaff;
+                });
               }
             }
           } catch {}
@@ -1113,6 +1153,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newMed: Medicine = {
       ...medicineData,
       id: medId,
+      createdBy: currentUser?.id || 'usr-owner-1',
       fixedSalePrice: resolvedFixedSalePrice,
       fixedPurchasePrice: resolvedFixedPurchasePrice,
       batches: syncedBatches,
@@ -1139,10 +1180,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body: JSON.stringify(newMed),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          pushCloudMedicineRealtime(newMed).catch(() => {});
+        }
       })
       .catch(() => {});
-    pushCloudMedicineRealtime(newMed).catch(() => {});
 
     logActivity('MEDICINE_ADDED', `Added new medicine: ${newMed.name} (${newMed.strength}) - Fixed Price Rs. ${resolvedFixedSalePrice}`, { medId });
     addNotification('stock_adjustment', 'New Medicine Registered', `${newMed.name} added to inventory catalog at Fixed Price Rs. ${resolvedFixedSalePrice}.`, 'info', medId);
@@ -2242,13 +2285,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newUser: User = {
       ...userData,
       id: `usr-staff-${Date.now()}`,
-      username: userData.username.trim().toLowerCase(),
+      username: userData.username.trim().toLowerCase().replace(/^@/, ''),
       password: userData.password || 'seller123',
       pin: userData.pin || '5678',
       joiningDate: getStoreTodayDateStr(),
       status: 'active',
     };
-    const nextList = sanitizeStaffAccounts([...staffMembers, newUser]);
+    deletedRecordIdsRef.current.delete(newUser.id);
+    try {
+      localStorage.setItem('pharmacare_deleted_ids', JSON.stringify(Array.from(deletedRecordIdsRef.current)));
+    } catch {}
+    const nextList = sanitizeStaffAccounts([...staffMembersRef.current, newUser]);
+    staffMembersRef.current = nextList;
     setStaffMembers(nextList);
     try {
       localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
@@ -2261,11 +2309,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body: JSON.stringify(newUser),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
       })
       .catch(() => {});
-
-    broadcastFullRefresh();
 
     logActivity('STAFF_CREATED', `Dr. Abdul Rehman (Owner) created new account for ${newUser.fullName} (${newUser.designation})`);
     addNotification('staff_activity', 'New Staff Account Created', `${newUser.fullName} (@${newUser.username}) was added as ${newUser.designation}.`, 'info');
@@ -2274,8 +2323,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateStaff = (id: string, updated: Partial<User>) => {
     const ver = markLocalDirty();
     const nextList = sanitizeStaffAccounts(
-      staffMembers.map(u => (u.id === id ? { ...u, ...updated } : u))
+      staffMembersRef.current.map(u => (u.id === id ? { ...u, ...updated } : u))
     );
+    staffMembersRef.current = nextList;
     setStaffMembers(nextList);
     try {
       localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
@@ -2288,11 +2338,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body: JSON.stringify(updated),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
       })
       .catch(() => {});
-
-    broadcastFullRefresh();
 
     logActivity('STAFF_UPDATED', `Updated staff account details for ID ${id}`);
   };
@@ -2302,12 +2353,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const ver = markLocalDirty();
     let toggledStatus: 'active' | 'inactive' = 'active';
     const nextList = sanitizeStaffAccounts(
-      staffMembers.map(u => {
+      staffMembersRef.current.map(u => {
         if (u.id !== id) return u;
         toggledStatus = u.status === 'active' ? 'inactive' : 'active';
         return { ...u, status: toggledStatus };
       })
     );
+    staffMembersRef.current = nextList;
     setStaffMembers(nextList);
     try {
       localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
@@ -2320,19 +2372,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body: JSON.stringify({ status: toggledStatus }),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
       })
       .catch(() => {});
-
-    broadcastFullRefresh();
   };
 
   const deleteStaff = (id: string) => {
     if (id === OWNER_ACCOUNT.id) return;
     const ver = markLocalDirty();
-    const target = staffMembers.find(u => u.id === id);
+    const target = staffMembersRef.current.find(u => u.id === id);
     recordDeletedId(id);
-    const nextList = sanitizeStaffAccounts(staffMembers.filter(u => u.id !== id));
+    const nextList = sanitizeStaffAccounts(staffMembersRef.current.filter(u => u.id !== id));
+    staffMembersRef.current = nextList;
     staffForceReplaceRef.current = true;
     setStaffMembers(nextList);
     try {
@@ -2345,11 +2399,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       headers: getAuthHeaders(),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
       })
       .catch(() => {});
-
-    broadcastFullRefresh();
 
     logActivity('STAFF_DELETED', `Dr. Abdul Rehman (Owner) removed staff account: ${target?.fullName || id}`);
     if (target) {
@@ -2359,13 +2414,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const removeAllOtherStaff = () => {
     const ver = markLocalDirty();
-    staffMembers.forEach(u => {
+    staffMembersRef.current.forEach(u => {
       if (u && u.id && u.id !== OWNER_ACCOUNT.id) {
         recordDeletedId(u.id);
       }
     });
-    const ownerOnly = staffMembers.filter(u => u.id === OWNER_ACCOUNT.id);
+    const ownerOnly = staffMembersRef.current.filter(u => u.id === OWNER_ACCOUNT.id);
     const nextList = ownerOnly.length > 0 ? ownerOnly : [OWNER_ACCOUNT];
+    staffMembersRef.current = nextList;
     staffForceReplaceRef.current = true;
     setStaffMembers(nextList);
     try {
@@ -2378,11 +2434,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       headers: getAuthHeaders(),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
       })
       .catch(() => {});
-
-    broadcastFullRefresh();
 
     logActivity('STAFF_CLEARED', 'Dr. Abdul Rehman (Owner) removed all other staff accounts.');
     addNotification('staff_activity', 'All Other Staff Accounts Removed', 'Only Dr. Abdul Rehman (Owner) account remains active.', 'warning');
