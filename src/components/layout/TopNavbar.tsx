@@ -34,7 +34,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   currentTab,
   onNavigate,
 }) => {
-  const { currentUser, isAdmin, switchUser, availableUsers, logout } = useAuth();
+  const { currentUser, isAdmin, isOwner, switchUser, availableUsers, logout } = useAuth();
   const {
     notifications,
     isOnline,
@@ -332,7 +332,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     {currentUser?.fullName || currentUser?.username || 'User'}
                   </span>
                   <span className="text-[10px] text-slate-500 block leading-none truncate">
-                    {isAdmin ? 'Store Owner' : currentUser?.designation || 'Staff'}
+                    {isOwner ? 'Store Owner' : isAdmin ? 'Store Manager' : currentUser?.designation || 'Staff'}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block shrink-0" />
@@ -349,7 +349,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     </p>
                   </div>
 
-                  {isAdmin && (
+                  {isOwner && (
                     <>
                       <div className="pb-1.5 mb-1.5 border-b border-slate-100">
                         <button
@@ -398,7 +398,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     </>
                   )}
 
-                  <div className={`${isAdmin ? 'border-t border-slate-100 pt-1.5 mt-1.5' : 'pt-0.5'}`}>
+                  <div className={`${isOwner ? 'border-t border-slate-100 pt-1.5 mt-1.5' : 'pt-0.5'}`}>
                     <button
                       type="button"
                       onClick={() => {

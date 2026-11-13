@@ -29,7 +29,7 @@ import { SystemSettingsView } from './components/settings/SystemSettingsView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const MainAppContent: React.FC = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isAdmin, isOwner } = useAuth();
   const [currentTab, setCurrentTab] = useState<NavTab>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -45,12 +45,11 @@ const MainAppContent: React.FC = () => {
   const canViewReports = isAdmin || Boolean(perms?.canViewReports);
 
   const isRestrictedForStaff =
-    !isAdmin &&
-    (((currentTab === 'purchases' || currentTab === 'suppliers') && !canManagePurchases) ||
-      (currentTab === 'adjustments' && !canAdjustStock) ||
-      ((currentTab === 'reports' || currentTab === 'expenses') && !canViewReports) ||
-      currentTab === 'staff' ||
-      currentTab === 'settings');
+    (!isOwner && (currentTab === 'staff' || currentTab === 'settings')) ||
+    (!isAdmin &&
+      (((currentTab === 'purchases' || currentTab === 'suppliers') && !canManagePurchases) ||
+        (currentTab === 'adjustments' && !canAdjustStock) ||
+        ((currentTab === 'reports' || currentTab === 'expenses') && !canViewReports)));
 
   const activeTab: NavTab = isRestrictedForStaff ? 'dashboard' : currentTab;
 

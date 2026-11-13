@@ -20,7 +20,7 @@ import {
   ArrowDownRight,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { formatPKR, exportToCSV, isExpired, isNearExpiry } from '../../utils/helpers';
+import { formatPKR, exportToCSV, getStoreTodayDateStr, isExpired, isNearExpiry } from '../../utils/helpers';
 
 export const ReportsAnalytics: React.FC = () => {
   const {
@@ -37,7 +37,7 @@ export const ReportsAnalytics: React.FC = () => {
   const [reportTab, setReportTab] = useState<'financial' | 'sales' | 'inventory' | 'purchases'>('financial');
   const [dateRange, setDateRange] = useState<'today' | '7days' | 'month' | 'year' | 'all'>('month');
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getStoreTodayDateStr(), []);
   const currentMonthStr = useMemo(() => todayStr.substring(0, 7), [todayStr]);
   const currentYearStr = useMemo(() => todayStr.substring(0, 4), [todayStr]);
 

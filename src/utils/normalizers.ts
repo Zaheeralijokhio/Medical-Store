@@ -197,6 +197,32 @@ export function normalizeSettings(raw: any): StoreSettings {
   };
 }
 
+export function normalizePermissions(rawPerms: any, role?: string) {
+  const isAdm = role === 'admin';
+  const isCash = role === 'cashier';
+  const base = {
+    canMakeSales: true,
+    canViewInventory: true,
+    canAddCustomer: true,
+    canViewReports: isAdm,
+    canAdjustStock: isAdm || !isCash,
+    canManagePurchases: isAdm || !isCash,
+    canModifyPrices: isAdm || !isCash,
+  };
+  if (!rawPerms || typeof rawPerms !== 'object') {
+    return base;
+  }
+  return {
+    canMakeSales: rawPerms.canMakeSales !== undefined ? Boolean(rawPerms.canMakeSales) : base.canMakeSales,
+    canViewInventory: rawPerms.canViewInventory !== undefined ? Boolean(rawPerms.canViewInventory) : base.canViewInventory,
+    canAddCustomer: rawPerms.canAddCustomer !== undefined ? Boolean(rawPerms.canAddCustomer) : base.canAddCustomer,
+    canViewReports: rawPerms.canViewReports !== undefined ? Boolean(rawPerms.canViewReports) : base.canViewReports,
+    canAdjustStock: rawPerms.canAdjustStock !== undefined ? Boolean(rawPerms.canAdjustStock) : base.canAdjustStock,
+    canManagePurchases: rawPerms.canManagePurchases !== undefined ? Boolean(rawPerms.canManagePurchases) : base.canManagePurchases,
+    canModifyPrices: rawPerms.canModifyPrices !== undefined ? Boolean(rawPerms.canModifyPrices) : base.canModifyPrices,
+  };
+}
+
 export function normalizeStaffList(rawList?: any[]): User[] {
   const safeArr = Array.isArray(rawList)
     ? rawList
@@ -207,6 +233,7 @@ export function normalizeStaffList(rawList?: any[]): User[] {
           username: String(u.username || u.id || 'user'),
           email: String(u.email || ''),
           designation: String(u.designation || (u.role === 'admin' ? 'Store Owner' : 'Staff Dispenser')),
+          permissions: normalizePermissions(u.permissions, u.role),
         }))
     : [];
   return sanitizeStaffAccounts(safeArr);

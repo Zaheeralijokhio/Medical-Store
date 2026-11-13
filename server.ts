@@ -202,12 +202,27 @@ function sanitizeDatabaseState(data: any): DatabaseSchema {
 
   const cleanStaff = sanitizeStaffAccounts(data.staffMembers)
     .filter((u: any) => !deletedSet.has(u.id))
-    .map((u: any) => ({
-      ...u,
-      storeId: u.storeId || DEFAULT_STORE_ID,
-      createdBy: u.createdBy || 'usr-owner-1',
-      passwordHash: u.passwordHash || hashPassword(u.password || (u.id === 'usr-owner-1' ? 'admin' : 'seller123')),
-    }));
+    .map((u: any) => {
+      const r = u.role || 'staff';
+      const isAdm = r === 'admin';
+      const isCash = r === 'cashier';
+      const rawP = u.permissions || {};
+      return {
+        ...u,
+        storeId: u.storeId || DEFAULT_STORE_ID,
+        createdBy: u.createdBy || 'usr-owner-1',
+        passwordHash: u.passwordHash || hashPassword(u.password || (u.id === 'usr-owner-1' ? 'admin' : 'seller123')),
+        permissions: {
+          canMakeSales: rawP.canMakeSales !== undefined ? Boolean(rawP.canMakeSales) : true,
+          canViewInventory: rawP.canViewInventory !== undefined ? Boolean(rawP.canViewInventory) : true,
+          canAddCustomer: rawP.canAddCustomer !== undefined ? Boolean(rawP.canAddCustomer) : true,
+          canViewReports: rawP.canViewReports !== undefined ? Boolean(rawP.canViewReports) : isAdm,
+          canAdjustStock: rawP.canAdjustStock !== undefined ? Boolean(rawP.canAdjustStock) : isAdm || !isCash,
+          canManagePurchases: rawP.canManagePurchases !== undefined ? Boolean(rawP.canManagePurchases) : isAdm || !isCash,
+          canModifyPrices: rawP.canModifyPrices !== undefined ? Boolean(rawP.canModifyPrices) : isAdm || !isCash,
+        },
+      };
+    });
 
   const cleanSuppliers = (Array.isArray(data.suppliers) ? data.suppliers : [])
     .filter((s: any) => s && s.id && !deletedSet.has(s.id))
@@ -630,6 +645,7 @@ async function startServer() {
       if (found) return found;
     }
     if (headerRole === 'staff' || headerRole === 'cashier' || headerRole === 'pharmacist') {
+      const isCash = headerRole === 'cashier';
       return {
         id: headerUserId || 'staff-actor',
         role: headerRole,
@@ -639,8 +655,9 @@ async function startServer() {
           canViewInventory: true,
           canAddCustomer: true,
           canViewReports: false,
-          canAdjustStock: headerRole === 'pharmacist',
-          canManagePurchases: headerRole === 'pharmacist',
+          canAdjustStock: !isCash,
+          canManagePurchases: !isCash,
+          canModifyPrices: !isCash,
         },
       } as any;
     }
@@ -864,9 +881,19 @@ async function startServer() {
         ? incoming.medicines.filter((m: any) => !deletedSet.has(m.id))
         : mergeCollectionById(existingDb.medicines, incoming.medicines, deletedSet);
 
+      const safeIncomingSettings = { ...(existingDb.settings || {}) } as any;
+      if (incoming.settings && typeof incoming.settings === 'object') {
+        Object.entries(incoming.settings).forEach(([k, v]) => {
+          if (v !== '' && v !== null && v !== undefined) {
+            safeIncomingSettings[k] = v;
+          }
+        });
+      }
+
       const nextDb: DatabaseSchema = {
         ...existingDb,
         ...incoming,
+        settings: safeIncomingSettings,
         cleanVersion: DATA_CLEAN_VERSION,
         medicines: mergedMedicines,
         suppliers: mergeCollectionById(existingDb.suppliers, incoming.suppliers, deletedSet),

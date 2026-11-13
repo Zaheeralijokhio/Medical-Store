@@ -48,16 +48,50 @@ function hashPasswordStr(string $plain): string {
     return hash('sha256', trim($plain));
 }
 
-function defaultPermissions(bool $isAdmin = false): array {
+function defaultPermissions(bool $isAdmin = false, string $role = 'staff'): array {
+    $isCash = $role === 'cashier';
     return [
         'canMakeSales' => true,
         'canViewInventory' => true,
         'canAddCustomer' => true,
         'canViewReports' => $isAdmin,
-        'canAdjustStock' => true,
-        'canManagePurchases' => true,
-        'canModifyPrices' => true,
+        'canAdjustStock' => $isAdmin || !$isCash,
+        'canManagePurchases' => $isAdmin || !$isCash,
+        'canModifyPrices' => $isAdmin || !$isCash,
     ];
+}
+
+function normalizeUserPermissions($rawPerms, string $role = 'staff'): array {
+    $base = defaultPermissions($role === 'admin', $role);
+    if (!is_array($rawPerms)) {
+        return $base;
+    }
+    return [
+        'canMakeSales' => array_key_exists('canMakeSales', $rawPerms) ? (bool)$rawPerms['canMakeSales'] : $base['canMakeSales'],
+        'canViewInventory' => array_key_exists('canViewInventory', $rawPerms) ? (bool)$rawPerms['canViewInventory'] : $base['canViewInventory'],
+        'canAddCustomer' => array_key_exists('canAddCustomer', $rawPerms) ? (bool)$rawPerms['canAddCustomer'] : $base['canAddCustomer'],
+        'canViewReports' => array_key_exists('canViewReports', $rawPerms) ? (bool)$rawPerms['canViewReports'] : $base['canViewReports'],
+        'canAdjustStock' => array_key_exists('canAdjustStock', $rawPerms) ? (bool)$rawPerms['canAdjustStock'] : $base['canAdjustStock'],
+        'canManagePurchases' => array_key_exists('canManagePurchases', $rawPerms) ? (bool)$rawPerms['canManagePurchases'] : $base['canManagePurchases'],
+        'canModifyPrices' => array_key_exists('canModifyPrices', $rawPerms) ? (bool)$rawPerms['canModifyPrices'] : $base['canModifyPrices'],
+    ];
+}
+
+function acquireDbWriteLock(string $sqliteFile): void {
+    static $lockFp = null;
+    if ($lockFp !== null) return;
+    $fp = @fopen($sqliteFile . '.lock', 'c+');
+    if ($fp) {
+        @flock($fp, LOCK_EX);
+        $lockFp = $fp;
+        register_shutdown_function(function () use (&$lockFp) {
+            if ($lockFp) {
+                @flock($lockFp, LOCK_UN);
+                @fclose($lockFp);
+                $lockFp = null;
+            }
+        });
+    }
 }
 
 function getOwnerTemplate(): array {
@@ -143,6 +177,7 @@ function sanitizeStaffAccounts(?array $users): array {
         if ($uname === '' || $uname === 'admin') continue;
 
         $pass = (string)($u['password'] ?? 'seller123');
+        $uRole = (string)($u['role'] ?? 'staff');
         $byUsername[$uname] = array_merge($u, [
             'id' => $id,
             'storeId' => $u['storeId'] ?? DEFAULT_STORE_ID,
@@ -151,13 +186,13 @@ function sanitizeStaffAccounts(?array $users): array {
             'fullName' => (string)($u['fullName'] ?? ($u['name'] ?? $uname)),
             'email' => (string)($u['email'] ?? ($uname . '@pharmacare.pk')),
             'phone' => (string)($u['phone'] ?? ''),
-            'role' => (string)($u['role'] ?? 'staff'),
+            'role' => $uRole,
             'designation' => (string)($u['designation'] ?? 'Staff Dispenser'),
             'status' => ($u['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active',
             'pin' => (string)($u['pin'] ?? '5678'),
             'password' => $pass,
             'passwordHash' => !empty($u['passwordHash']) ? (string)$u['passwordHash'] : hashPasswordStr($pass),
-            'permissions' => is_array($u['permissions'] ?? null) ? $u['permissions'] : defaultPermissions(false),
+            'permissions' => normalizeUserPermissions($u['permissions'] ?? null, $uRole),
         ]);
     }
 
@@ -926,6 +961,9 @@ if ($route === '') $route = '/';
 $method = $_SERVER['REQUEST_METHOD'];
 
 try {
+    if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
+        acquireDbWriteLock($sqliteFile);
+    }
     // 1. Audit Schema
     if ($method === 'GET' && $route === '/audit-schema') {
         $db = readDatabase($sqliteFile);
@@ -1035,9 +1073,17 @@ try {
             ? ($incoming['medicines'] ?? [])
             : mergeCollectionById($existing['medicines'], $incoming['medicines'] ?? [], $deletedSet);
 
+        $incomingSettings = is_array($incoming['settings'] ?? null) ? $incoming['settings'] : [];
+        $mergedSettings = array_merge(getDefaultSettings(), $existing['settings'] ?? []);
+        foreach ($incomingSettings as $sKey => $sVal) {
+            if ($sVal !== null && ($sVal !== '' || !isset($mergedSettings[$sKey]) || $mergedSettings[$sKey] === '')) {
+                $mergedSettings[$sKey] = $sVal;
+            }
+        }
+
         $nextDb = array_merge($existing, $incoming, [
             'cleanVersion' => DATA_CLEAN_VERSION,
-            'settings' => array_merge($existing['settings'] ?? getDefaultSettings(), is_array($incoming['settings'] ?? null) ? $incoming['settings'] : []),
+            'settings' => $mergedSettings,
             'medicines' => $mergedMeds,
             'suppliers' => mergeCollectionById($existing['suppliers'], $incoming['suppliers'] ?? [], $deletedSet),
             'customers' => mergeCollectionById($existing['customers'], $incoming['customers'] ?? [], $deletedSet),
@@ -1118,6 +1164,14 @@ try {
             }
             if ($idx === -1) sendJson(['success' => false, 'error' => 'Medicine not found'], 404);
             $merged = array_merge($db['medicines'][$idx], $updates, ['storeId' => DEFAULT_STORE_ID]);
+            $batches = is_array($merged['batches'] ?? null) ? $merged['batches'] : [];
+            $totalQty = 0;
+            foreach ($batches as $b) {
+                if (is_array($b)) $totalQty += (float)($b['quantity'] ?? 0);
+            }
+            $merged['batches'] = $batches;
+            $merged['totalQuantity'] = count($batches) > 0 ? $totalQty : (float)($merged['totalQuantity'] ?? 0);
+            $db['deletedIds'] = array_values(array_filter($db['deletedIds'] ?? [], fn($d) => $d !== $medId));
             $db['medicines'][$idx] = $merged;
             $saved = writeDatabase($sqliteFile, $db);
             sendJson(['success' => true, 'medicine' => $merged, 'data' => $saved]);
@@ -1831,11 +1885,15 @@ try {
         }
 
         foreach ($db['staffMembers'] as &$u) {
-            if ($u['id'] === $matched['id']) $u['lastLogin'] = gmdate('c');
+            if ($u['id'] === $matched['id']) {
+                $u['lastLogin'] = gmdate('c');
+                $matched = $u;
+            }
         }
         unset($u);
-        writeDatabase($sqliteFile, $db);
-        sendJson(['success' => true, 'user' => $matched, 'staffMembers' => $db['staffMembers']]);
+        $saved = writeDatabase($sqliteFile, $db);
+        $matched['permissions'] = normalizeUserPermissions($matched['permissions'] ?? null, (string)($matched['role'] ?? 'staff'));
+        sendJson(['success' => true, 'user' => $matched, 'staffMembers' => $saved['staffMembers']]);
     }
 
     if ($method === 'POST' && $route === '/auth/pin-login') {
@@ -1857,7 +1915,16 @@ try {
         }
         if (!$matched) sendJson(['success' => false, 'error' => 'Invalid 4-digit PIN'], 401);
         if (($matched['status'] ?? 'active') !== 'active') sendJson(['success' => false, 'error' => 'Account is deactivated'], 403);
-        sendJson(['success' => true, 'user' => $matched, 'staffMembers' => $db['staffMembers']]);
+        foreach ($db['staffMembers'] as &$u) {
+            if ($u['id'] === $matched['id']) {
+                $u['lastLogin'] = gmdate('c');
+                $matched = $u;
+            }
+        }
+        unset($u);
+        $saved = writeDatabase($sqliteFile, $db);
+        $matched['permissions'] = normalizeUserPermissions($matched['permissions'] ?? null, (string)($matched['role'] ?? 'staff'));
+        sendJson(['success' => true, 'user' => $matched, 'staffMembers' => $saved['staffMembers']]);
     }
 
     sendJson(['success' => false, 'error' => 'API endpoint not found: ' . $route], 404);

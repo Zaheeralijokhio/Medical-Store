@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pharmacare-cache-v10';
+const CACHE_NAME = 'pharmacare-cache-v12';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

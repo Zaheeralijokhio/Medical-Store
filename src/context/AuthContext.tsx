@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User } from '../types/pharmacy';
 import {
   INITIAL_USERS,
@@ -12,6 +12,7 @@ import {
   sanitizeStaffAccounts,
 } from '../data/initialData';
 import { pushCloudStaff } from '../services/cloudSync';
+import { normalizePermissions, normalizeStaffList } from '../utils/normalizers';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -26,7 +27,7 @@ interface AuthContextType {
   switchUser: (userId: string) => void;
   availableUsers: User[];
   updateCurrentUser: (updated: Partial<User>) => void;
-  syncStaffList: (staff: User[]) => void;
+  syncStaffList: (staff: User[], options?: { forceReplace?: boolean }) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +49,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {}
     return INITIAL_USERS;
   });
+
+  const availableUsersRef = useRef<User[]>(availableUsers);
+  useEffect(() => {
+    availableUsersRef.current = availableUsers;
+  }, [availableUsers]);
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
@@ -71,7 +77,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               permissions: OWNER_ACCOUNT.permissions,
             };
           }
-          return parsed;
+          return {
+            ...parsed,
+            permissions: normalizePermissions(parsed.permissions, parsed.role),
+          };
         }
       }
     } catch {
@@ -107,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .then(res => (res.ok ? res.json() : null))
       .then(json => {
         if (!active || !json?.staffMembers || !Array.isArray(json.staffMembers)) return;
-        const clean = sanitizeStaffAccounts(json.staffMembers);
+        const clean = normalizeStaffList(json.staffMembers);
         try {
           localStorage.setItem('pharmacare_staff', JSON.stringify(clean));
         } catch {}
@@ -209,62 +218,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Please enter your username.' };
     }
 
-    // Check latest localStorage staff list in case it was just updated
+    // 1. Always verify against live server SQLite database first when online so Incognito & all devices stay 100% synced
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ username: cleanUsername, password: cleanPass }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.success && data?.user) {
+          const serverUser: User = {
+            ...(data.user as User),
+            permissions: normalizePermissions(data.user.permissions, data.user.role),
+          };
+          const serverList = normalizeStaffList(
+            Array.isArray(data.staffMembers) ? data.staffMembers : [serverUser]
+          );
+          try {
+            localStorage.setItem('pharmacare_staff', JSON.stringify(serverList));
+          } catch {}
+          setAvailableUsers(serverList);
+          setCurrentUser(serverUser);
+          return { success: true };
+        }
+        if (res.status === 401 || res.status === 403) {
+          return {
+            success: false,
+            error: data?.error || 'Invalid username or password.',
+          };
+        }
+      } catch {
+        // Offline / network fallback handled below
+      }
+    }
+
+    // 2. Offline / fallback check against cached staff list
     let currentList = availableUsers;
     try {
       const savedStaff = localStorage.getItem('pharmacare_staff');
       if (savedStaff) {
         const parsed = JSON.parse(savedStaff);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          currentList = sanitizeStaffAccounts([...availableUsers, ...parsed]);
+          currentList = normalizeStaffList([...availableUsers, ...parsed]);
         }
       }
     } catch {}
 
-    const findMatchingUser = (list: User[]) =>
-      list.find(u => {
-        const uName = (u.username || '').trim().toLowerCase().replace(/^@/, '');
-        const uFull = (u.fullName || '').trim().toLowerCase();
-        const uCompact = uFull.replace(/[^a-z0-9]/g, '');
-        const uEmail = (u.email || '').trim().toLowerCase();
-        return (
-          uName === cleanUsername ||
-          uName === cleanCompact ||
-          uFull === cleanUsername ||
-          uCompact === cleanCompact ||
-          uEmail === cleanUsername ||
-          (u.id === OWNER_ACCOUNT.id && ['admin', 'owner', 'abdulrehman'].includes(cleanCompact))
-        );
-      });
-
-    let user = findMatchingUser(currentList);
-
-    const localExpectedPass = user
-      ? user.id === OWNER_ACCOUNT.id
-        ? (user.password || 'admin').trim()
-        : (user.password || '').trim()
-      : null;
-
-    // Fallback check against /api/staff if not found or password differs
-    if (!user || (localExpectedPass && cleanPass !== localExpectedPass)) {
-      try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: cleanUsername, password: cleanPass }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.success && data?.user) {
-            user = data.user as User;
-            const serverList = Array.isArray(data.staffMembers) ? data.staffMembers : [user];
-            mergeAndSaveStaff(serverList);
-            setCurrentUser(user);
-            return { success: true };
-          }
-        }
-      } catch {}
-    }
+    const user = currentList.find(u => {
+      const uName = (u.username || '').trim().toLowerCase().replace(/^@/, '');
+      const uFull = (u.fullName || '').trim().toLowerCase();
+      const uCompact = uFull.replace(/[^a-z0-9]/g, '');
+      const uEmail = (u.email || '').trim().toLowerCase();
+      return (
+        uName === cleanUsername ||
+        uName === cleanCompact ||
+        uFull === cleanUsername ||
+        uCompact === cleanCompact ||
+        uEmail === cleanUsername ||
+        (u.id === OWNER_ACCOUNT.id && ['admin', 'owner', 'abdulrehman'].includes(cleanCompact))
+      );
+    });
 
     if (!user) {
       return {
@@ -291,6 +306,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const updatedUser: User = {
       ...user,
+      permissions: normalizePermissions(user.permissions, user.role),
       lastLogin: new Date().toLocaleDateString('en-PK', {
         year: 'numeric',
         month: 'short',
@@ -317,6 +333,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Please enter a 4-digit security PIN.' };
     }
 
+    // 1. Always verify against live server SQLite database first when online
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      try {
+        const res = await fetch('/api/auth/pin-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ pin: actualPin, username: actualIdent }),
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data?.success && data?.user) {
+          const serverUser: User = {
+            ...(data.user as User),
+            permissions: normalizePermissions(data.user.permissions, data.user.role),
+          };
+          const serverList = normalizeStaffList(
+            Array.isArray(data.staffMembers) ? data.staffMembers : [serverUser]
+          );
+          try {
+            localStorage.setItem('pharmacare_staff', JSON.stringify(serverList));
+          } catch {}
+          setAvailableUsers(serverList);
+          setCurrentUser(serverUser);
+          return { success: true };
+        }
+        if (res.status === 401 || res.status === 403) {
+          return {
+            success: false,
+            error: data?.error || 'Invalid 4-digit PIN for selected account.',
+          };
+        }
+      } catch {
+        // Offline fallback handled below
+      }
+    }
+
     const matchByPin = (list: User[]) => {
       const staffOnly = list.filter(u => u.id !== OWNER_ACCOUNT.id);
       if (actualIdent) {
@@ -330,26 +382,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return staffOnly.find(u => u.pin === actualPin);
     };
 
-    let user = matchByPin(availableUsers);
-
-    if (!user) {
-      try {
-        const res = await fetch('/api/auth/pin-login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin: actualPin, username: actualIdent }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.success && data?.user) {
-            user = data.user as User;
-            mergeAndSaveStaff([user]);
-            setCurrentUser(user);
-            return { success: true };
-          }
-        }
-      } catch {}
-    }
+    const user = matchByPin(availableUsers);
 
     if (!user) {
       return {
@@ -364,6 +397,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const updatedUser: User = {
       ...user,
+      permissions: normalizePermissions(user.permissions, user.role),
       lastLogin: new Date().toLocaleDateString('en-PK', {
         year: 'numeric',
         month: 'short',
@@ -404,31 +438,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentUser(prev => (prev ? { ...prev, ...updated } : null));
   };
 
-  const syncStaffList = (staff: User[]) => {
-    const clean = sanitizeStaffAccounts(staff);
-    setAvailableUsers(clean);
-    setCurrentUser(prev => {
-      if (!prev) return null;
-      const stillExists = clean.find(u => u.id === prev.id);
-      if (stillExists) {
-        if (stillExists.status !== 'active') {
-          return null;
+  const syncStaffList = (staff: User[], options?: { forceReplace?: boolean }) => {
+    const clean = normalizeStaffList(staff);
+    if (options?.forceReplace) {
+      availableUsersRef.current = clean;
+      try {
+        localStorage.setItem('pharmacare_staff', JSON.stringify(clean));
+      } catch {}
+      setAvailableUsers(clean);
+      setCurrentUser(prev => {
+        if (!prev) return null;
+        const stillExists = clean.find(u => u.id === prev.id);
+        if (stillExists) {
+          return stillExists.status !== 'active' ? null : stillExists;
         }
-        return stillExists;
+        if (prev.id === OWNER_ACCOUNT.id) {
+          return clean.find(u => u.id === OWNER_ACCOUNT.id) || OWNER_ACCOUNT;
+        }
+        return prev;
+      });
+      return;
+    }
+
+    const mergedMap = new Map<string, User>();
+    availableUsersRef.current.forEach(u => {
+      if (u && u.username) mergedMap.set(u.username.toLowerCase(), u);
+    });
+    clean.forEach(u => {
+      if (u && u.username) mergedMap.set(u.username.toLowerCase(), u);
+    });
+    const mergedList = normalizeStaffList(Array.from(mergedMap.values()));
+    availableUsersRef.current = mergedList;
+    try {
+      localStorage.setItem('pharmacare_staff', JSON.stringify(mergedList));
+    } catch {}
+    setAvailableUsers(mergedList);
+    setCurrentUser(curr => {
+      if (!curr) return null;
+      const stillExists = mergedList.find(u => u.id === curr.id);
+      if (stillExists) {
+        return stillExists.status !== 'active' ? null : stillExists;
       }
-      // Never fall back to OWNER_ACCOUNT for a staff session
-      if (prev.id === OWNER_ACCOUNT.id) {
-        return clean.find(u => u.id === OWNER_ACCOUNT.id) || OWNER_ACCOUNT;
-      }
-      return prev;
+      return curr;
     });
   };
 
-  // Strictly restrict Owner/Admin privileges to the sole Master Owner account (usr-owner-1)
+  // Master Owner is usr-owner-1; Store Manager (role: 'admin') also gets managerial dashboard/report visibility
   const isOwner = currentUser?.id === OWNER_ACCOUNT.id;
-  const isAdmin = isOwner;
-  const isPharmacist = !isOwner && (currentUser?.role === 'pharmacist' || currentUser?.role === 'staff' || currentUser?.role === 'admin');
-  const isCashier = !isOwner && currentUser?.role === 'cashier';
+  const isAdmin = isOwner || currentUser?.role === 'admin';
+  const isPharmacist = !isAdmin && (currentUser?.role === 'pharmacist' || currentUser?.role === 'staff');
+  const isCashier = !isAdmin && currentUser?.role === 'cashier';
   const isStaff = Boolean(currentUser && !isOwner);
 
   return (

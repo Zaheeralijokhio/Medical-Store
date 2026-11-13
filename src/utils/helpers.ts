@@ -5,6 +5,20 @@
 
 import { Medicine, MedicineBatch, StockStatusType } from '../types/pharmacy';
 
+// Returns current store date in YYYY-MM-DD using Asia/Karachi timezone
+export function getStoreTodayDateStr(): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
 // Formats number to PKR currency: Rs. 1,250.00
 export function formatPKR(amount: number | undefined | null, includeDecimals = true): string {
   if (amount === undefined || amount === null || isNaN(amount)) return 'Rs. 0';

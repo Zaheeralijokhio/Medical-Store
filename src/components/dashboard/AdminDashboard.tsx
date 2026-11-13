@@ -26,7 +26,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { formatPKR, isExpired, isNearExpiry } from '../../utils/helpers';
+import { formatPKR, getStoreTodayDateStr, isExpired, isNearExpiry } from '../../utils/helpers';
 import { NavTab } from '../layout/Sidebar';
 
 interface AdminDashboardProps {
@@ -48,8 +48,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
   const [timeframe, setTimeframe] = useState<'today' | 'month' | 'all'>('month');
 
-  // Today string YYYY-MM-DD
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  // Today string YYYY-MM-DD (Asia/Karachi)
+  const todayStr = useMemo(() => getStoreTodayDateStr(), []);
   const currentMonthStr = useMemo(() => todayStr.substring(0, 7), [todayStr]);
 
   // Inventory Aggregations
@@ -271,7 +271,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Karachi',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(d);
       const label = d.toLocaleDateString('en-PK', { weekday: 'short', day: 'numeric' });
 
       const daySales = (sales || [])

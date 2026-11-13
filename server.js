@@ -1041,12 +1041,27 @@ function sanitizeDatabaseState(data) {
       totalQuantity
     };
   });
-  const cleanStaff = sanitizeStaffAccounts(data.staffMembers).filter((u) => !deletedSet.has(u.id)).map((u) => ({
-    ...u,
-    storeId: u.storeId || DEFAULT_STORE_ID2,
-    createdBy: u.createdBy || "usr-owner-1",
-    passwordHash: u.passwordHash || hashPassword(u.password || (u.id === "usr-owner-1" ? "admin" : "seller123"))
-  }));
+  const cleanStaff = sanitizeStaffAccounts(data.staffMembers).filter((u) => !deletedSet.has(u.id)).map((u) => {
+    const r = u.role || "staff";
+    const isAdm = r === "admin";
+    const isCash = r === "cashier";
+    const rawP = u.permissions || {};
+    return {
+      ...u,
+      storeId: u.storeId || DEFAULT_STORE_ID2,
+      createdBy: u.createdBy || "usr-owner-1",
+      passwordHash: u.passwordHash || hashPassword(u.password || (u.id === "usr-owner-1" ? "admin" : "seller123")),
+      permissions: {
+        canMakeSales: rawP.canMakeSales !== void 0 ? Boolean(rawP.canMakeSales) : true,
+        canViewInventory: rawP.canViewInventory !== void 0 ? Boolean(rawP.canViewInventory) : true,
+        canAddCustomer: rawP.canAddCustomer !== void 0 ? Boolean(rawP.canAddCustomer) : true,
+        canViewReports: rawP.canViewReports !== void 0 ? Boolean(rawP.canViewReports) : isAdm,
+        canAdjustStock: rawP.canAdjustStock !== void 0 ? Boolean(rawP.canAdjustStock) : isAdm || !isCash,
+        canManagePurchases: rawP.canManagePurchases !== void 0 ? Boolean(rawP.canManagePurchases) : isAdm || !isCash,
+        canModifyPrices: rawP.canModifyPrices !== void 0 ? Boolean(rawP.canModifyPrices) : isAdm || !isCash
+      }
+    };
+  });
   const cleanSuppliers = (Array.isArray(data.suppliers) ? data.suppliers : []).filter((s) => s && s.id && !deletedSet.has(s.id)).map((s) => ({
     ...s,
     storeId: s.storeId || DEFAULT_STORE_ID2,
@@ -1414,6 +1429,7 @@ async function startServer() {
       if (found) return found;
     }
     if (headerRole === "staff" || headerRole === "cashier" || headerRole === "pharmacist") {
+      const isCash = headerRole === "cashier";
       return {
         id: headerUserId || "staff-actor",
         role: headerRole,
@@ -1423,8 +1439,9 @@ async function startServer() {
           canViewInventory: true,
           canAddCustomer: true,
           canViewReports: false,
-          canAdjustStock: headerRole === "pharmacist",
-          canManagePurchases: headerRole === "pharmacist"
+          canAdjustStock: !isCash,
+          canManagePurchases: !isCash,
+          canModifyPrices: !isCash
         }
       };
     }
@@ -1616,9 +1633,18 @@ async function startServer() {
       }
       const mergedStaff = incoming.forceStaffReplace ? incoming.staffMembers.filter((u) => !deletedSet.has(u.id)) : mergeCollectionById(existingDb.staffMembers, incoming.staffMembers, deletedSet);
       const mergedMedicines = incoming.forceMedicineReplace ? incoming.medicines.filter((m) => !deletedSet.has(m.id)) : mergeCollectionById(existingDb.medicines, incoming.medicines, deletedSet);
+      const safeIncomingSettings = { ...existingDb.settings || {} };
+      if (incoming.settings && typeof incoming.settings === "object") {
+        Object.entries(incoming.settings).forEach(([k, v]) => {
+          if (v !== "" && v !== null && v !== void 0) {
+            safeIncomingSettings[k] = v;
+          }
+        });
+      }
       const nextDb = {
         ...existingDb,
         ...incoming,
+        settings: safeIncomingSettings,
         cleanVersion: DATA_CLEAN_VERSION,
         medicines: mergedMedicines,
         suppliers: mergeCollectionById(existingDb.suppliers, incoming.suppliers, deletedSet),

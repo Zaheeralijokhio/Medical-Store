@@ -21,7 +21,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
 import { Sale } from '../../types/pharmacy';
-import { formatPKR, exportToCSV } from '../../utils/helpers';
+import { formatPKR, exportToCSV, getStoreTodayDateStr } from '../../utils/helpers';
 import { InvoiceModal } from '../pos/InvoiceModal';
 import { SaleReturnModal } from '../pos/SaleReturnModal';
 
@@ -30,6 +30,7 @@ export const SalesHistory: React.FC = () => {
   const { sales, saleReturns, settings, staffMembers } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'mine'>('all');
   const [selectedStaff, setSelectedStaff] = useState<string>('All');
   const [selectedPayment, setSelectedPayment] = useState<string>('All');
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | 'all'>('all');
@@ -37,13 +38,20 @@ export const SalesHistory: React.FC = () => {
   const [selectedSaleForView, setSelectedSaleForView] = useState<Sale | null>(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
 
-  // If staff, default view their own sales unless admin
-  const effectiveStaffSales = useMemo(() => {
-    if (isAdmin) return sales;
-    return sales.filter(s => s.staffId === currentUser?.id);
-  }, [sales, isAdmin, currentUser]);
+  const mySalesCount = useMemo(
+    () => (sales || []).filter(s => s && s.staffId === currentUser?.id).length,
+    [sales, currentUser?.id]
+  );
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  // Show all store sales by default; allow switching to "My Invoices"
+  const effectiveStaffSales = useMemo(() => {
+    if (scopeFilter === 'mine' && currentUser?.id) {
+      return (sales || []).filter(s => s.staffId === currentUser.id);
+    }
+    return sales || [];
+  }, [sales, scopeFilter, currentUser?.id]);
+
+  const todayStr = useMemo(() => getStoreTodayDateStr(), []);
 
   // Filter sales
   const filteredSales = useMemo(() => {
@@ -94,7 +102,7 @@ export const SalesHistory: React.FC = () => {
       PaymentMethod: s.paymentMethod,
       Status: s.status,
     }));
-    exportToCSV(`Sales_History_${new Date().toISOString().split('T')[0]}`, rows);
+    exportToCSV(`Sales_History_${getStoreTodayDateStr()}`, rows);
   };
 
   return (
@@ -104,7 +112,7 @@ export const SalesHistory: React.FC = () => {
         <div>
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
             <Receipt className="w-5 h-5 text-[#0F766E]" />
-            {isAdmin ? 'Store Sales Transactions & Customer Invoices' : 'My Shift Sales Log'}
+            Store Sales Transactions &amp; Customer Invoices
           </h3>
           <p className="text-xs text-slate-500">
             Audit history of completed cash memos, payment types, and returns
@@ -112,6 +120,33 @@ export const SalesHistory: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {!isAdmin && (
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setScopeFilter('all')}
+                className={`px-3 py-1.5 rounded-lg transition-colors ${
+                  scopeFilter === 'all'
+                    ? 'bg-[#0F766E] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All Store ({sales.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setScopeFilter('mine')}
+                className={`px-3 py-1.5 rounded-lg transition-colors ${
+                  scopeFilter === 'mine'
+                    ? 'bg-[#0F766E] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                My Shift ({mySalesCount})
+              </button>
+            </div>
+          )}
+
           <button
             onClick={() => setShowReturnModal(true)}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs border border-amber-200 transition-colors min-h-[42px]"
@@ -204,22 +239,20 @@ export const SalesHistory: React.FC = () => {
             </select>
           </div>
 
-          {isAdmin && (
-            <div>
-              <select
-                value={selectedStaff}
-                onChange={e => setSelectedStaff(e.target.value)}
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white min-h-[40px]"
-              >
-                <option value="All">All Staff / Sellers</option>
-                {staffMembers.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <select
+              value={selectedStaff}
+              onChange={e => setSelectedStaff(e.target.value)}
+              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white min-h-[40px]"
+            >
+              <option value="All">All Staff / Sellers</option>
+              {staffMembers.map(u => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

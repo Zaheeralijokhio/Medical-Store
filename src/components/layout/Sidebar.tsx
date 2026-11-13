@@ -75,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { currentUser, isAdmin, logout } = useAuth();
+  const { currentUser, isAdmin, isOwner, logout } = useAuth();
   const { settings, notifications, medicines } = useStore();
 
   const visibleNotifs = isAdmin
@@ -210,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
 
     const adminItems: NavChild[] = [
-      ...(isAdmin
+      ...(isOwner
         ? [
             {
               id: 'staff' as NavTab,
@@ -226,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         badge: unreadNotifs > 0 ? unreadNotifs : undefined,
         badgeTone: 'rose',
       },
-      ...(isAdmin
+      ...(isOwner
         ? [
             {
               id: 'settings' as NavTab,
@@ -240,7 +240,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (adminItems.length > 0) {
       groups.push({
         key: 'system_group',
-        label: isAdmin ? 'System & Team' : 'Alerts & Updates',
+        label: isOwner ? 'System & Team' : 'Alerts & Updates',
         icon: <Cog className="w-[18px] h-[18px]" />,
         badge: unreadNotifs > 0 ? unreadNotifs : undefined,
         badgeTone: 'rose',
@@ -256,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     canAddCustomer,
     canManagePurchases,
     canViewReports,
-    isAdmin,
+    isOwner,
     lowStockCount,
     unreadNotifs,
   ]);
@@ -352,9 +352,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {currentUser?.fullName || currentUser?.username || 'Store User'}
             </p>
             <p className="text-[10px] text-emerald-300/90 flex items-center gap-1 mt-0.5 truncate">
-              {isAdmin ? (
+              {isOwner ? (
                 <>
                   <ShieldCheck className="w-3 h-3 shrink-0" /> Store Owner
+                </>
+              ) : isAdmin ? (
+                <>
+                  <ShieldCheck className="w-3 h-3 shrink-0" /> Store Manager
                 </>
               ) : (
                 <>

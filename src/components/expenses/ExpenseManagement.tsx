@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { Expense, ExpenseCategory, PaymentMethod } from '../../types/pharmacy';
-import { formatPKR, exportToCSV } from '../../utils/helpers';
+import { formatPKR, exportToCSV, getStoreTodayDateStr } from '../../utils/helpers';
 
 export const ExpenseManagement: React.FC = () => {
   const { expenses, addExpense, updateExpense, deleteExpense } = useStore();
@@ -38,11 +38,11 @@ export const ExpenseManagement: React.FC = () => {
   const [category, setCategory] = useState<ExpenseCategory>('Shop Rent');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState<number>(5000);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => getStoreTodayDateStr());
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
   const [receiptRef, setReceiptRef] = useState('');
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getStoreTodayDateStr(), []);
   const currentMonthStr = useMemo(() => todayStr.substring(0, 7), [todayStr]);
   const currentYearStr = useMemo(() => todayStr.substring(0, 4), [todayStr]);
 
@@ -82,7 +82,7 @@ export const ExpenseManagement: React.FC = () => {
     setCategory('Shop Rent');
     setDescription('');
     setAmount(1000);
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(getStoreTodayDateStr());
     setPaymentMethod('Cash');
     setReceiptRef('');
     setShowAddModal(true);

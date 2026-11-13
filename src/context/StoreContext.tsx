@@ -42,6 +42,7 @@ import {
 import {
   generateInvoiceNumber,
   generatePurchaseNumber,
+  getStoreTodayDateStr,
   isExpired,
   isNearExpiry,
 } from '../utils/helpers';
@@ -83,6 +84,7 @@ interface StoreContextType {
 
   // Offline & Sync Engine
   isOnline: boolean;
+  isHydrating: boolean;
   pendingSyncCount: number;
   syncOfflineQueue: () => Promise<{ synced: number; conflicts: number }>;
   offlineSyncStatus: 'synced' | 'syncing' | 'offline' | 'pending';
@@ -222,7 +224,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 }
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, syncStaffList } = useAuth();
+  const { currentUser, isAdmin, syncStaffList } = useAuth();
 
   const [settings, setSettings] = useState<StoreSettings>(() =>
     normalizeSettings(loadFromStorage('settings', INITIAL_SETTINGS))
@@ -263,6 +265,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Connectivity & Sync States
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isHydrating, setIsHydrating] = useState<boolean>(true);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
   const [offlineSyncStatus, setOfflineSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'pending'>('synced');
   const [backupSnapshots, setBackupSnapshots] = useState<BackupSnapshot[]>([]);
@@ -291,13 +294,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const hasHydratedFromServer = useRef(false);
+  const staffForceReplaceRef = useRef(false);
   const localDirtyVersionRef = useRef(0);
   const lastSyncedVersionRef = useRef(0);
   const lastLocalMutationAtRef = useRef(0);
 
-  const markLocalDirty = () => {
+  const markLocalDirty = (): number => {
     localDirtyVersionRef.current += 1;
     lastLocalMutationAtRef.current = Date.now();
+    return localDirtyVersionRef.current;
+  };
+
+  const ackDedicatedMutation = (versionAtStart: number) => {
+    lastSyncedVersionRef.current = Math.max(lastSyncedVersionRef.current, versionAtStart);
   };
 
   const getAuthHeaders = (): Record<string, string> => {
@@ -396,10 +405,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
   };
 
-  // Pull and merge latest state from same-origin SQL Backend API (/api/state)
-  const pullLatestDatabaseState = async (force = false) => {
+  // Pull and sync latest state from same-origin SQL Backend API (/api/state)
+  const pullLatestDatabaseState = async (force = false): Promise<boolean> => {
     if (!force && Date.now() - lastLocalMutationAtRef.current < 1200) {
-      return;
+      return false;
     }
 
     const applyIncomingState = (d: any) => {
@@ -408,87 +417,203 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         d.deletedIds.forEach((id: string) => recordDeletedId(id));
       }
       const delSet = deletedRecordIdsRef.current;
+      const hasUnsyncedLocalEdits = localDirtyVersionRef.current > lastSyncedVersionRef.current;
 
-      if (d.settings) setSettings(normalizeSettings(d.settings));
+      if (d.settings) {
+        const cleanSettings = normalizeSettings(d.settings);
+        setSettings(cleanSettings);
+        try {
+          localStorage.setItem('pharmacare_settings', JSON.stringify(cleanSettings));
+        } catch {}
+      }
+
       if (Array.isArray(d.medicines)) {
         const cleanIncomingMeds = d.medicines
           .map(normalizeMedicine)
-          .filter((m: Medicine | null): m is Medicine => m !== null);
+          .filter((m: Medicine | null): m is Medicine => m !== null && !delSet.has(m.id));
         setMedicines(prev => {
-          const merged = mergeById(prev, cleanIncomingMeds, delSet);
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(prev, cleanIncomingMeds, delSet)
+            : cleanIncomingMeds;
           try {
-            localStorage.setItem('pharmacare_medicines', JSON.stringify(merged));
+            localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
           } catch {}
-          return merged;
+          return next;
         });
       }
+
       if (Array.isArray(d.suppliers)) {
-        setSuppliers(prev => mergeById(prev, d.suppliers, delSet));
+        const cleanIncoming = d.suppliers.filter((s: any) => s && s.id && !delSet.has(s.id));
+        setSuppliers(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanIncoming, delSet) : cleanIncoming;
+          try {
+            localStorage.setItem('pharmacare_suppliers', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
+
       if (Array.isArray(d.customers)) {
-        setCustomers(prev => mergeById(prev, d.customers, delSet));
+        const cleanIncoming = d.customers.filter((c: any) => c && c.id && !delSet.has(c.id));
+        setCustomers(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanIncoming, delSet) : cleanIncoming;
+          try {
+            localStorage.setItem('pharmacare_customers', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
+
       if (Array.isArray(d.sales)) {
         const cleanSales = d.sales
           .map(normalizeSale)
-          .filter((s: Sale | null): s is Sale => s !== null);
-        setSales(prev => mergeById(prev, cleanSales, delSet));
+          .filter((s: Sale | null): s is Sale => s !== null && !delSet.has(s.id));
+        setSales(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanSales, delSet) : cleanSales;
+          try {
+            localStorage.setItem('pharmacare_sales', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
+
       if (Array.isArray(d.saleReturns)) {
-        setSaleReturns(prev => mergeById(prev, d.saleReturns, delSet));
+        const cleanReturns = d.saleReturns.filter((r: any) => r && r.id && !delSet.has(r.id));
+        setSaleReturns(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanReturns, delSet) : cleanReturns;
+          try {
+            localStorage.setItem('pharmacare_returns', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
+
       if (Array.isArray(d.purchases)) {
         const cleanPurchases = d.purchases
           .map(normalizePurchase)
-          .filter((p: Purchase | null): p is Purchase => p !== null);
-        setPurchases(prev => mergeById(prev, cleanPurchases, delSet));
+          .filter((p: Purchase | null): p is Purchase => p !== null && !delSet.has(p.id));
+        setPurchases(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanPurchases, delSet) : cleanPurchases;
+          try {
+            localStorage.setItem('pharmacare_purchases', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
+
       if (Array.isArray(d.expenses)) {
-        setExpenses(prev => mergeById(prev, d.expenses, delSet));
+        const cleanExpenses = d.expenses.filter((e: any) => e && e.id && !delSet.has(e.id));
+        setExpenses(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanExpenses, delSet) : cleanExpenses;
+          try {
+            localStorage.setItem('pharmacare_expenses', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
+
       if (Array.isArray(d.adjustments)) {
-        setAdjustments(prev => mergeById(prev, d.adjustments, delSet));
+        const cleanAdjustments = d.adjustments.filter((a: any) => a && a.id && !delSet.has(a.id));
+        setAdjustments(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanAdjustments, delSet) : cleanAdjustments;
+          try {
+            localStorage.setItem('pharmacare_adjustments', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
-      if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
+
+      if (Array.isArray(d.auditLogs)) {
         const cleanLogs = d.auditLogs
           .map(normalizeAuditLog)
-          .filter((l: AuditLog | null): l is AuditLog => l !== null);
-        setAuditLogs(prev => mergeById(prev, cleanLogs, delSet));
+          .filter((l: AuditLog | null): l is AuditLog => l !== null && !delSet.has(l.id));
+        setAuditLogs(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanLogs, delSet) : cleanLogs;
+          try {
+            localStorage.setItem('pharmacare_audit_logs', JSON.stringify(next));
+          } catch {}
+          return next;
+        });
       }
-      if (Array.isArray(d.notifications) && d.notifications.length > 0) {
+
+      if (Array.isArray(d.notifications)) {
         const cleanNotifs = d.notifications
           .map(normalizeNotification)
-          .filter((n: PharmacyNotification | null): n is PharmacyNotification => n !== null);
-        setNotifications(prev => mergeById(prev, cleanNotifs, delSet));
-      }
-      if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
-        setStaffMembers(prevLocal => {
-          const combined = mergeById<User>(prevLocal, d.staffMembers, delSet);
-          return normalizeStaffList(combined);
+          .filter((n: PharmacyNotification | null): n is PharmacyNotification => n !== null && !delSet.has(n.id));
+        setNotifications(prev => {
+          const next = hasUnsyncedLocalEdits ? mergeById(prev, cleanNotifs, delSet) : cleanNotifs;
+          try {
+            localStorage.setItem('pharmacare_notifications', JSON.stringify(next));
+          } catch {}
+          return next;
         });
+      }
+
+      if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
+        const incomingStaff = normalizeStaffList(
+          d.staffMembers.filter((u: any) => u && u.id && !delSet.has(u.id))
+        );
+        staffForceReplaceRef.current = !hasUnsyncedLocalEdits;
+        if (!hasUnsyncedLocalEdits) {
+          try {
+            localStorage.setItem('pharmacare_staff', JSON.stringify(incomingStaff));
+          } catch {}
+          setStaffMembers(incomingStaff);
+        } else {
+          setStaffMembers(prevLocal => {
+            const nextStaff = normalizeStaffList(mergeById<User>(prevLocal, incomingStaff, delSet));
+            try {
+              localStorage.setItem('pharmacare_staff', JSON.stringify(nextStaff));
+            } catch {}
+            return nextStaff;
+          });
+        }
       }
     };
 
     try {
       const res = await fetch('/api/state', {
         cache: 'no-store',
-        headers: { Accept: 'application/json' },
+        headers: {
+          ...getAuthHeaders(),
+          Accept: 'application/json',
+        },
       });
       if (res.ok) {
         const json = await res.json();
         if (json?.success && json?.data) {
+          hasHydratedFromServer.current = true;
           applyIncomingState(json.data);
+          return true;
         }
       }
     } catch {}
+    return false;
   };
 
-  // Initial Boot + Re-sync whenever Owner or Staff logs in / out + Real-time polling + Tab Focus / Storage events
+  // Initial Boot + Force Re-sync whenever Owner or Staff logs in / out (critical for Incognito sessions)
   useEffect(() => {
-    pullLatestDatabaseState().finally(() => {
-      hasHydratedFromServer.current = true;
-      fetchBackupSnapshots();
-    });
+    let active = true;
+    setIsHydrating(true);
+    pullLatestDatabaseState(true)
+      .then(ok => {
+        if (!active) return;
+        if (ok) {
+          hasHydratedFromServer.current = true;
+        }
+        if (currentUser && isAdmin) {
+          fetchBackupSnapshots();
+        }
+        if (typeof navigator === 'undefined' || navigator.onLine) {
+          syncOfflineQueue();
+        }
+      })
+      .finally(() => {
+        if (active) setIsHydrating(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [currentUser?.id]);
 
   useEffect(() => {
@@ -685,12 +810,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Keep AuthContext availableUsers synchronized whenever staffMembers state updates
+  // Keep AuthContext availableUsers synchronized whenever staffMembers state updates after hydration
   useEffect(() => {
+    if (!hasHydratedFromServer.current && staffMembers.length <= 1) {
+      return;
+    }
+    const shouldForceReplace = staffForceReplaceRef.current;
+    staffForceReplaceRef.current = false;
     try {
       localStorage.setItem('pharmacare_staff', JSON.stringify(staffMembers));
     } catch {}
-    syncStaffList(staffMembers);
+    syncStaffList(staffMembers, shouldForceReplace ? { forceReplace: true } : undefined);
   }, [staffMembers]);
 
   // Cache medicines in IndexedDB whenever medicines update
@@ -805,8 +935,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       type,
       title,
       message,
-      date: new Date().toISOString().split('T')[0],
-      timestamp: new Date().toLocaleString('en-PK'),
+      date: getStoreTodayDateStr(),
+      timestamp: new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' }),
       read: false,
       severity,
       referenceId,
@@ -943,11 +1073,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         wholesalePrice: Number(initialBatch.wholesalePrice || initialBatch.salePrice || 0),
         quantity: Number(initialBatch.quantity || 0),
         initialQuantity: Number(initialBatch.quantity || 0),
-        mfgDate: initialBatch.mfgDate || new Date().toISOString().split('T')[0],
+        mfgDate: initialBatch.mfgDate || getStoreTodayDateStr(),
         expiryDate: initialBatch.expiryDate || new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().split('T')[0],
         supplierId: initialBatch.supplierId,
         supplierName: initialBatch.supplierName,
-        receivedDate: new Date().toISOString().split('T')[0],
+        receivedDate: getStoreTodayDateStr(),
       });
     }
 
@@ -987,7 +1117,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
 
     const nextMedicines = [newMed, ...medicines.filter(m => m.id !== medId)];
-    markLocalDirty();
+    const ver = markLocalDirty();
     setMedicines(nextMedicines);
     try {
       localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMedicines));
@@ -997,7 +1127,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(newMed),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     pushCloudMedicineRealtime(newMed).catch(() => {});
 
     logActivity('MEDICINE_ADDED', `Added new medicine: ${newMed.name} (${newMed.strength}) - Fixed Price Rs. ${resolvedFixedSalePrice}`, { medId });
@@ -1005,7 +1139,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateMedicine = (id: string, updated: Partial<Medicine>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     let updatedTarget: Medicine | null = null;
     setMedicines(prev => {
       const next = prev.map(med => {
@@ -1037,14 +1171,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedTarget),
-      }).catch(() => {});
+      })
+        .then(res => {
+          if (res.ok) ackDedicatedMutation(ver);
+        })
+        .catch(() => {});
       pushCloudMedicineRealtime(updatedTarget).catch(() => {});
     }
     logActivity('MEDICINE_EDITED', `Updated medicine specifications & fixed inventory price for ID: ${id}`);
   };
 
   const deleteMedicine = (id: string) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     const target = medicines.find(m => m.id === id);
     recordDeletedId(id);
     const next = medicines.filter(m => m.id !== id);
@@ -1056,7 +1194,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fetch(`/api/medicine/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     pushCloudMedicineRealtime(null, id).catch(() => {});
 
@@ -1064,7 +1206,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const addBatch = (medicineId: string, batchData: Omit<MedicineBatch, 'id' | 'medicineId'>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     const batchId = `bat-${Date.now()}`;
     const newBatch: MedicineBatch = {
       ...batchData,
@@ -1099,7 +1241,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedMed),
-      }).catch(() => {});
+      })
+        .then(res => {
+          if (res.ok) ackDedicatedMutation(ver);
+        })
+        .catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
     }
 
@@ -1107,7 +1253,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateBatch = (medicineId: string, batchId: string, updated: Partial<MedicineBatch>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     let updatedMed: Medicine | null = null;
     setMedicines(prev => {
       const next = prev.map(med => {
@@ -1131,14 +1277,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedMed),
-      }).catch(() => {});
+      })
+        .then(res => {
+          if (res.ok) ackDedicatedMutation(ver);
+        })
+        .catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
     }
     logActivity('BATCH_UPDATED', `Updated batch ID ${batchId} on medicine ID ${medicineId}`);
   };
 
   const deleteBatch = (medicineId: string, batchId: string) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     let updatedMed: Medicine | null = null;
     setMedicines(prev => {
       const next = prev.map(med => {
@@ -1162,7 +1312,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedMed),
-      }).catch(() => {});
+      })
+        .then(res => {
+          if (res.ok) ackDedicatedMutation(ver);
+        })
+        .catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
     }
     logActivity('BATCH_DELETED', `Deleted batch ID ${batchId} on medicine ID ${medicineId}`);
@@ -1175,7 +1329,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     costPrice?: number,
     salePrice?: number
   ) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     let updatedMed: Medicine | null = null;
     setMedicines(prev => {
       const next = prev.map(med => {
@@ -1207,7 +1361,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify(updatedMed),
-      }).catch(() => {});
+      })
+        .then(res => {
+          if (res.ok) ackDedicatedMutation(ver);
+        })
+        .catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
     }
     logActivity('STOCK_ADDED', `Added +${additionalQty} units to medicine ID ${medicineId} (Batch ID: ${batchId})`);
@@ -1242,7 +1400,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           mfgDate: item.mfgDate || '2025-01-01',
           expiryDate: item.expiryDate || '2027-12-31',
           supplierName: item.manufacturer || 'Bulk Import',
-          receivedDate: new Date().toISOString().split('T')[0],
+          receivedDate: getStoreTodayDateStr(),
         };
 
         const newMed: Medicine = {
@@ -1366,8 +1524,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const changeGiven = Math.max(0, amountPaid - grandTotal);
 
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
-    const timeStr = now.toLocaleTimeString('en-PK', { hour12: false });
+    const dateStr = getStoreTodayDateStr();
+    const timeStr = now.toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour12: false });
     const invoiceNumber = generateInvoiceNumber(sales.length);
 
     const newSale: Sale = {
@@ -1441,7 +1599,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // Step 5: Save Sale record locally
-    markLocalDirty();
+    const ver = markLocalDirty();
     setSales(prev => [newSale, ...prev]);
 
     // Step 6: Post to server or enqueue in IndexedDB if offline
@@ -1450,10 +1608,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(newSale),
-      }).catch(() => {
-        // Enqueue if network fail
-        enqueueOfflineSale(newSale).then(refreshPendingQueueCount);
-      });
+      })
+        .then(res => {
+          if (res.ok || res.status === 409) {
+            ackDedicatedMutation(ver);
+          } else {
+            enqueueOfflineSale(newSale).then(refreshPendingQueueCount);
+          }
+        })
+        .catch(() => {
+          // Enqueue if network fail
+          enqueueOfflineSale(newSale).then(refreshPendingQueueCount);
+        });
     } else {
       enqueueOfflineSale(newSale).then(refreshPendingQueueCount);
     }
@@ -1498,8 +1664,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: `ret-${Date.now()}`,
       saleId: sale.id,
       invoiceNumber: sale.invoiceNumber,
-      returnDate: now.toISOString().split('T')[0],
-      returnTime: now.toLocaleTimeString('en-PK', { hour12: false }),
+      returnDate: getStoreTodayDateStr(),
+      returnTime: now.toLocaleTimeString('en-PK', { timeZone: 'Asia/Karachi', hour12: false }),
       staffId: currentUser?.id || 'admin',
       staffName: currentUser?.fullName || 'Admin Pharmacist',
       items: returnItems.map(item => {
@@ -1555,14 +1721,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
-    markLocalDirty();
+    const ver = markLocalDirty();
     setSaleReturns(prev => [returnRecord, ...prev]);
 
     fetch('/api/sale-return', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(returnRecord),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     logActivity(
       'SALE_RETURN',
@@ -1656,7 +1826,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
-    markLocalDirty();
+    const ver = markLocalDirty();
     setPurchases(prev => [newPurchase, ...prev]);
 
     // Send to server
@@ -1665,7 +1835,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(newPurchase),
-      }).catch(() => {});
+      })
+        .then(res => {
+          if (res.ok) ackDedicatedMutation(ver);
+        })
+        .catch(() => {});
     }
 
     logActivity(
@@ -1686,7 +1860,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const recordPurchasePayment = (purchaseId: string, amount: number) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     setPurchases(prev =>
       prev.map(p => {
         if (p.id !== purchaseId) return p;
@@ -1720,55 +1894,71 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ amount }),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     logActivity('PAYMENT_RECORDED', `Paid Rs. ${amount} for Purchase ID ${purchaseId}`);
   };
 
   // Suppliers & Customers
   const addSupplier = (supplier: Omit<Supplier, 'id' | 'totalPurchases' | 'totalPaid' | 'outstandingBalance' | 'createdAt'>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     const newSup: Supplier = {
       ...supplier,
       id: `sup-${Date.now()}`,
       totalPurchases: 0,
       totalPaid: 0,
       outstandingBalance: supplier.openingBalance || 0,
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: getStoreTodayDateStr(),
     };
     setSuppliers(prev => [newSup, ...prev]);
     fetch('/api/supplier', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(newSup),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('SUPPLIER_ADDED', `Registered supplier: ${newSup.companyName}`);
   };
 
   const updateSupplier = (id: string, updated: Partial<Supplier>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     setSuppliers(prev => prev.map(s => (s.id === id ? { ...s, ...updated } : s)));
     fetch(`/api/supplier/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(updated),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('SUPPLIER_UPDATED', `Updated supplier ID ${id}`);
   };
 
   const deleteSupplier = (id: string) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     recordDeletedId(id);
     setSuppliers(prev => prev.filter(s => s.id !== id));
     fetch(`/api/supplier/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('SUPPLIER_DELETED', `Deleted supplier ID ${id}`);
   };
 
   const recordSupplierPayment = (supplierId: string, amount: number) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     setSuppliers(prev =>
       prev.map(s => {
         if (s.id !== supplierId) return s;
@@ -1785,53 +1975,69 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ amount }),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('SUPPLIER_PAYMENT', `Disbursed supplier payment of Rs. ${amount} to ID: ${supplierId}`);
   };
 
   const addCustomer = (customer: Omit<Customer, 'id' | 'totalPurchases' | 'outstandingBalance' | 'createdAt'>): Customer => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     const newCust: Customer = {
       ...customer,
       id: `cust-${Date.now()}`,
       totalPurchases: 0,
       outstandingBalance: 0,
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: getStoreTodayDateStr(),
     };
     setCustomers(prev => [newCust, ...prev]);
     fetch('/api/customer', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(newCust),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('CUSTOMER_ADDED', `Registered customer: ${newCust.name} (${newCust.phone})`);
     return newCust;
   };
 
   const updateCustomer = (id: string, updated: Partial<Customer>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     setCustomers(prev => prev.map(c => (c.id === id ? { ...c, ...updated } : c)));
     fetch(`/api/customer/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(updated),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('CUSTOMER_UPDATED', `Updated customer ID ${id}`);
   };
 
   const deleteCustomer = (id: string) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     recordDeletedId(id);
     setCustomers(prev => prev.filter(c => c.id !== id));
     fetch(`/api/customer/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('CUSTOMER_DELETED', `Deleted customer ID ${id}`);
   };
 
   const recordCustomerPayment = (customerId: string, amount: number) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     setCustomers(prev =>
       prev.map(c => {
         if (c.id !== customerId) return c;
@@ -1845,13 +2051,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ amount }),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('CUSTOMER_PAYMENT', `Received Rs. ${amount} credit recovery from customer ID ${customerId}`);
   };
 
   // Expenses
   const addExpense = (expense: Omit<Expense, 'id' | 'addedBy' | 'addedByName'>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     const newExp: Expense = {
       ...expense,
       id: `exp-${Date.now()}`,
@@ -1863,29 +2073,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(newExp),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('EXPENSE_ADDED', `Recorded ${newExp.category} expense: Rs. ${newExp.amount} - ${newExp.description}`);
   };
 
   const updateExpense = (id: string, updated: Partial<Expense>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     setExpenses(prev => prev.map(e => (e.id === id ? { ...e, ...updated } : e)));
     fetch(`/api/expense/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(updated),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('EXPENSE_UPDATED', `Updated expense record ID: ${id}`);
   };
 
   const deleteExpense = (id: string) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     recordDeletedId(id);
     setExpenses(prev => prev.filter(e => e.id !== id));
     fetch(`/api/expense/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('EXPENSE_DELETED', `Removed expense record ID: ${id}`);
   };
 
@@ -1919,10 +2141,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       reason: adjustment.reason,
       performedBy: currentUser?.id || 'admin',
       performedByName: currentUser?.fullName || 'Admin Pharmacist',
-      timestamp: new Date().toLocaleString('en-PK'),
+      timestamp: new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' }),
     };
 
-    markLocalDirty();
+    const ver = markLocalDirty();
     setMedicines(prev =>
       prev.map(m => {
         if (m.id !== med.id) return m;
@@ -1942,7 +2164,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(adjRecord),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     logActivity(
       'STOCK_ADJUSTED',
@@ -1961,14 +2187,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Staff Management
   const addStaff = (userData: Omit<User, 'id' | 'joiningDate'>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     const newUser: User = {
       ...userData,
       id: `usr-staff-${Date.now()}`,
       username: userData.username.trim().toLowerCase(),
       password: userData.password || 'seller123',
       pin: userData.pin || '5678',
-      joiningDate: new Date().toISOString().split('T')[0],
+      joiningDate: getStoreTodayDateStr(),
       status: 'active',
     };
     const nextList = sanitizeStaffAccounts([...staffMembers, newUser]);
@@ -1982,7 +2208,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(newUser),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     broadcastFullRefresh();
 
@@ -1991,7 +2221,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateStaff = (id: string, updated: Partial<User>) => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     const nextList = sanitizeStaffAccounts(
       staffMembers.map(u => (u.id === id ? { ...u, ...updated } : u))
     );
@@ -2005,7 +2235,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(updated),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     broadcastFullRefresh();
 
@@ -2014,7 +2248,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const toggleStaffStatus = (id: string) => {
     if (id === OWNER_ACCOUNT.id) return;
-    markLocalDirty();
+    const ver = markLocalDirty();
     let toggledStatus: 'active' | 'inactive' = 'active';
     const nextList = sanitizeStaffAccounts(
       staffMembers.map(u => {
@@ -2033,27 +2267,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ status: toggledStatus }),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     broadcastFullRefresh();
   };
 
   const deleteStaff = (id: string) => {
     if (id === OWNER_ACCOUNT.id) return;
-    markLocalDirty();
+    const ver = markLocalDirty();
     const target = staffMembers.find(u => u.id === id);
     recordDeletedId(id);
     const nextList = sanitizeStaffAccounts(staffMembers.filter(u => u.id !== id));
+    staffForceReplaceRef.current = true;
     setStaffMembers(nextList);
     try {
       localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
     } catch {}
-    syncStaffList(nextList);
+    syncStaffList(nextList, { forceReplace: true });
 
     fetch(`/api/staff/${encodeURIComponent(id)}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     broadcastFullRefresh();
 
@@ -2064,7 +2307,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const removeAllOtherStaff = () => {
-    markLocalDirty();
+    const ver = markLocalDirty();
     staffMembers.forEach(u => {
       if (u && u.id && u.id !== OWNER_ACCOUNT.id) {
         recordDeletedId(u.id);
@@ -2072,16 +2315,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     const ownerOnly = staffMembers.filter(u => u.id === OWNER_ACCOUNT.id);
     const nextList = ownerOnly.length > 0 ? ownerOnly : [OWNER_ACCOUNT];
+    staffForceReplaceRef.current = true;
     setStaffMembers(nextList);
     try {
       localStorage.setItem('pharmacare_staff', JSON.stringify(nextList));
     } catch {}
-    syncStaffList(nextList);
+    syncStaffList(nextList, { forceReplace: true });
 
     fetch('/api/staff/all-others', {
       method: 'DELETE',
       headers: getAuthHeaders(),
-    }).catch(() => {});
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
 
     broadcastFullRefresh();
 
@@ -2107,16 +2355,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Settings
   const updateSettings = (newSettings: Partial<StoreSettings>) => {
-    markLocalDirty();
-    setSettings(prev => {
-      const merged = { ...prev, ...newSettings };
-      fetch('/api/settings', {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(merged),
-      }).catch(() => {});
-      return merged;
-    });
+    const ver = markLocalDirty();
+    const merged = { ...settings, ...newSettings };
+    setSettings(merged);
+    fetch('/api/settings', {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(merged),
+    })
+      .then(res => {
+        if (res.ok) ackDedicatedMutation(ver);
+      })
+      .catch(() => {});
     logActivity('SETTINGS_UPDATED', 'Updated store configuration & parameters');
   };
 
@@ -2154,10 +2404,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         staffMembers,
 
         isOnline,
+        isHydrating,
         pendingSyncCount,
         syncOfflineQueue,
         offlineSyncStatus,
-        refreshData: () => pullLatestDatabaseState(true),
+        refreshData: async () => {
+          await pullLatestDatabaseState(true);
+        },
 
         backupSnapshots,
         fetchBackupSnapshots,
