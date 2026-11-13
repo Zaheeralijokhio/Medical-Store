@@ -99,7 +99,11 @@ interface StoreContextType {
   addMedicine: (medicine: Omit<Medicine, 'id' | 'totalQuantity'>, initialBatch?: Partial<MedicineBatch>) => void;
   updateMedicine: (id: string, updated: Partial<Medicine>) => void;
   deleteMedicine: (id: string) => void;
-  addBatch: (medicineId: string, batchData: Omit<MedicineBatch, 'id' | 'medicineId'>) => void;
+  addBatch: (
+    medicineId: string,
+    batchData: Omit<MedicineBatch, 'id' | 'medicineId'>,
+    options?: { syncFixedPrices?: boolean; existingBatchId?: string }
+  ) => void;
   updateBatch: (medicineId: string, batchId: string, updated: Partial<MedicineBatch>) => void;
   deleteBatch: (medicineId: string, batchId: string) => void;
   addStockToMedicine: (medicineId: string, batchId: string, additionalQty: number, costPrice?: number, salePrice?: number) => void;
@@ -262,6 +266,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [staffMembers, setStaffMembers] = useState<User[]>(() =>
     normalizeStaffList(loadFromStorage('staff', INITIAL_USERS))
   );
+
+  const medicinesRef = useRef<Medicine[]>(medicines);
+  useEffect(() => {
+    medicinesRef.current = medicines;
+  }, [medicines]);
 
   // Connectivity & Sync States
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -1116,7 +1125,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.setItem('pharmacare_deleted_ids', JSON.stringify(Array.from(deletedRecordIdsRef.current)));
     } catch {}
 
-    const nextMedicines = [newMed, ...medicines.filter(m => m.id !== medId)];
+    const nextMedicines = [newMed, ...medicinesRef.current.filter(m => m.id !== medId)];
+    medicinesRef.current = nextMedicines;
     const ver = markLocalDirty();
     setMedicines(nextMedicines);
     try {
@@ -1138,54 +1148,69 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addNotification('stock_adjustment', 'New Medicine Registered', `${newMed.name} added to inventory catalog at Fixed Price Rs. ${resolvedFixedSalePrice}.`, 'info', medId);
   };
 
+  const syncUpdatedMedicineToServer = (med: Medicine, ver: number) => {
+    fetch(`/api/medicine/${encodeURIComponent(med.id)}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(med),
+    })
+      .then(async res => {
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          return;
+        }
+        if (res.status === 404) {
+          const postRes = await fetch('/api/medicine', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(med),
+          });
+          if (postRes.ok) ackDedicatedMutation(ver);
+        }
+      })
+      .catch(() => {});
+    pushCloudMedicineRealtime(med).catch(() => {});
+  };
+
   const updateMedicine = (id: string, updated: Partial<Medicine>) => {
     const ver = markLocalDirty();
     let updatedTarget: Medicine | null = null;
-    setMedicines(prev => {
-      const next = prev.map(med => {
-        if (med.id !== id) return med;
-        let newBatches = updated.batches || med.batches;
-        if (updated.fixedSalePrice !== undefined || updated.fixedPurchasePrice !== undefined) {
-          newBatches = newBatches.map(b => ({
-            ...b,
-            salePrice: updated.fixedSalePrice !== undefined ? Number(updated.fixedSalePrice) : b.salePrice,
-            purchasePrice: updated.fixedPurchasePrice !== undefined ? Number(updated.fixedPurchasePrice) : b.purchasePrice,
-          }));
-        }
-        const totalQuantity = newBatches.reduce((sum, b) => sum + b.quantity, 0);
-        updatedTarget = {
-          ...med,
-          ...updated,
-          batches: newBatches,
-          totalQuantity,
-        };
-        return updatedTarget;
-      });
-      try {
-        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
-      } catch {}
-      return next;
+    const next = medicinesRef.current.map(med => {
+      if (med.id !== id) return med;
+      let newBatches = updated.batches || med.batches || [];
+      if (updated.fixedSalePrice !== undefined || updated.fixedPurchasePrice !== undefined) {
+        newBatches = newBatches.map(b => ({
+          ...b,
+          salePrice: updated.fixedSalePrice !== undefined ? Number(updated.fixedSalePrice) : b.salePrice,
+          purchasePrice: updated.fixedPurchasePrice !== undefined ? Number(updated.fixedPurchasePrice) : b.purchasePrice,
+        }));
+      }
+      const totalQuantity = newBatches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+      updatedTarget = {
+        ...med,
+        ...updated,
+        batches: newBatches,
+        totalQuantity,
+      };
+      return updatedTarget;
     });
+    medicinesRef.current = next;
+    setMedicines(next);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+    } catch {}
     if (updatedTarget) {
-      fetch(`/api/medicine/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updatedTarget),
-      })
-        .then(res => {
-          if (res.ok) ackDedicatedMutation(ver);
-        })
-        .catch(() => {});
-      pushCloudMedicineRealtime(updatedTarget).catch(() => {});
+      syncUpdatedMedicineToServer(updatedTarget, ver);
     }
     logActivity('MEDICINE_EDITED', `Updated medicine specifications & fixed inventory price for ID: ${id}`);
   };
 
   const deleteMedicine = (id: string) => {
     const ver = markLocalDirty();
-    const target = medicines.find(m => m.id === id);
+    const target = medicinesRef.current.find(m => m.id === id);
     recordDeletedId(id);
-    const next = medicines.filter(m => m.id !== id);
+    const next = medicinesRef.current.filter(m => m.id !== id);
+    medicinesRef.current = next;
     setMedicines(next);
     try {
       localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
@@ -1205,84 +1230,130 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     logActivity('MEDICINE_DELETED', `Deleted medicine: ${target?.name || id}`);
   };
 
-  const addBatch = (medicineId: string, batchData: Omit<MedicineBatch, 'id' | 'medicineId'>) => {
+  const addBatch = (
+    medicineId: string,
+    batchData: Omit<MedicineBatch, 'id' | 'medicineId'>,
+    options?: { syncFixedPrices?: boolean; existingBatchId?: string }
+  ) => {
     const ver = markLocalDirty();
-    const batchId = `bat-${Date.now()}`;
+    const addedQty = Math.max(0, Number(batchData.quantity || 0));
+    const batchId = `bat-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
+    const cleanBatchNumber = (batchData.batchNumber || `BAT-${Date.now()}`).trim();
+    const newSalePrice = Number(batchData.salePrice || 0);
+    const newPurchasePrice = Number(batchData.purchasePrice || 0);
+
     const newBatch: MedicineBatch = {
       ...batchData,
       id: batchId,
       medicineId,
-      quantity: Number(batchData.quantity),
-      initialQuantity: Number(batchData.quantity),
-      purchasePrice: Number(batchData.purchasePrice),
-      salePrice: Number(batchData.salePrice),
+      batchNumber: cleanBatchNumber,
+      quantity: addedQty,
+      initialQuantity: Number(batchData.initialQuantity || addedQty),
+      purchasePrice: newPurchasePrice,
+      salePrice: newSalePrice,
+      receivedDate: batchData.receivedDate || getStoreTodayDateStr(),
     };
 
     let updatedMed: Medicine | null = null;
-    setMedicines(prev => {
-      const next = prev.map(med => {
-        if (med.id !== medicineId) return med;
-        const updatedBatches = [...(med.batches || []), newBatch];
-        const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-        updatedMed = {
-          ...med,
-          batches: updatedBatches,
-          totalQuantity,
-        };
-        return updatedMed;
-      });
-      try {
-        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
-      } catch {}
-      return next;
-    });
-    if (updatedMed) {
-      fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updatedMed),
-      })
-        .then(res => {
-          if (res.ok) ackDedicatedMutation(ver);
-        })
-        .catch(() => {});
-      pushCloudMedicineRealtime(updatedMed).catch(() => {});
-    }
+    const next = medicinesRef.current.map(med => {
+      if (med.id !== medicineId) return med;
+      const existingBatches = Array.isArray(med.batches) ? med.batches : [];
+      const targetBatchIdx = options?.existingBatchId
+        ? existingBatches.findIndex(b => b.id === options.existingBatchId)
+        : -1;
 
-    logActivity('BATCH_ADDED', `Added batch ${newBatch.batchNumber} to medicine ID ${medicineId} (Qty: ${newBatch.quantity})`);
+      let updatedBatches: MedicineBatch[];
+      if (targetBatchIdx >= 0) {
+        updatedBatches = existingBatches.map((b, idx) => {
+          if (idx !== targetBatchIdx) return b;
+          return {
+            ...b,
+            quantity: Number(b.quantity || 0) + addedQty,
+            initialQuantity: Number(b.initialQuantity || b.quantity || 0) + addedQty,
+            purchasePrice: newPurchasePrice >= 0 ? newPurchasePrice : b.purchasePrice,
+            salePrice: newSalePrice > 0 ? newSalePrice : b.salePrice,
+            mfgDate: batchData.mfgDate || b.mfgDate,
+            expiryDate: batchData.expiryDate || b.expiryDate,
+            receivedDate: batchData.receivedDate || getStoreTodayDateStr(),
+          };
+        });
+      } else {
+        updatedBatches = [...existingBatches, newBatch];
+      }
+
+      const nextFixedSale =
+        options?.syncFixedPrices && newSalePrice > 0 ? newSalePrice : med.fixedSalePrice;
+      const nextFixedCost =
+        options?.syncFixedPrices && batchData.purchasePrice !== undefined
+          ? newPurchasePrice
+          : med.fixedPurchasePrice;
+
+      if (options?.syncFixedPrices && newSalePrice > 0) {
+        updatedBatches = updatedBatches.map(b => ({
+          ...b,
+          salePrice: newSalePrice,
+          purchasePrice: batchData.purchasePrice !== undefined ? newPurchasePrice : b.purchasePrice,
+        }));
+      }
+
+      const totalQuantity = updatedBatches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+      updatedMed = {
+        ...med,
+        fixedSalePrice: nextFixedSale,
+        fixedPurchasePrice: nextFixedCost,
+        batches: updatedBatches,
+        totalQuantity,
+        status: 'active',
+      };
+      return updatedMed;
+    });
+
+    medicinesRef.current = next;
+    setMedicines(next);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+    } catch {}
+
+    if (updatedMed) {
+      syncUpdatedMedicineToServer(updatedMed, ver);
+      const medName = (updatedMed as Medicine).name;
+      const medTotal = (updatedMed as Medicine).totalQuantity;
+      logActivity(
+        'INWARD_STOCK_ADDED',
+        `Added +${addedQty} units (${cleanBatchNumber}) to ${medName} — Total Stock: ${medTotal}`,
+        { medId: medicineId, addedQty, totalQuantity: medTotal }
+      );
+      addNotification(
+        'stock_adjustment',
+        'Inward Stock Added',
+        `+${addedQty} units (${cleanBatchNumber}) added to ${medName}. Current stock: ${medTotal}.`,
+        'info',
+        medicineId
+      );
+    }
   };
 
   const updateBatch = (medicineId: string, batchId: string, updated: Partial<MedicineBatch>) => {
     const ver = markLocalDirty();
     let updatedMed: Medicine | null = null;
-    setMedicines(prev => {
-      const next = prev.map(med => {
-        if (med.id !== medicineId) return med;
-        const updatedBatches = (med.batches || []).map(b => (b.id === batchId ? { ...b, ...updated } : b));
-        const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-        updatedMed = {
-          ...med,
-          batches: updatedBatches,
-          totalQuantity,
-        };
-        return updatedMed;
-      });
-      try {
-        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
-      } catch {}
-      return next;
+    const next = medicinesRef.current.map(med => {
+      if (med.id !== medicineId) return med;
+      const updatedBatches = (med.batches || []).map(b => (b.id === batchId ? { ...b, ...updated } : b));
+      const totalQuantity = updatedBatches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+      updatedMed = {
+        ...med,
+        batches: updatedBatches,
+        totalQuantity,
+      };
+      return updatedMed;
     });
+    medicinesRef.current = next;
+    setMedicines(next);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+    } catch {}
     if (updatedMed) {
-      fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updatedMed),
-      })
-        .then(res => {
-          if (res.ok) ackDedicatedMutation(ver);
-        })
-        .catch(() => {});
-      pushCloudMedicineRealtime(updatedMed).catch(() => {});
+      syncUpdatedMedicineToServer(updatedMed, ver);
     }
     logActivity('BATCH_UPDATED', `Updated batch ID ${batchId} on medicine ID ${medicineId}`);
   };
@@ -1290,34 +1361,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteBatch = (medicineId: string, batchId: string) => {
     const ver = markLocalDirty();
     let updatedMed: Medicine | null = null;
-    setMedicines(prev => {
-      const next = prev.map(med => {
-        if (med.id !== medicineId) return med;
-        const updatedBatches = (med.batches || []).filter(b => b.id !== batchId);
-        const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-        updatedMed = {
-          ...med,
-          batches: updatedBatches,
-          totalQuantity,
-        };
-        return updatedMed;
-      });
-      try {
-        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
-      } catch {}
-      return next;
+    const next = medicinesRef.current.map(med => {
+      if (med.id !== medicineId) return med;
+      const updatedBatches = (med.batches || []).filter(b => b.id !== batchId);
+      const totalQuantity = updatedBatches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+      updatedMed = {
+        ...med,
+        batches: updatedBatches,
+        totalQuantity,
+      };
+      return updatedMed;
     });
+    medicinesRef.current = next;
+    setMedicines(next);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+    } catch {}
     if (updatedMed) {
-      fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updatedMed),
-      })
-        .then(res => {
-          if (res.ok) ackDedicatedMutation(ver);
-        })
-        .catch(() => {});
-      pushCloudMedicineRealtime(updatedMed).catch(() => {});
+      syncUpdatedMedicineToServer(updatedMed, ver);
     }
     logActivity('BATCH_DELETED', `Deleted batch ID ${batchId} on medicine ID ${medicineId}`);
   };
@@ -1331,42 +1392,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   ) => {
     const ver = markLocalDirty();
     let updatedMed: Medicine | null = null;
-    setMedicines(prev => {
-      const next = prev.map(med => {
-        if (med.id !== medicineId) return med;
-        const updatedBatches = med.batches.map(b => {
-          if (b.id !== batchId) return b;
-          return {
-            ...b,
-            quantity: b.quantity + additionalQty,
-            purchasePrice: costPrice !== undefined ? costPrice : b.purchasePrice,
-            salePrice: salePrice !== undefined ? salePrice : b.salePrice,
-          };
-        });
-        const totalQuantity = updatedBatches.reduce((sum, b) => sum + b.quantity, 0);
-        updatedMed = {
-          ...med,
-          batches: updatedBatches,
-          totalQuantity,
+    const next = medicinesRef.current.map(med => {
+      if (med.id !== medicineId) return med;
+      const updatedBatches = (med.batches || []).map(b => {
+        if (b.id !== batchId) return b;
+        return {
+          ...b,
+          quantity: Number(b.quantity || 0) + additionalQty,
+          purchasePrice: costPrice !== undefined ? costPrice : b.purchasePrice,
+          salePrice: salePrice !== undefined ? salePrice : b.salePrice,
         };
-        return updatedMed;
       });
-      try {
-        localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
-      } catch {}
-      return next;
+      const totalQuantity = updatedBatches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+      updatedMed = {
+        ...med,
+        batches: updatedBatches,
+        totalQuantity,
+      };
+      return updatedMed;
     });
+    medicinesRef.current = next;
+    setMedicines(next);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
+    } catch {}
     if (updatedMed) {
-      fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updatedMed),
-      })
-        .then(res => {
-          if (res.ok) ackDedicatedMutation(ver);
-        })
-        .catch(() => {});
-      pushCloudMedicineRealtime(updatedMed).catch(() => {});
+      syncUpdatedMedicineToServer(updatedMed, ver);
     }
     logActivity('STOCK_ADDED', `Added +${additionalQty} units to medicine ID ${medicineId} (Batch ID: ${batchId})`);
   };

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Medicine, MedicineBatch } from '../../types/pharmacy';
 import { useStore } from '../../context/StoreContext';
-import { formatPKR, isExpired, isNearExpiry } from '../../utils/helpers';
+import { formatPKR, isExpired, isNearExpiry, getStoreTodayDateStr } from '../../utils/helpers';
 
 interface BatchManagerModalProps {
   medicine: Medicine | null;
@@ -32,7 +32,8 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { addBatch, updateBatch, deleteBatch, settings, suppliers } = useStore();
+  const { medicines, addBatch, deleteBatch, settings, suppliers } = useStore();
+  const liveMedicine = medicines.find(m => m.id === medicine?.id) || medicine;
 
   const [showAddBatchForm, setShowAddBatchForm] = useState(false);
   const [newBatchNumber, setNewBatchNumber] = useState('');
@@ -44,7 +45,7 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
   const [newExpiryDate, setNewExpiryDate] = useState('2027-12-31');
   const [newSupplierId, setNewSupplierId] = useState(suppliers[0]?.id || '');
 
-  if (!isOpen || !medicine) return null;
+  if (!isOpen || !liveMedicine) return null;
 
   const handleCreateBatch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +56,7 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
 
     const selectedSup = suppliers.find(s => s.id === newSupplierId);
 
-    addBatch(medicine.id, {
+    addBatch(liveMedicine.id, {
       batchNumber: newBatchNumber.trim().toUpperCase(),
       purchasePrice: Number(newPurchasePrice),
       salePrice: Number(newSalePrice),
@@ -66,7 +67,7 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
       expiryDate: newExpiryDate,
       supplierId: selectedSup?.id,
       supplierName: selectedSup?.companyName,
-      receivedDate: new Date().toISOString().split('T')[0],
+      receivedDate: getStoreTodayDateStr(),
     });
 
     setShowAddBatchForm(false);
@@ -82,10 +83,10 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
             <Layers className="w-5 h-5 text-teal-400" />
             <div>
               <h3 className="font-bold text-sm text-white">
-                Batch Manager: {medicine.name}
+                Batch Manager: {liveMedicine.name}
               </h3>
               <p className="text-[11px] text-slate-300">
-                FEFO Expiry Tracking • Total Units: {medicine.totalQuantity}
+                FEFO Expiry Tracking • Total Units: {liveMedicine.totalQuantity}
               </p>
             </div>
           </div>
@@ -100,7 +101,7 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <span className="font-semibold text-slate-700">
-                Active Batches ({(medicine.batches || []).length})
+                Active Batches ({(liveMedicine.batches || []).length})
               </span>
               <p className="text-[11px] text-slate-500">
                 Sorted by FEFO (First Expiry, First Out)
@@ -207,12 +208,12 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
 
           {/* Batches Table */}
           <div className="space-y-2">
-            {(medicine.batches || []).length === 0 ? (
+            {(liveMedicine.batches || []).length === 0 ? (
               <div className="py-8 text-center text-slate-400">
                 No active batches recorded. Add an opening batch.
               </div>
             ) : (
-              (medicine.batches || []).map(batch => {
+              (liveMedicine.batches || []).map(batch => {
                 const expired = isExpired(batch.expiryDate);
                 const nearExp = !expired && isNearExpiry(batch.expiryDate, settings.expiryAlertDays);
 
@@ -279,8 +280,8 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                       <button
                         onClick={() => {
-                          if (confirm(`Delete batch ${batch.batchNumber} from ${medicine.name}?`)) {
-                            deleteBatch(medicine.id, batch.id);
+                          if (confirm(`Delete batch ${batch.batchNumber} from ${liveMedicine.name}?`)) {
+                            deleteBatch(liveMedicine.id, batch.id);
                           }
                         }}
                         className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"

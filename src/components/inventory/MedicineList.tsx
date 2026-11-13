@@ -32,6 +32,7 @@ import {
   getMedicineStockStatus,
   exportToCSV,
   getFefoBatches,
+  getStoreTodayDateStr,
 } from '../../utils/helpers';
 import { MedicineModal } from './MedicineModal';
 import { BatchManagerModal } from './BatchManagerModal';
@@ -42,12 +43,19 @@ interface MedicineListProps {
   onNavigate?: (tab: NavTab) => void;
 }
 
+interface QuickAddStockPayload extends Partial<MedicineBatch> {
+  existingBatchId?: string;
+}
+
 interface QuickAddStockModalProps {
   medicine: Medicine | null;
   isOpen: boolean;
   onClose: () => void;
-  onStockAdded: (batch: Partial<MedicineBatch>) => void;
+  onStockAdded: (batch: QuickAddStockPayload) => void;
 }
+
+const generateDefaultBatchCode = () =>
+  `BAT-${new Date().getFullYear().toString().slice(-2)}${Math.floor(100 + Math.random() * 900)}`;
 
 const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
   medicine,
@@ -55,38 +63,119 @@ const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
   onClose,
   onStockAdded,
 }) => {
+  const [stockMode, setStockMode] = useState<'new' | 'existing'>('new');
+  const [selectedBatchId, setSelectedBatchId] = useState<string>('');
+  const [batchNumber, setBatchNumber] = useState<string>(generateDefaultBatchCode);
+  const [quantity, setQuantity] = useState<number>(100);
+  const [purchasePrice, setPurchasePrice] = useState<number>(0);
+  const [salePrice, setSalePrice] = useState<number>(0);
+  const [mfgDate, setMfgDate] = useState<string>('2025-01-01');
+  const [expiryDate, setExpiryDate] = useState<string>('2028-01-01');
+  const [formError, setFormError] = useState<string>('');
+
+  useEffect(() => {
+    if (!isOpen || !medicine) return;
+    const existingBatches = Array.isArray(medicine.batches) ? medicine.batches : [];
+    const firstBatch = existingBatches[0];
+    const fixedSale =
+      medicine.fixedSalePrice !== undefined && medicine.fixedSalePrice > 0
+        ? medicine.fixedSalePrice
+        : firstBatch?.salePrice || 15;
+    const fixedCost =
+      medicine.fixedPurchasePrice !== undefined && medicine.fixedPurchasePrice > 0
+        ? medicine.fixedPurchasePrice
+        : firstBatch?.purchasePrice || 0;
+
+    setFormError('');
+    setQuantity(100);
+    if (existingBatches.length > 0 && firstBatch) {
+      setStockMode('existing');
+      setSelectedBatchId(firstBatch.id);
+      setBatchNumber(firstBatch.batchNumber || generateDefaultBatchCode());
+      setPurchasePrice(firstBatch.purchasePrice ?? fixedCost);
+      setSalePrice(fixedSale);
+      setMfgDate(firstBatch.mfgDate || '2025-01-01');
+      setExpiryDate(firstBatch.expiryDate || '2028-01-01');
+    } else {
+      setStockMode('new');
+      setSelectedBatchId('');
+      setBatchNumber(generateDefaultBatchCode());
+      setPurchasePrice(fixedCost);
+      setSalePrice(fixedSale);
+      setMfgDate('2025-01-01');
+      setExpiryDate('2028-01-01');
+    }
+  }, [isOpen, medicine?.id]);
+
   if (!isOpen || !medicine) return null;
 
-  const fixedSale =
-    medicine.fixedSalePrice !== undefined
-      ? medicine.fixedSalePrice
-      : medicine.batches[0]?.salePrice || 15;
-  const fixedCost =
-    medicine.fixedPurchasePrice !== undefined
-      ? medicine.fixedPurchasePrice
-      : medicine.batches[0]?.purchasePrice || 10;
-
-  const defaultBatch = `BAT-${new Date().getFullYear().toString().slice(-2)}${Math.floor(100 + Math.random() * 900)}`;
-  const [batchNumber, setBatchNumber] = useState(defaultBatch);
-  const [quantity, setQuantity] = useState(100);
-  const [purchasePrice, setPurchasePrice] = useState(fixedCost);
-  const [salePrice, setSalePrice] = useState(fixedSale);
-  const [mfgDate, setMfgDate] = useState('2025-01-01');
-  const [expiryDate, setExpiryDate] = useState('2028-01-01');
-
+  const existingBatches = Array.isArray(medicine.batches) ? medicine.batches : [];
+  const currentTotal = Number(medicine.totalQuantity || 0);
+  const qtyToAdd = Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+  const projectedTotal = currentTotal + qtyToAdd;
   const grossMargin = salePrice > 0 ? (((salePrice - purchasePrice) / salePrice) * 100).toFixed(1) : '0';
+
+  const handleModeSwitch = (mode: 'new' | 'existing') => {
+    setStockMode(mode);
+    setFormError('');
+    if (mode === 'existing' && existingBatches.length > 0) {
+      const target = existingBatches.find(b => b.id === selectedBatchId) || existingBatches[0];
+      setSelectedBatchId(target.id);
+      setBatchNumber(target.batchNumber);
+      setPurchasePrice(target.purchasePrice ?? (medicine.fixedPurchasePrice || 0));
+      setSalePrice(
+        medicine.fixedSalePrice && medicine.fixedSalePrice > 0
+          ? medicine.fixedSalePrice
+          : target.salePrice || 0
+      );
+      setMfgDate(target.mfgDate || '2025-01-01');
+      setExpiryDate(target.expiryDate || '2028-01-01');
+    } else {
+      setBatchNumber(generateDefaultBatchCode());
+      setPurchasePrice(medicine.fixedPurchasePrice || existingBatches[0]?.purchasePrice || 0);
+      setSalePrice(
+        medicine.fixedSalePrice && medicine.fixedSalePrice > 0
+          ? medicine.fixedSalePrice
+          : existingBatches[0]?.salePrice || 15
+      );
+      setMfgDate('2025-01-01');
+      setExpiryDate('2028-01-01');
+    }
+  };
+
+  const handleSelectExistingBatch = (bId: string) => {
+    setSelectedBatchId(bId);
+    const target = existingBatches.find(b => b.id === bId);
+    if (target) {
+      setBatchNumber(target.batchNumber);
+      setPurchasePrice(target.purchasePrice ?? 0);
+      setSalePrice(
+        medicine.fixedSalePrice && medicine.fixedSalePrice > 0
+          ? medicine.fixedSalePrice
+          : target.salePrice || 0
+      );
+      setMfgDate(target.mfgDate || '2025-01-01');
+      setExpiryDate(target.expiryDate || '2028-01-01');
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!batchNumber.trim() || quantity <= 0) {
-      alert('Please enter a valid batch number and quantity.');
+    const cleanQty = Number(quantity);
+    if (!Number.isFinite(cleanQty) || cleanQty <= 0) {
+      setFormError('Please enter a valid quantity greater than 0.');
+      return;
+    }
+    if (stockMode === 'new' && !batchNumber.trim()) {
+      setFormError('Please enter a valid batch number.');
       return;
     }
     onStockAdded({
-      batchNumber: batchNumber.trim(),
-      quantity: Number(quantity),
-      purchasePrice: Number(purchasePrice),
-      salePrice: Number(salePrice),
+      existingBatchId: stockMode === 'existing' ? selectedBatchId : undefined,
+      batchNumber: batchNumber.trim() || generateDefaultBatchCode(),
+      quantity: cleanQty,
+      purchasePrice: Number(purchasePrice) || 0,
+      salePrice: Number(salePrice) || 0,
       mfgDate,
       expiryDate,
     });
@@ -102,26 +191,98 @@ const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
             <div>
               <h3 className="font-bold text-sm text-white">Add Inward Stock &amp; Fixed Price</h3>
               <p className="text-[11px] text-slate-300 truncate max-w-xs">
-                {medicine.name} ({medicine.strength})
+                {medicine.name} {medicine.strength ? `(${medicine.strength})` : ''}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-white p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-3.5 text-xs">
+          {/* Live Current -> Projected Stock Bar */}
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                Item Stock Update
+              </span>
+              <span className="text-xs font-semibold text-slate-700">
+                Current: <strong className="font-mono text-slate-900">{currentTotal}</strong>
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
+                After Adding (+{qtyToAdd})
+              </span>
+              <span className="text-sm font-black font-mono text-emerald-700">
+                {projectedTotal} units
+              </span>
+            </div>
+          </div>
+
+          {/* Mode Toggle if existing batches exist */}
+          {existingBatches.length > 0 && (
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('existing')}
+                className={`py-1.5 px-2 rounded-lg font-bold text-[11px] transition-all ${
+                  stockMode === 'existing'
+                    ? 'bg-white text-teal-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Add to Existing Batch
+              </button>
+              <button
+                type="button"
+                onClick={() => handleModeSwitch('new')}
+                className={`py-1.5 px-2 rounded-lg font-bold text-[11px] transition-all ${
+                  stockMode === 'new'
+                    ? 'bg-white text-teal-800 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                + New Batch Shipment
+              </button>
+            </div>
+          )}
+
+          {formError && (
+            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-semibold text-[11px]">
+              {formError}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">Batch Number *</label>
-              <input
-                type="text"
-                required
-                value={batchNumber}
-                onChange={e => setBatchNumber(e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold"
-              />
+              <label className="font-semibold text-slate-700 block mb-1">
+                {stockMode === 'existing' && existingBatches.length > 0
+                  ? 'Select Batch *'
+                  : 'Batch Number *'}
+              </label>
+              {stockMode === 'existing' && existingBatches.length > 0 ? (
+                <select
+                  value={selectedBatchId}
+                  onChange={e => handleSelectExistingBatch(e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold bg-white"
+                >
+                  {existingBatches.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.batchNumber} ({b.quantity} units)
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={batchNumber}
+                  onChange={e => setBatchNumber(e.target.value)}
+                  className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold"
+                />
+              )}
             </div>
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Quantity Received *</label>
@@ -129,9 +290,9 @@ const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
                 type="number"
                 min="1"
                 required
-                value={quantity}
-                onChange={e => setQuantity(parseInt(e.target.value) || 1)}
-                className="w-full p-2 border border-slate-200 rounded-lg font-bold text-center"
+                value={quantity || ''}
+                onChange={e => setQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                className="w-full p-2 border-2 border-emerald-400 rounded-lg font-bold text-center text-emerald-900"
               />
             </div>
           </div>
@@ -203,7 +364,7 @@ const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
               type="submit"
               className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold shadow-xs"
             >
-              Confirm Batch Stock
+              Confirm &amp; Add Stock
             </button>
           </div>
         </form>
@@ -252,6 +413,13 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
   const [selectedMedForBatches, setSelectedMedForBatches] = useState<Medicine | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [quickStockMed, setQuickStockMed] = useState<Medicine | null>(null);
+  const [stockToast, setStockToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!stockToast) return;
+    const t = setTimeout(() => setStockToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [stockToast]);
 
   // Allow adding, editing, managing batches and deleting medicines for both Owner and Staff
   const canModifyPrices = true;
@@ -480,11 +648,27 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       }));
     });
 
-    exportToCSV(`PharmaCare_Inventory_${new Date().toISOString().split('T')[0]}`, exportRows);
+    exportToCSV(`PharmaCare_Inventory_${getStoreTodayDateStr()}`, exportRows);
   };
 
   return (
     <div className="space-y-4">
+      {stockToast && (
+        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{stockToast}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStockToast(null)}
+            className="p-0.5 text-emerald-700 hover:text-emerald-950"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Top Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card p-4">
         <div>
@@ -1158,24 +1342,29 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
         isOpen={!!quickStockMed}
         onClose={() => setQuickStockMed(null)}
         onStockAdded={batch => {
-          if (quickStockMed) {
-            if (batch.salePrice && batch.salePrice > 0) {
-              updateMedicine(quickStockMed.id, {
-                fixedSalePrice: Number(batch.salePrice),
-                fixedPurchasePrice: Number(batch.purchasePrice || 0),
-              });
-            }
-            addBatch(quickStockMed.id, {
+          if (!quickStockMed) return;
+          const addedQty = Number(batch.quantity || 0);
+          const nextTotal = Number(quickStockMed.totalQuantity || 0) + addedQty;
+          addBatch(
+            quickStockMed.id,
+            {
               batchNumber: batch.batchNumber || `BAT-${Date.now()}`,
-              quantity: Number(batch.quantity || 1),
-              initialQuantity: Number(batch.quantity || 1),
+              quantity: addedQty,
+              initialQuantity: addedQty,
               purchasePrice: Number(batch.purchasePrice || 0),
               salePrice: Number(batch.salePrice || 0),
               mfgDate: batch.mfgDate || '2025-01-01',
               expiryDate: batch.expiryDate || '2028-01-01',
-              receivedDate: new Date().toISOString().split('T')[0],
-            });
-          }
+              receivedDate: getStoreTodayDateStr(),
+            },
+            {
+              syncFixedPrices: Boolean(batch.salePrice && batch.salePrice > 0),
+              existingBatchId: batch.existingBatchId,
+            }
+          );
+          setStockToast(
+            `+${addedQty} units added to ${quickStockMed.name} (Total Stock: ${nextTotal} units)`
+          );
         }}
       />
 

@@ -1158,12 +1158,13 @@ try {
         $db = readDatabase($sqliteFile);
         if ($method === 'PUT') {
             $updates = readJsonBody();
+            $actor = getActorFromReq($db, $updates);
             $idx = -1;
             foreach ($db['medicines'] as $i => $item) {
                 if (($item['id'] ?? '') === $medId) { $idx = $i; break; }
             }
-            if ($idx === -1) sendJson(['success' => false, 'error' => 'Medicine not found'], 404);
-            $merged = array_merge($db['medicines'][$idx], $updates, ['storeId' => DEFAULT_STORE_ID]);
+            $base = $idx >= 0 ? $db['medicines'][$idx] : ['id' => $medId];
+            $merged = array_merge($base, $updates, ['id' => $medId, 'storeId' => DEFAULT_STORE_ID]);
             $batches = is_array($merged['batches'] ?? null) ? $merged['batches'] : [];
             $totalQty = 0;
             foreach ($batches as $b) {
@@ -1172,7 +1173,20 @@ try {
             $merged['batches'] = $batches;
             $merged['totalQuantity'] = count($batches) > 0 ? $totalQty : (float)($merged['totalQuantity'] ?? 0);
             $db['deletedIds'] = array_values(array_filter($db['deletedIds'] ?? [], fn($d) => $d !== $medId));
-            $db['medicines'][$idx] = $merged;
+            if ($idx >= 0) {
+                $db['medicines'][$idx] = $merged;
+            } else {
+                array_unshift($db['medicines'], $merged);
+            }
+            array_unshift($db['auditLogs'], [
+                'id' => 'log-' . round(microtime(true) * 1000) . '-' . substr(md5((string)mt_rand()), 0, 4),
+                'action' => 'MEDICINE_UPDATED',
+                'description' => 'Updated medicine ' . ($merged['name'] ?? $medId) . ' (Stock: ' . $merged['totalQuantity'] . ')',
+                'userId' => $actor['id'] ?? 'usr-owner-1',
+                'userName' => $actor['fullName'] ?? 'Store User',
+                'userRole' => $actor['role'] ?? 'admin',
+                'timestamp' => gmdate('c'),
+            ]);
             $saved = writeDatabase($sqliteFile, $db);
             sendJson(['success' => true, 'medicine' => $merged, 'data' => $saved]);
         }
