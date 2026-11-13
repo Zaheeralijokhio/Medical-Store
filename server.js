@@ -80,6 +80,9 @@ function sanitizeStaffAccounts(users2) {
         byUsername.set(uname, {
           ...u,
           username: uname,
+          fullName: String(u.fullName || u.name || uname),
+          email: String(u.email || ""),
+          designation: String(u.designation || "Staff Dispenser"),
           status: u.status || "active",
           pin: u.pin || "5678",
           password: u.password || "seller123"
@@ -637,7 +640,7 @@ async function syncStateToCloudSql(state) {
         await db.insert(staffMembers).values({
           id: String(u.id),
           storeId: String(u.storeId || DEFAULT_STORE_ID),
-          name: String(u.name || u.username),
+          name: String(u.fullName || u.name || u.username),
           username: String(u.username),
           password: String(u.password || ""),
           passwordHash: String(u.passwordHash || ""),
@@ -654,7 +657,7 @@ async function syncStateToCloudSql(state) {
         }).onConflictDoUpdate({
           target: staffMembers.id,
           set: {
-            name: String(u.name || u.username),
+            name: String(u.fullName || u.name || u.username),
             password: String(u.password || ""),
             passwordHash: String(u.passwordHash || ""),
             role: String(u.role || "Cashier / Seller"),

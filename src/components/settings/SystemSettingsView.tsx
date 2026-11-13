@@ -51,11 +51,12 @@ export const SystemSettingsView: React.FC = () => {
   const [snapshotToast, setSnapshotToast] = useState('');
   const [dbStatus, setDbStatus] = useState<{
     storageEngine: string;
-    mongoConfigured: boolean;
-    mongoConnected: boolean;
-    mongoDbName: string;
-    lastMongoSyncAt: string | null;
-    localFilePath: string;
+    sqliteConnected?: boolean;
+    mongoConfigured?: boolean;
+    mongoConnected?: boolean;
+    mongoDbName?: string;
+    lastMongoSyncAt?: string | null;
+    localFilePath?: string;
     lastUpdated: string;
     counts?: {
       staffAccounts: number;
@@ -248,38 +249,54 @@ export const SystemSettingsView: React.FC = () => {
           </div>
           <span
             className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-              dbStatus?.mongoConnected
+              dbStatus?.sqliteConnected || dbStatus?.storageEngine === 'hostinger_sqlite' || dbStatus?.mongoConnected
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                 : 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
             }`}
           >
-            {dbStatus?.mongoConnected
-              ? 'Connected: Hostinger MongoDB Atlas + Server Disk'
-              : 'Active: Server Disk (Auto-Connects MongoDB on Hostinger)'}
+            {dbStatus?.sqliteConnected || dbStatus?.storageEngine === 'hostinger_sqlite'
+              ? 'Connected: Hostinger SQLite SQL Database (18 Tables)'
+              : dbStatus?.mongoConnected
+              ? 'Connected: MongoDB Atlas + Server Disk'
+              : 'Active: Live Server Database'}
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="p-3 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400 block">
-              1. Hostinger Cloud Database (MongoDB Atlas)
+              1. Primary Relational SQL Database
             </span>
             <p className="text-xs font-bold text-white">
-              Database: <code className="text-teal-300">{dbStatus?.mongoDbName || 'pharmacare_erp'}</code> (Collections: <code className="text-teal-300">pharmacy_store_state</code> &amp; <code className="text-teal-300">staff_accounts</code>)
+              Engine:{' '}
+              <code className="text-teal-300">
+                {dbStatus?.sqliteConnected || dbStatus?.storageEngine === 'hostinger_sqlite'
+                  ? 'SQLite 3 (WAL Mode • 18 Relational Tables)'
+                  : dbStatus?.mongoConnected
+                  ? dbStatus?.mongoDbName || 'pharmacare_erp'
+                  : 'Express Server JSON + Cloud SQL'}
+              </code>
             </p>
             <p className="text-[11px] text-slate-300">
-              {dbStatus?.mongoConnected
-                ? `Live synced with your Hostinger MongoDB Atlas cluster (${dbStatus.lastMongoSyncAt ? new Date(dbStatus.lastMongoSyncAt).toLocaleTimeString() : 'Active'}).`
-                : 'When deployed on Hostinger (medicalstore.edulinker.online), Hostinger automatically injects MONGODB_URI and stores all records in your MongoDB Atlas Cluster0.'}
+              {dbStatus?.sqliteConnected || dbStatus?.storageEngine === 'hostinger_sqlite'
+                ? `Live automatic sync active on Hostinger (${dbStatus.lastUpdated ? new Date(dbStatus.lastUpdated).toLocaleTimeString() : 'Active'}). All staff & owner actions persist immediately.`
+                : dbStatus?.mongoConnected
+                ? `Live synced with MongoDB cluster (${dbStatus.lastMongoSyncAt ? new Date(dbStatus.lastMongoSyncAt).toLocaleTimeString() : 'Active'}).`
+                : 'All medicines, batches, staff accounts, sales, and ledgers automatically sync to the backend database.'}
             </p>
           </div>
 
           <div className="p-3 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block">
-              2. Server Disk Database + Instant Browser Cache
+              2. Database Location &amp; Live Record Counts
             </span>
             <p className="text-xs font-bold text-white">
-              Server File: <code className="text-indigo-300">{dbStatus?.localFilePath || 'data/pharmacy_database.json'}</code>
+              Storage:{' '}
+              <code className="text-indigo-300">
+                {dbStatus?.sqliteConnected || dbStatus?.storageEngine === 'hostinger_sqlite'
+                  ? 'api/data/pharmacy.sqlite'
+                  : dbStatus?.localFilePath || 'data/pharmacy_database.json'}
+              </code>
             </p>
             <p className="text-[11px] text-slate-300">
               Saved records: <strong>{dbStatus?.counts?.staffAccounts ?? availableUsers.length}</strong> Staff Accounts •{' '}

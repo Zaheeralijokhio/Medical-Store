@@ -131,7 +131,7 @@ export async function syncStateToCloudSql(state: any): Promise<boolean> {
           .values({
             id: String(u.id),
             storeId: String(u.storeId || DEFAULT_STORE_ID),
-            name: String(u.name || u.username),
+            name: String(u.fullName || u.name || u.username),
             username: String(u.username),
             password: String(u.password || ''),
             passwordHash: String(u.passwordHash || ''),
@@ -149,7 +149,7 @@ export async function syncStateToCloudSql(state: any): Promise<boolean> {
           .onConflictDoUpdate({
             target: staffMembers.id,
             set: {
-              name: String(u.name || u.username),
+              name: String(u.fullName || u.name || u.username),
               password: String(u.password || ''),
               passwordHash: String(u.passwordHash || ''),
               role: String(u.role || 'Cashier / Seller'),

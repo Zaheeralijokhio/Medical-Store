@@ -224,10 +224,11 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
     refreshData,
   } = useStore();
 
-  // Auto-refresh latest medicines from cloud whenever viewing Inventory catalog
+  // Refresh latest medicines once when opening Inventory catalog
   useEffect(() => {
     refreshData();
-  }, [refreshData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Search, Filter & Sort States
   const [searchQuery, setSearchQuery] = useState('');

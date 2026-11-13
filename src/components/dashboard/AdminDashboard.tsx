@@ -292,8 +292,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     1000
   );
 
+  const otherStaffCount = useMemo(
+    () => (staffMembers || []).filter(s => s && s.id !== 'usr-owner-1').length,
+    [staffMembers]
+  );
+
   return (
     <div className="space-y-6">
+      {/* Quick Setup Guide Banner when no staff account or no medicines exist yet */}
+      {(otherStaffCount === 0 || inventoryStats.totalMedicines === 0) && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-900 via-slate-900 to-indigo-950 text-white border border-teal-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-black text-white">
+              Store Quick Setup — Start Your Operations
+            </h4>
+            <p className="text-xs text-slate-300 mt-0.5">
+              {otherStaffCount === 0
+                ? 'Step 1: Create a Staff / Seller account so your team can sign in and record medicines & sales.'
+                : 'Step 2: Add medicines to your inventory catalog and start counter billing.'}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => onNavigate('staff')}
+              className="px-3.5 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-black transition-colors cursor-pointer"
+            >
+              {otherStaffCount === 0 ? '+ Create Staff Account' : 'Manage Staff Accounts'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('inventory')}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-colors cursor-pointer"
+            >
+              + Add Medicine
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner Alert for Expired or Low Stock if any */}
       {(inventoryStats.expiredCount > 0 || inventoryStats.nearExpiryCount > 0) && (
         <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900">

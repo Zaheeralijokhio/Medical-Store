@@ -2,18 +2,39 @@
   "sales": [
     {
       "id": "sal-test-dup",
+      "date": "2026-11-13",
+      "time": "12:00 PM",
       "items": [
         {
+          "medicineId": "med-test-1",
+          "medicineName": "Medicine",
+          "genericName": "",
           "batchId": "bat-test-1",
+          "batchNumber": "N/A",
           "quantity": 1,
           "unitPrice": 350,
-          "medicineId": "med-test-1"
+          "purchaseCost": 0,
+          "discountAmount": 0,
+          "taxAmount": 0,
+          "totalAmount": 350
         }
       ],
       "status": "completed",
+      "staffId": "usr-owner-1",
       "storeId": "store-1",
+      "subtotal": 350,
+      "taxTotal": 0,
       "createdBy": "usr-owner-1",
-      "invoiceNumber": "INV-2026-9001"
+      "netProfit": 350,
+      "staffName": "Store Staff",
+      "totalCost": 0,
+      "amountPaid": 350,
+      "grandTotal": 350,
+      "changeGiven": 0,
+      "customerName": "Walk-in Customer",
+      "discountTotal": 0,
+      "invoiceNumber": "INV-2026-9001",
+      "paymentMethod": "Cash"
     }
   ],
   "users": [
@@ -40,8 +61,8 @@
       },
       "storeId": "store-1",
       "createdBy": "usr-owner-1",
-      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
-      "lastLogin": "2026-11-13T04:06:57.338Z"
+      "lastLogin": "2026-11-13T04:06:57.338Z",
+      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
     },
     {
       "id": "usr-staff-1794402296131",
@@ -195,32 +216,32 @@
     {
       "id": "log-1794403881383-2zs5",
       "action": "MEDICINE_ADDED",
+      "description": "Added new medicine: Panadol (500mg) - Fixed Price Rs. 20",
       "userId": "usr-owner-1",
-      "details": {
-        "medId": "med-1794403881382"
-      },
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
       "timestamp": "11 Nov 2026, 06:31:21 pm",
-      "description": "Added new medicine: Panadol (500mg) - Fixed Price Rs. 20"
+      "details": {
+        "medId": "med-1794403881382"
+      }
     },
     {
       "id": "log-1794396431001-jgkh",
       "action": "STAFF_UPDATED",
+      "description": "Updated staff account details for ID usr-owner-1",
       "userId": "usr-owner-1",
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
-      "timestamp": "11 Nov 2026, 04:27:11 pm",
-      "description": "Updated staff account details for ID usr-owner-1"
+      "timestamp": "11 Nov 2026, 04:27:11 pm"
     },
     {
       "id": "log-1794396370448-7lag",
       "action": "STAFF_CREATED",
+      "description": "Dr. Abdul Rehman (Owner) created new account for Shafique (Medicine Seller & Inventory Staff)",
       "userId": "usr-owner-1",
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
-      "timestamp": "11 Nov 2026, 04:26:10 pm",
-      "description": "Dr. Abdul Rehman (Owner) created new account for Shafique (Medicine Seller & Inventory Staff)"
+      "timestamp": "11 Nov 2026, 04:26:10 pm"
     }
   ],
   "cashMemos": [
@@ -229,8 +250,18 @@
       "storeId": "store-1",
       "saleId": "sal-test-dup",
       "invoiceNumber": "INV-2026-9001",
+      "date": "2026-11-13",
+      "time": "12:00 PM",
       "createdBy": "usr-owner-1",
-      "createdByName": "Store Dispenser",
+      "createdByName": "Store Staff",
+      "customerName": "Walk-in Customer",
+      "subtotal": 350,
+      "discountTotal": 0,
+      "taxTotal": 0,
+      "grandTotal": 350,
+      "amountPaid": 350,
+      "changeGiven": 0,
+      "paymentMethod": "Cash",
       "itemsCount": 1,
       "status": "completed"
     }
@@ -246,16 +277,16 @@
       "batches": [
         {
           "id": "bat-1794403881382",
-          "mfgDate": "2025-01-10",
-          "quantity": 100,
-          "salePrice": 20,
-          "expiryDate": "2027-12-31",
           "medicineId": "med-1794403881382",
           "batchNumber": "BAT-26X62",
-          "receivedDate": "2026-11-11",
           "purchasePrice": 15,
+          "salePrice": 20,
           "wholesalePrice": 18,
-          "initialQuantity": 100
+          "quantity": 100,
+          "initialQuantity": 100,
+          "mfgDate": "2025-01-10",
+          "expiryDate": "2027-12-31",
+          "receivedDate": "2026-11-11"
         }
       ],
       "storeId": "store-1",
@@ -277,20 +308,42 @@
     },
     {
       "id": "med-test",
+      "code": "med-test",
       "name": "Panadol 500mg",
+      "status": "active",
+      "barcode": "med-test",
       "batches": [],
       "storeId": "store-1",
+      "category": "General",
+      "strength": "",
+      "brandName": "Panadol",
       "createdBy": "usr-owner-1",
-      "totalQuantity": 0
+      "genericName": "Panadol 500mg",
+      "packingSize": "Pack",
+      "manufacturer": "Standard Pharma",
+      "medicineType": "Tablet",
+      "minStockLevel": 15,
+      "totalQuantity": 0,
+      "fixedSalePrice": 0,
+      "storageLocation": "General Shelf",
+      "fixedPurchasePrice": 0,
+      "requiresPrescription": false
     }
   ],
   "purchases": [],
   "saleItems": [
     {
+      "medicineId": "med-test-1",
+      "medicineName": "Medicine",
+      "genericName": "",
       "batchId": "bat-test-1",
+      "batchNumber": "N/A",
       "quantity": 1,
       "unitPrice": 350,
-      "medicineId": "med-test-1",
+      "purchaseCost": 0,
+      "discountAmount": 0,
+      "taxAmount": 0,
+      "totalAmount": 350,
       "id": "sal-test-dup-item-1",
       "saleId": "sal-test-dup",
       "storeId": "store-1"
@@ -303,63 +356,70 @@
       "storeId": "store-1",
       "name": "Analgesics & Antipyretics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
     },
     {
       "id": "cat-2",
       "storeId": "store-1",
       "name": "Antibiotics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
     },
     {
       "id": "cat-3",
       "storeId": "store-1",
       "name": "Gastrointestinal",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
     },
     {
       "id": "cat-4",
       "storeId": "store-1",
       "name": "Antihistamines & Respiratory",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
     },
     {
       "id": "cat-5",
       "storeId": "store-1",
       "name": "Cardiovascular & Hypertension",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
     },
     {
       "id": "cat-6",
       "storeId": "store-1",
       "name": "Antidiabetics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
     },
     {
       "id": "cat-7",
       "storeId": "store-1",
       "name": "Vitamins & Supplements",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
     },
     {
       "id": "cat-8",
       "storeId": "store-1",
       "name": "Dermatological",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
     },
     {
       "id": "cat-9",
       "storeId": "store-1",
       "name": "Surgical & First Aid",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T04:06:58.170Z"
+      "createdAt": "2026-11-13T05:40:19.579Z"
+    },
+    {
+      "id": "cat-10",
+      "storeId": "store-1",
+      "name": "General",
+      "createdBy": "usr-owner-1",
+      "createdAt": "2026-11-13T05:40:19.579Z"
     }
   ],
   "deletedIds": [
@@ -371,10 +431,12 @@
     "sup-test-1",
     "cust-test-1",
     "exp-test-1",
-    "med-1794403198569"
+    "med-1794403198569",
+    "med-e2e-check",
+    "usr-staff-e2e-check"
   ],
   "adjustments": [],
-  "lastUpdated": "2026-11-13T04:06:58.170Z",
+  "lastUpdated": "2026-11-13T05:40:19.579Z",
   "saleReturns": [],
   "cleanVersion": "pharmacare_clean_v3",
   "staffMembers": [
@@ -401,8 +463,8 @@
       },
       "storeId": "store-1",
       "createdBy": "usr-owner-1",
-      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
-      "lastLogin": "2026-11-13T04:06:57.338Z"
+      "lastLogin": "2026-11-13T04:06:57.338Z",
+      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
     },
     {
       "id": "usr-staff-1794402296131",
@@ -433,23 +495,23 @@
   "notifications": [
     {
       "id": "notif-1794396370449",
-      "date": "2026-11-11",
-      "read": false,
       "type": "staff_activity",
       "title": "New Staff Account Created",
       "message": "Shafique (@shafique) was added as Medicine Seller & Inventory Staff.",
-      "severity": "info",
-      "timestamp": "11/11/2026, 4:26:10 pm"
+      "date": "2026-11-11",
+      "timestamp": "11/11/2026, 4:26:10 pm",
+      "read": false,
+      "severity": "info"
     },
     {
       "id": "notif-1794403881387",
-      "date": "2026-11-11",
-      "read": false,
       "type": "stock_adjustment",
       "title": "New Medicine Registered",
       "message": "Panadol added to inventory catalog at Fixed Price Rs. 20.",
-      "severity": "info",
+      "date": "2026-11-11",
       "timestamp": "11/11/2026, 6:31:21 pm",
+      "read": false,
+      "severity": "info",
       "referenceId": "med-1794403881382"
     }
   ],
@@ -488,6 +550,22 @@
   ],
   "forceStaffReplace": false,
   "stockTransactions": [
+    {
+      "id": "stx-1794547212596-g36d",
+      "type": "opening",
+      "batchId": "bat-e2e",
+      "storeId": "store-1",
+      "createdBy": "usr-staff-e2e-check",
+      "timestamp": "2026-11-13T05:20:12.596Z",
+      "medicineId": "med-e2e-check",
+      "batchNumber": "BAT-E2E",
+      "newQuantity": 50,
+      "referenceId": "med-e2e-check",
+      "medicineName": "Augmentin 625mg Test",
+      "createdByName": "E2E Test Seller",
+      "quantityChange": 50,
+      "previousQuantity": 0
+    },
     {
       "id": "stx-1794455922497-ah00",
       "type": "adjustment",

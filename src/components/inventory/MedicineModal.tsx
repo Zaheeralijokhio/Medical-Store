@@ -65,7 +65,7 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
       setDescription(medicineToEdit.description || '');
       setRequiresPrescription(medicineToEdit.requiresPrescription || false);
 
-      const primaryBatch = medicineToEdit.batches[0];
+      const primaryBatch = (medicineToEdit.batches || [])[0];
       const currentFixedSale =
         medicineToEdit.fixedSalePrice !== undefined
           ? medicineToEdit.fixedSalePrice

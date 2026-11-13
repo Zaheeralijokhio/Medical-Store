@@ -53,12 +53,8 @@ import {
   removePendingSale,
 } from '../services/offlineDb';
 import {
-  fetchCloudStaff,
-  pushCloudStaff,
-  fetchCloudStoreState,
-  pushCloudStoreState,
   pushCloudMedicineRealtime,
-  fetchCloudMedicines,
+  broadcastFullRefresh,
 } from '../services/cloudSync';
 import {
   normalizeMedicine,
@@ -295,6 +291,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const hasHydratedFromServer = useRef(false);
+  const localDirtyVersionRef = useRef(0);
+  const lastSyncedVersionRef = useRef(0);
+  const lastLocalMutationAtRef = useRef(0);
+
+  const markLocalDirty = () => {
+    localDirtyVersionRef.current += 1;
+    lastLocalMutationAtRef.current = Date.now();
+  };
+
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (currentUser?.id) {
+      headers['X-User-Id'] = currentUser.id;
+      headers['X-User-Role'] = currentUser.role || 'staff';
+      return headers;
+    }
+    try {
+      const raw = sessionStorage.getItem('pharmacare_auth_session_v2');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.id) {
+          headers['X-User-Id'] = String(parsed.id);
+          headers['X-User-Role'] = String(parsed.role || 'staff');
+        }
+      }
+    } catch {}
+    return headers;
+  };
 
   // Connectivity Listener
   useEffect(() => {
@@ -370,8 +396,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
   };
 
-  // Pull and merge latest state from both Backend API (/api/state) and Cross-Device Cloud Sync
-  const pullLatestDatabaseState = async () => {
+  // Pull and merge latest state from same-origin SQL Backend API (/api/state)
+  const pullLatestDatabaseState = async (force = false) => {
+    if (!force && Date.now() - lastLocalMutationAtRef.current < 1200) {
+      return;
+    }
+
     const applyIncomingState = (d: any) => {
       if (!d) return;
       if (Array.isArray(d.deletedIds)) {
@@ -439,54 +469,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     };
 
-    await Promise.allSettled([
-      fetch('/api/state', { cache: 'no-store' })
-        .then(res => (res.ok ? res.json() : null))
-        .then(res => {
-          if (res?.success && res?.data) {
-            applyIncomingState(res.data);
-          }
-        })
-        .catch(() => {}),
-      fetchCloudMedicines()
-        .then(cloudMeds => {
-          if (cloudMeds && Array.isArray(cloudMeds.medicines)) {
-            if (Array.isArray(cloudMeds.deletedIds)) {
-              cloudMeds.deletedIds.forEach(id => recordDeletedId(id));
-            }
-            if (cloudMeds.medicines.length > 0) {
-              const cleanCloudMeds = cloudMeds.medicines
-                .map(normalizeMedicine)
-                .filter((m): m is Medicine => m !== null);
-              setMedicines(prev => {
-                const merged = mergeById(prev, cleanCloudMeds, deletedRecordIdsRef.current);
-                try {
-                  localStorage.setItem('pharmacare_medicines', JSON.stringify(merged));
-                } catch {}
-                return merged;
-              });
-            }
-          }
-        })
-        .catch(() => {}),
-      fetchCloudStoreState()
-        .then(cloudData => {
-          if (cloudData) {
-            applyIncomingState(cloudData);
-          }
-        })
-        .catch(() => {}),
-      fetchCloudStaff()
-        .then(cloudStaff => {
-          if (cloudStaff && cloudStaff.length > 0) {
-            setStaffMembers(prevLocal => {
-              const combined = mergeById<User>(prevLocal, cloudStaff, deletedRecordIdsRef.current);
-              return sanitizeStaffAccounts(combined);
-            });
-          }
-        })
-        .catch(() => {}),
-    ]);
+    try {
+      const res = await fetch('/api/state', {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.success && json?.data) {
+          applyIncomingState(json.data);
+        }
+      }
+    } catch {}
   };
 
   // Initial Boot + Re-sync whenever Owner or Staff logs in / out + Real-time polling + Tab Focus / Storage events
@@ -543,17 +537,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }, 2500);
 
-    // Real-Time WebSocket connection to /ws with automatic reconnect & cleanup (Part 3)
+    // Real-Time WebSocket connection to /ws when running on Node Express; stops cleanly on Apache/PHP hosting
     let ws: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let isUnmounted = false;
+    let wsEverConnected = false;
+    let wsAttempts = 0;
 
     const connectWebSocket = () => {
       if (isUnmounted || typeof window === 'undefined') return;
+      if (!wsEverConnected && wsAttempts >= 2) return;
+      wsAttempts += 1;
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
         ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          wsEverConnected = true;
+          wsAttempts = 0;
+        };
 
         ws.onmessage = (event) => {
           try {
@@ -618,8 +621,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
 
         ws.onclose = () => {
-          if (!isUnmounted) {
-            reconnectTimer = setTimeout(connectWebSocket, 2000);
+          if (!isUnmounted && (wsEverConnected || wsAttempts < 2)) {
+            reconnectTimer = setTimeout(connectWebSocket, 3000);
           }
         };
 
@@ -708,11 +711,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('pharmacare_audit_logs', JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem('pharmacare_notifications', JSON.stringify(notifications)); }, [notifications]);
 
-  // Fast server & Cross-Device Cloud sync of full state
+  // Sync full store state to backend ONLY after local mutations (prevents echo writes from periodic polling)
   useEffect(() => {
     if (!hasHydratedFromServer.current) {
       return;
     }
+    if (localDirtyVersionRef.current <= lastSyncedVersionRef.current) {
+      return;
+    }
+    const targetVersion = localDirtyVersionRef.current;
 
     const timer = setTimeout(() => {
       if (isOnline) {
@@ -734,23 +741,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
         fetch('/api/sync', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders(),
           body: JSON.stringify(statePayload),
-        }).catch(() => {});
-
-        pushCloudStoreState({
-          settings,
-          medicines,
-          suppliers,
-          customers,
-          sales,
-          saleReturns,
-          purchases,
-          expenses,
-          adjustments,
-          staffMembers,
-          deletedIds: Array.from(deletedRecordIdsRef.current),
-        }).catch(() => {});
+        })
+          .then(res => {
+            if (res.ok) {
+              lastSyncedVersionRef.current = Math.max(lastSyncedVersionRef.current, targetVersion);
+            }
+          })
+          .catch(() => {});
       }
     }, 250);
 
@@ -833,7 +832,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         try {
           const res = await fetch('/api/sale', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify(item.saleData),
           });
 
@@ -988,6 +987,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
 
     const nextMedicines = [newMed, ...medicines.filter(m => m.id !== medId)];
+    markLocalDirty();
     setMedicines(nextMedicines);
     try {
       localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMedicines));
@@ -995,31 +995,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     fetch('/api/medicine', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(newMed),
     }).catch(() => {});
     pushCloudMedicineRealtime(newMed).catch(() => {});
-    pushCloudStoreState({
-      settings,
-      medicines: nextMedicines,
-      suppliers,
-      customers,
-      sales,
-      saleReturns,
-      purchases,
-      expenses,
-      adjustments,
-      staffMembers,
-      deletedIds: Array.from(deletedRecordIdsRef.current),
-    }).catch(() => {});
 
     logActivity('MEDICINE_ADDED', `Added new medicine: ${newMed.name} (${newMed.strength}) - Fixed Price Rs. ${resolvedFixedSalePrice}`, { medId });
     addNotification('stock_adjustment', 'New Medicine Registered', `${newMed.name} added to inventory catalog at Fixed Price Rs. ${resolvedFixedSalePrice}.`, 'info', medId);
   };
 
   const updateMedicine = (id: string, updated: Partial<Medicine>) => {
+    markLocalDirty();
     let updatedTarget: Medicine | null = null;
-    let nextList: Medicine[] = [];
     setMedicines(prev => {
       const next = prev.map(med => {
         if (med.id !== id) return med;
@@ -1040,7 +1027,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
         return updatedTarget;
       });
-      nextList = next;
       try {
         localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
       } catch {}
@@ -1049,28 +1035,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (updatedTarget) {
       fetch(`/api/medicine/${encodeURIComponent(id)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(updatedTarget),
       }).catch(() => {});
       pushCloudMedicineRealtime(updatedTarget).catch(() => {});
-      pushCloudStoreState({
-        settings,
-        medicines: nextList,
-        suppliers,
-        customers,
-        sales,
-        saleReturns,
-        purchases,
-        expenses,
-        adjustments,
-        staffMembers,
-        deletedIds: Array.from(deletedRecordIdsRef.current),
-      }).catch(() => {});
     }
     logActivity('MEDICINE_EDITED', `Updated medicine specifications & fixed inventory price for ID: ${id}`);
   };
 
   const deleteMedicine = (id: string) => {
+    markLocalDirty();
     const target = medicines.find(m => m.id === id);
     recordDeletedId(id);
     const next = medicines.filter(m => m.id !== id);
@@ -1079,36 +1053,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
     } catch {}
 
-    // 1. Backend DELETE call
     fetch(`/api/medicine/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
     }).catch(() => {});
 
-    // 2. Immediate push to ntfy real-time topic (all accounts receive within 100ms)
     pushCloudMedicineRealtime(null, id).catch(() => {});
-
-    // 3. Update cloud persistent store object so other devices/sessions never resurrect it
-    pushCloudStoreState(
-      {
-        settings,
-        medicines: next,
-        suppliers,
-        customers,
-        sales,
-        saleReturns,
-        purchases,
-        expenses,
-        adjustments,
-        staffMembers,
-        deletedIds: Array.from(deletedRecordIdsRef.current),
-      },
-      { deletedId: id }
-    ).catch(() => {});
 
     logActivity('MEDICINE_DELETED', `Deleted medicine: ${target?.name || id}`);
   };
 
   const addBatch = (medicineId: string, batchData: Omit<MedicineBatch, 'id' | 'medicineId'>) => {
+    markLocalDirty();
     const batchId = `bat-${Date.now()}`;
     const newBatch: MedicineBatch = {
       ...batchData,
@@ -1121,7 +1077,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     let updatedMed: Medicine | null = null;
-    let nextList: Medicine[] = [];
     setMedicines(prev => {
       const next = prev.map(med => {
         if (med.id !== medicineId) return med;
@@ -1134,7 +1089,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
         return updatedMed;
       });
-      nextList = next;
       try {
         localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
       } catch {}
@@ -1143,29 +1097,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (updatedMed) {
       fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(updatedMed),
       }).catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
-      pushCloudStoreState({
-        settings,
-        medicines: nextList,
-        suppliers,
-        customers,
-        sales,
-        saleReturns,
-        purchases,
-        expenses,
-        adjustments,
-        staffMembers,
-        deletedIds: Array.from(deletedRecordIdsRef.current),
-      }).catch(() => {});
     }
 
     logActivity('BATCH_ADDED', `Added batch ${newBatch.batchNumber} to medicine ID ${medicineId} (Qty: ${newBatch.quantity})`);
   };
 
   const updateBatch = (medicineId: string, batchId: string, updated: Partial<MedicineBatch>) => {
+    markLocalDirty();
     let updatedMed: Medicine | null = null;
     setMedicines(prev => {
       const next = prev.map(med => {
@@ -1187,7 +1129,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (updatedMed) {
       fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(updatedMed),
       }).catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
@@ -1196,6 +1138,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteBatch = (medicineId: string, batchId: string) => {
+    markLocalDirty();
     let updatedMed: Medicine | null = null;
     setMedicines(prev => {
       const next = prev.map(med => {
@@ -1217,7 +1160,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (updatedMed) {
       fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(updatedMed),
       }).catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
@@ -1232,6 +1175,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     costPrice?: number,
     salePrice?: number
   ) => {
+    markLocalDirty();
     let updatedMed: Medicine | null = null;
     setMedicines(prev => {
       const next = prev.map(med => {
@@ -1261,7 +1205,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (updatedMed) {
       fetch(`/api/medicine/${encodeURIComponent(medicineId)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(updatedMed),
       }).catch(() => {});
       pushCloudMedicineRealtime(updatedMed).catch(() => {});
@@ -1321,6 +1265,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: 'active',
         };
 
+        markLocalDirty();
         setMedicines(prev => [newMed, ...prev]);
         imported++;
       } catch (err: any) {
@@ -1328,6 +1273,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
+    if (imported > 0) {
+      markLocalDirty();
+      broadcastFullRefresh();
+    }
     logActivity('BULK_IMPORT', `Bulk imported ${imported} medicines`);
     return { imported, errors };
   };
@@ -1492,13 +1441,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     // Step 5: Save Sale record locally
+    markLocalDirty();
     setSales(prev => [newSale, ...prev]);
 
     // Step 6: Post to server or enqueue in IndexedDB if offline
     if (isOnline) {
       fetch('/api/sale', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(newSale),
       }).catch(() => {
         // Enqueue if network fail
@@ -1605,11 +1555,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
+    markLocalDirty();
     setSaleReturns(prev => [returnRecord, ...prev]);
 
     fetch('/api/sale-return', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(returnRecord),
     }).catch(() => {});
 
@@ -1705,13 +1656,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
+    markLocalDirty();
     setPurchases(prev => [newPurchase, ...prev]);
 
     // Send to server
     if (isOnline) {
       fetch('/api/purchase', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(newPurchase),
       }).catch(() => {});
     }
@@ -1734,6 +1686,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const recordPurchasePayment = (purchaseId: string, amount: number) => {
+    markLocalDirty();
     setPurchases(prev =>
       prev.map(p => {
         if (p.id !== purchaseId) return p;
@@ -1765,7 +1718,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     fetch(`/api/purchase/${encodeURIComponent(purchaseId)}/payment`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ amount }),
     }).catch(() => {});
 
@@ -1774,6 +1727,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Suppliers & Customers
   const addSupplier = (supplier: Omit<Supplier, 'id' | 'totalPurchases' | 'totalPaid' | 'outstandingBalance' | 'createdAt'>) => {
+    markLocalDirty();
     const newSup: Supplier = {
       ...supplier,
       id: `sup-${Date.now()}`,
@@ -1785,32 +1739,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSuppliers(prev => [newSup, ...prev]);
     fetch('/api/supplier', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(newSup),
     }).catch(() => {});
     logActivity('SUPPLIER_ADDED', `Registered supplier: ${newSup.companyName}`);
   };
 
   const updateSupplier = (id: string, updated: Partial<Supplier>) => {
+    markLocalDirty();
     setSuppliers(prev => prev.map(s => (s.id === id ? { ...s, ...updated } : s)));
     fetch(`/api/supplier/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(updated),
     }).catch(() => {});
     logActivity('SUPPLIER_UPDATED', `Updated supplier ID ${id}`);
   };
 
   const deleteSupplier = (id: string) => {
+    markLocalDirty();
     recordDeletedId(id);
     setSuppliers(prev => prev.filter(s => s.id !== id));
     fetch(`/api/supplier/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
     }).catch(() => {});
     logActivity('SUPPLIER_DELETED', `Deleted supplier ID ${id}`);
   };
 
   const recordSupplierPayment = (supplierId: string, amount: number) => {
+    markLocalDirty();
     setSuppliers(prev =>
       prev.map(s => {
         if (s.id !== supplierId) return s;
@@ -1825,13 +1783,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
     fetch(`/api/supplier/${encodeURIComponent(supplierId)}/payment`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ amount }),
     }).catch(() => {});
     logActivity('SUPPLIER_PAYMENT', `Disbursed supplier payment of Rs. ${amount} to ID: ${supplierId}`);
   };
 
   const addCustomer = (customer: Omit<Customer, 'id' | 'totalPurchases' | 'outstandingBalance' | 'createdAt'>): Customer => {
+    markLocalDirty();
     const newCust: Customer = {
       ...customer,
       id: `cust-${Date.now()}`,
@@ -1842,7 +1801,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCustomers(prev => [newCust, ...prev]);
     fetch('/api/customer', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(newCust),
     }).catch(() => {});
     logActivity('CUSTOMER_ADDED', `Registered customer: ${newCust.name} (${newCust.phone})`);
@@ -1850,25 +1809,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateCustomer = (id: string, updated: Partial<Customer>) => {
+    markLocalDirty();
     setCustomers(prev => prev.map(c => (c.id === id ? { ...c, ...updated } : c)));
     fetch(`/api/customer/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(updated),
     }).catch(() => {});
     logActivity('CUSTOMER_UPDATED', `Updated customer ID ${id}`);
   };
 
   const deleteCustomer = (id: string) => {
+    markLocalDirty();
     recordDeletedId(id);
     setCustomers(prev => prev.filter(c => c.id !== id));
     fetch(`/api/customer/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
     }).catch(() => {});
     logActivity('CUSTOMER_DELETED', `Deleted customer ID ${id}`);
   };
 
   const recordCustomerPayment = (customerId: string, amount: number) => {
+    markLocalDirty();
     setCustomers(prev =>
       prev.map(c => {
         if (c.id !== customerId) return c;
@@ -1880,7 +1843,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
     fetch(`/api/customer/${encodeURIComponent(customerId)}/payment`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ amount }),
     }).catch(() => {});
     logActivity('CUSTOMER_PAYMENT', `Received Rs. ${amount} credit recovery from customer ID ${customerId}`);
@@ -1888,6 +1851,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Expenses
   const addExpense = (expense: Omit<Expense, 'id' | 'addedBy' | 'addedByName'>) => {
+    markLocalDirty();
     const newExp: Expense = {
       ...expense,
       id: `exp-${Date.now()}`,
@@ -1897,27 +1861,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setExpenses(prev => [newExp, ...prev]);
     fetch('/api/expense', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(newExp),
     }).catch(() => {});
     logActivity('EXPENSE_ADDED', `Recorded ${newExp.category} expense: Rs. ${newExp.amount} - ${newExp.description}`);
   };
 
   const updateExpense = (id: string, updated: Partial<Expense>) => {
+    markLocalDirty();
     setExpenses(prev => prev.map(e => (e.id === id ? { ...e, ...updated } : e)));
     fetch(`/api/expense/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(updated),
     }).catch(() => {});
     logActivity('EXPENSE_UPDATED', `Updated expense record ID: ${id}`);
   };
 
   const deleteExpense = (id: string) => {
+    markLocalDirty();
     recordDeletedId(id);
     setExpenses(prev => prev.filter(e => e.id !== id));
     fetch(`/api/expense/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
     }).catch(() => {});
     logActivity('EXPENSE_DELETED', `Removed expense record ID: ${id}`);
   };
@@ -1955,6 +1922,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       timestamp: new Date().toLocaleString('en-PK'),
     };
 
+    markLocalDirty();
     setMedicines(prev =>
       prev.map(m => {
         if (m.id !== med.id) return m;
@@ -1972,7 +1940,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     fetch('/api/adjustment', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(adjRecord),
     }).catch(() => {});
 
@@ -1993,6 +1961,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Staff Management
   const addStaff = (userData: Omit<User, 'id' | 'joiningDate'>) => {
+    markLocalDirty();
     const newUser: User = {
       ...userData,
       id: `usr-staff-${Date.now()}`,
@@ -2011,17 +1980,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     fetch('/api/staff', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(newUser),
     }).catch(() => {});
 
-    pushCloudStaff(nextList).catch(() => {});
+    broadcastFullRefresh();
 
     logActivity('STAFF_CREATED', `Dr. Abdul Rehman (Owner) created new account for ${newUser.fullName} (${newUser.designation})`);
     addNotification('staff_activity', 'New Staff Account Created', `${newUser.fullName} (@${newUser.username}) was added as ${newUser.designation}.`, 'info');
   };
 
   const updateStaff = (id: string, updated: Partial<User>) => {
+    markLocalDirty();
     const nextList = sanitizeStaffAccounts(
       staffMembers.map(u => (u.id === id ? { ...u, ...updated } : u))
     );
@@ -2033,17 +2003,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     fetch(`/api/staff/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify(updated),
     }).catch(() => {});
 
-    pushCloudStaff(nextList).catch(() => {});
+    broadcastFullRefresh();
 
     logActivity('STAFF_UPDATED', `Updated staff account details for ID ${id}`);
   };
 
   const toggleStaffStatus = (id: string) => {
     if (id === OWNER_ACCOUNT.id) return;
+    markLocalDirty();
     let toggledStatus: 'active' | 'inactive' = 'active';
     const nextList = sanitizeStaffAccounts(
       staffMembers.map(u => {
@@ -2060,16 +2031,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     fetch(`/api/staff/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ status: toggledStatus }),
     }).catch(() => {});
 
-    pushCloudStaff(nextList).catch(() => {});
+    broadcastFullRefresh();
   };
 
   const deleteStaff = (id: string) => {
     if (id === OWNER_ACCOUNT.id) return;
+    markLocalDirty();
     const target = staffMembers.find(u => u.id === id);
+    recordDeletedId(id);
     const nextList = sanitizeStaffAccounts(staffMembers.filter(u => u.id !== id));
     setStaffMembers(nextList);
     try {
@@ -2079,9 +2052,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     fetch(`/api/staff/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      headers: getAuthHeaders(),
     }).catch(() => {});
 
-    pushCloudStaff(nextList, { forceReplace: true, deletedId: id }).catch(() => {});
+    broadcastFullRefresh();
 
     logActivity('STAFF_DELETED', `Dr. Abdul Rehman (Owner) removed staff account: ${target?.fullName || id}`);
     if (target) {
@@ -2090,6 +2064,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const removeAllOtherStaff = () => {
+    markLocalDirty();
+    staffMembers.forEach(u => {
+      if (u && u.id && u.id !== OWNER_ACCOUNT.id) {
+        recordDeletedId(u.id);
+      }
+    });
     const ownerOnly = staffMembers.filter(u => u.id === OWNER_ACCOUNT.id);
     const nextList = ownerOnly.length > 0 ? ownerOnly : [OWNER_ACCOUNT];
     setStaffMembers(nextList);
@@ -2100,9 +2080,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     fetch('/api/staff/all-others', {
       method: 'DELETE',
+      headers: getAuthHeaders(),
     }).catch(() => {});
 
-    pushCloudStaff(nextList, { forceReplace: true }).catch(() => {});
+    broadcastFullRefresh();
 
     logActivity('STAFF_CLEARED', 'Dr. Abdul Rehman (Owner) removed all other staff accounts.');
     addNotification('staff_activity', 'All Other Staff Accounts Removed', 'Only Dr. Abdul Rehman (Owner) account remains active.', 'warning');
@@ -2110,24 +2091,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Notifications
   const markNotificationRead = (id: string) => {
+    markLocalDirty();
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
   };
 
   const markAllNotificationsRead = () => {
+    markLocalDirty();
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
   const clearNotification = (id: string) => {
+    markLocalDirty();
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   // Settings
   const updateSettings = (newSettings: Partial<StoreSettings>) => {
+    markLocalDirty();
     setSettings(prev => {
       const merged = { ...prev, ...newSettings };
       fetch('/api/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(merged),
       }).catch(() => {});
       return merged;
@@ -2172,7 +2157,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         pendingSyncCount,
         syncOfflineQueue,
         offlineSyncStatus,
-        refreshData: pullLatestDatabaseState,
+        refreshData: () => pullLatestDatabaseState(true),
 
         backupSnapshots,
         fetchBackupSnapshots,

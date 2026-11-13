@@ -11,7 +11,7 @@ import {
   LEGACY_DEMO_USER_IDS,
   sanitizeStaffAccounts,
 } from '../data/initialData';
-import { fetchCloudStaff, pushCloudStaff } from '../services/cloudSync';
+import { pushCloudStaff } from '../services/cloudSync';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -100,21 +100,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  // Fetch latest staff accounts from Backend Database + Cross-Device Cloud Sync on startup
+  // Fetch latest staff accounts from Backend SQL Database on startup
   useEffect(() => {
     let active = true;
-    fetch('/api/staff')
+    fetch('/api/staff', { cache: 'no-store' })
       .then(res => (res.ok ? res.json() : null))
       .then(json => {
         if (!active || !json?.staffMembers || !Array.isArray(json.staffMembers)) return;
-        mergeAndSaveStaff(json.staffMembers);
-      })
-      .catch(() => {});
-
-    fetchCloudStaff()
-      .then(cloudStaff => {
-        if (!active || !cloudStaff || cloudStaff.length === 0) return;
-        mergeAndSaveStaff(cloudStaff);
+        const clean = sanitizeStaffAccounts(json.staffMembers);
+        try {
+          localStorage.setItem('pharmacare_staff', JSON.stringify(clean));
+        } catch {}
+        setAvailableUsers(clean);
       })
       .catch(() => {});
 
@@ -248,7 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         : (user.password || '').trim()
       : null;
 
-    // 1. Check backend API if not found locally or password differs
+    // Fallback check against /api/staff if not found or password differs
     if (!user || (localExpectedPass && cleanPass !== localExpectedPass)) {
       try {
         const res = await fetch('/api/auth/login', {
@@ -266,26 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return { success: true };
           }
         }
-      } catch {
-        // fallback to cloud sync below
-      }
-    }
-
-    // 2. Check Cross-Device Cloud Sync (for Hostinger static CDN / mobile phone login)
-    if (!user || (localExpectedPass && cleanPass !== localExpectedPass)) {
-      try {
-        const cloudStaff = await fetchCloudStaff();
-        if (cloudStaff && cloudStaff.length > 0) {
-          mergeAndSaveStaff(cloudStaff);
-          const merged = sanitizeStaffAccounts([...currentList, ...cloudStaff]);
-          const matchedFromCloud = findMatchingUser(merged);
-          if (matchedFromCloud) {
-            user = matchedFromCloud;
-          }
-        }
-      } catch {
-        // fallback to local check below
-      }
+      } catch {}
     }
 
     if (!user) {
@@ -369,16 +347,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setCurrentUser(user);
             return { success: true };
           }
-        }
-      } catch {}
-    }
-
-    if (!user) {
-      try {
-        const cloudStaff = await fetchCloudStaff();
-        if (cloudStaff && cloudStaff.length > 0) {
-          mergeAndSaveStaff(cloudStaff);
-          user = matchByPin(cloudStaff);
         }
       } catch {}
     }

@@ -21,7 +21,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
 import { sanitizeStaffAccounts } from '../../data/initialData';
-import { fetchCloudStaff } from '../../services/cloudSync';
 import { User } from '../../types/pharmacy';
 
 interface LoginPageProps {
@@ -40,26 +39,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     return sanitizeStaffAccounts([...availableUsers, ...staffMembers]);
   }, [availableUsers, staffMembers]);
 
-  // Also fetch latest staff list from backend database + Cross-Device Cloud Sync whenever LoginPage mounts
+  // Fetch latest staff list from backend database whenever LoginPage mounts
   useEffect(() => {
     let active = true;
-    fetch('/api/staff')
+    fetch('/api/staff', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (!active || !Array.isArray(data?.staffMembers)) return;
-        const merged = sanitizeStaffAccounts([...allUsers, ...data.staffMembers]);
-        syncStaffList(merged);
-      })
-      .catch(() => {});
-
-    fetchCloudStaff()
-      .then(cloudStaff => {
-        if (!active || !cloudStaff || cloudStaff.length === 0) return;
-        const merged = sanitizeStaffAccounts([...allUsers, ...cloudStaff]);
+        const clean = sanitizeStaffAccounts(data.staffMembers);
         try {
-          localStorage.setItem('pharmacare_staff', JSON.stringify(merged));
+          localStorage.setItem('pharmacare_staff', JSON.stringify(clean));
         } catch {}
-        syncStaffList(merged);
+        syncStaffList(clean);
       })
       .catch(() => {});
 
