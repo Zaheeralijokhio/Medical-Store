@@ -10,14 +10,6 @@ import {
   X,
   CheckCircle2,
   Pill,
-  Phone,
-  MapPin,
-  Calendar,
-  Clock,
-  User,
-  ShieldCheck,
-  Receipt,
-  FileText,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { Sale, StoreSettings } from '../../types/pharmacy';
@@ -32,6 +24,8 @@ interface InvoiceModalProps {
 
 export type ReceiptPrintFormat = '58mm' | '80mm' | 'A4';
 
+const BARCODE_WEIGHTS = [3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 2, 4, 1, 3];
+
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   sale,
   settings,
@@ -43,6 +37,30 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   if (!isOpen || !sale) return null;
 
+  const storeName = String(settings?.storeName || 'PharmaCare Medical & General Store').trim();
+  const storeTagline = String(settings?.storeTagline || 'Registered Retail & Clinical Pharmacy').trim();
+  const addressParts = [settings?.storeAddress?.trim(), settings?.city?.trim()].filter(Boolean);
+  const fullAddress = addressParts.join(', ');
+
+  const regulatoryParts = [
+    settings?.phone?.trim() ? `Ph: ${settings.phone.trim()}` : '',
+    settings?.drugLicenseNumber?.trim() ? `DRAP: ${settings.drugLicenseNumber.trim()}` : '',
+    settings?.taxRegistrationNumber?.trim() ? `NTN: ${settings.taxRegistrationNumber.trim()}` : '',
+  ].filter(Boolean);
+
+  const saleItems = Array.isArray(sale.items) ? sale.items : [];
+  const invoiceHeaderLabel = String(settings?.invoiceHeader || 'COMPUTERIZED PHARMACY CASH MEMO').trim();
+  const invoiceFooterText = String(
+    settings?.invoiceFooter ||
+      'Medicines once sold will not be returned without cash memo within 7 days. Cold chain products & cut strips non-returnable.'
+  ).trim();
+
+  const formatMoneyPlain = (val: number) =>
+    Number(val || 0).toLocaleString('en-PK', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+
   const handlePrint = () => {
     window.print();
   };
@@ -50,430 +68,690 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const handleDownloadRealPDF = () => {
     const isThermal58 = printFormat === '58mm';
     const isThermal80 = printFormat === '80mm';
+    const isA4 = printFormat === 'A4';
     const pageWidth = isThermal58 ? 58 : isThermal80 ? 80 : 210;
-    const saleItems = Array.isArray(sale.items) ? sale.items : [];
-    const estimatedHeight = Math.max(160, 110 + saleItems.length * 12);
+    const margin = isThermal58 ? 3.5 : isThermal80 ? 5 : 14;
+    const contentWidth = pageWidth - margin * 2;
 
+    const renderPdfContent = (doc: jsPDF): number => {
+      let y = 0;
+
+      // Top Brand Accent Bar (Botanical Obsidian + Clinical Emerald)
+      const topBarH = isA4 ? 5 : 3;
+      doc.setFillColor(11, 25, 30); // #0B191E
+      doc.rect(0, 0, pageWidth, topBarH, 'F');
+      doc.setFillColor(15, 118, 110); // #0F766E
+      doc.rect(0, topBarH, pageWidth, 1.1, 'F');
+
+      y = topBarH + (isA4 ? 8 : 5.5);
+
+      // Store Name (Wrapped cleanly — never clipped horizontally)
+      doc.setTextColor(11, 25, 30);
+      doc.setFont('helvetica', 'bold');
+      const titleFontSize = isA4 ? 16 : isThermal58 ? 9.5 : 11;
+      doc.setFontSize(titleFontSize);
+      const titleLines: string[] = doc.splitTextToSize(storeName.toUpperCase(), contentWidth);
+      const titleLineStep = isA4 ? 6.2 : isThermal58 ? 3.8 : 4.4;
+      titleLines.forEach(line => {
+        doc.text(line, pageWidth / 2, y, { align: 'center' });
+        y += titleLineStep;
+      });
+
+      // Tagline & Address
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(51, 65, 85); // slate-700 crisp contrast
+      const subFontSize = isA4 ? 9 : isThermal58 ? 6.4 : 7.2;
+      doc.setFontSize(subFontSize);
+      const subLineStep = isA4 ? 4.2 : 3.3;
+
+      if (storeTagline) {
+        const tagLines: string[] = doc.splitTextToSize(storeTagline, contentWidth);
+        tagLines.forEach(line => {
+          doc.text(line, pageWidth / 2, y, { align: 'center' });
+          y += subLineStep;
+        });
+      }
+
+      if (fullAddress) {
+        const addrLines: string[] = doc.splitTextToSize(fullAddress, contentWidth);
+        addrLines.forEach(line => {
+          doc.text(line, pageWidth / 2, y, { align: 'center' });
+          y += subLineStep;
+        });
+      }
+
+      if (regulatoryParts.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isA4 ? 8 : isThermal58 ? 5.9 : 6.6);
+        const regLines: string[] = doc.splitTextToSize(regulatoryParts.join('  |  '), contentWidth);
+        regLines.forEach(line => {
+          doc.text(line, pageWidth / 2, y, { align: 'center' });
+          y += isA4 ? 3.8 : 3.0;
+        });
+      }
+
+      y += 1.5;
+
+      // Cash Memo Banner Strip
+      const bannerH = isA4 ? 8 : 6.2;
+      doc.setFillColor(241, 245, 249);
+      doc.setDrawColor(15, 118, 110);
+      doc.setLineWidth(0.35);
+      doc.rect(margin, y, contentWidth, bannerH, 'FD');
+
+      doc.setTextColor(15, 118, 110);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isA4 ? 9.5 : isThermal58 ? 6.2 : 7.2);
+      doc.text(invoiceHeaderLabel.toUpperCase(), margin + 2.5, y + bannerH / 2 + 1.1);
+
+      const statusText = String(sale.status || 'completed').toUpperCase();
+      doc.setTextColor(11, 25, 30);
+      doc.text(statusText, pageWidth - margin - 2.5, y + bannerH / 2 + 1.1, { align: 'right' });
+
+      y += bannerH + 3.5;
+
+      // Meta & Customer Details Box
+      const metaPadding = isA4 ? 3.5 : 2.2;
+      const metaFontSize = isA4 ? 8.8 : isThermal58 ? 6.3 : 7.2;
+      const metaLineStep = isA4 ? 4.3 : 3.3;
+
+      const customerLabel = `${sale.customerName || 'Walk-in Customer'}${
+        sale.customerPhone ? ` (${sale.customerPhone})` : ''
+      }`;
+      const customerLines: string[] = doc.splitTextToSize(
+        `Customer: ${customerLabel}`,
+        isA4 ? contentWidth * 0.55 : contentWidth - metaPadding * 2
+      );
+
+      if (isA4) {
+        const boxH = Math.max(metaPadding * 2 + 3 * metaLineStep, metaPadding * 2 + customerLines.length * metaLineStep + 5);
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.25);
+        doc.rect(margin, y, contentWidth, boxH, 'FD');
+
+        let ly = y + metaPadding + 2.8;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(11, 25, 30);
+        doc.text(`INVOICE #${sale.invoiceNumber || ''}`, margin + metaPadding, ly);
+        ly += 4.8;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(metaFontSize);
+        doc.setTextColor(30, 41, 59);
+        customerLines.forEach(line => {
+          doc.text(line, margin + metaPadding, ly);
+          ly += metaLineStep;
+        });
+
+        let ry = y + metaPadding + 2.8;
+        doc.text(`Date: ${sale.date || ''} ${sale.time || ''}`, pageWidth - margin - metaPadding, ry, { align: 'right' });
+        ry += metaLineStep;
+        doc.text(`Dispenser: ${sale.staffName || 'Cashier'}`, pageWidth - margin - metaPadding, ry, { align: 'right' });
+        ry += metaLineStep;
+        doc.text(`Payment: ${sale.paymentMethod || 'Cash'}`, pageWidth - margin - metaPadding, ry, { align: 'right' });
+
+        y += boxH + 4;
+      } else {
+        const metaLinesCount = 4 + customerLines.length;
+        const boxH = metaPadding * 2 + metaLinesCount * metaLineStep + 0.5;
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.25);
+        doc.rect(margin, y, contentWidth, boxH, 'FD');
+
+        let my = y + metaPadding + 2.2;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isThermal58 ? 7 : 8);
+        doc.setTextColor(11, 25, 30);
+        doc.text(`INVOICE: #${sale.invoiceNumber || ''}`, margin + metaPadding, my);
+        my += metaLineStep + 0.3;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(metaFontSize);
+        doc.setTextColor(30, 41, 59);
+        doc.text(`Date: ${sale.date || ''} ${sale.time || ''}`, margin + metaPadding, my);
+        my += metaLineStep;
+        doc.text(`Dispenser: ${sale.staffName || 'Cashier'}`, margin + metaPadding, my);
+        my += metaLineStep;
+        customerLines.forEach(line => {
+          doc.text(line, margin + metaPadding, my);
+          my += metaLineStep;
+        });
+        doc.text(`Payment: ${sale.paymentMethod || 'Cash'}`, margin + metaPadding, my);
+
+        y += boxH + 3;
+      }
+
+      // Items Table Header (Dark Obsidian Fill)
+      const thHeight = isA4 ? 7 : 5.5;
+      doc.setFillColor(11, 25, 30);
+      doc.rect(margin, y, contentWidth, thHeight, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isA4 ? 8.5 : isThermal58 ? 6.2 : 7);
+
+      const colQtyX = margin + contentWidth * 0.58;
+      const colRateX = margin + contentWidth * 0.77;
+      const colTotalX = pageWidth - margin - 1.5;
+
+      doc.text('Medicine / Batch', margin + 1.5, y + thHeight / 2 + 1);
+      doc.text('Qty', colQtyX, y + thHeight / 2 + 1, { align: 'center' });
+      doc.text('Rate', colRateX, y + thHeight / 2 + 1, { align: 'right' });
+      doc.text('Total', colTotalX, y + thHeight / 2 + 1, { align: 'right' });
+
+      y += thHeight + 3;
+
+      // Items Rows
+      const itemNameColWidth = contentWidth * 0.49;
+      saleItems.forEach((item, idx) => {
+        const titleText = `${idx + 1}. ${item.medicineName || 'Medicine'}`;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(isA4 ? 9 : isThermal58 ? 6.4 : 7.3);
+        doc.setTextColor(15, 23, 42);
+        const nameLines: string[] = doc.splitTextToSize(titleText, itemNameColWidth);
+
+        doc.text(String(Number(item.quantity || 0)), colQtyX, y, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.text(formatMoneyPlain(Number(item.unitPrice || 0)), colRateX, y, { align: 'right' });
+        doc.setFont('helvetica', 'bold');
+        doc.text(formatMoneyPlain(Number(item.totalAmount || 0)), colTotalX, y, { align: 'right' });
+
+        const itemStep = isA4 ? 4 : 3.2;
+        nameLines.forEach(line => {
+          doc.text(line, margin + 1.5, y);
+          y += itemStep;
+        });
+
+        if (item.genericName) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(isA4 ? 7.8 : isThermal58 ? 5.6 : 6.2);
+          doc.setTextColor(51, 65, 85);
+          const genLines: string[] = doc.splitTextToSize(String(item.genericName), itemNameColWidth);
+          genLines.forEach(line => {
+            doc.text(line, margin + 2.5, y);
+            y += isA4 ? 3.5 : 2.7;
+          });
+        }
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(isA4 ? 7.6 : isThermal58 ? 5.5 : 6.1);
+        doc.setTextColor(71, 85, 105);
+        const batchLine = `Batch: ${item.batchNumber || '-'} | Exp: ${item.expiryDate || '-'}${
+          Number(item.discountAmount || 0) > 0 ? ` | Disc: -Rs.${formatMoneyPlain(item.discountAmount)}` : ''
+        }`;
+        const batchWrapped: string[] = doc.splitTextToSize(batchLine, contentWidth - 4);
+        batchWrapped.forEach(line => {
+          doc.text(line, margin + 2.5, y);
+          y += isA4 ? 3.5 : 2.7;
+        });
+
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.line(margin, y, pageWidth - margin, y);
+        y += isA4 ? 3.8 : 2.8;
+      });
+
+      y += 1.5;
+
+      // Summary Totals Section
+      const sumLeftX = isA4 ? margin + contentWidth * 0.45 : margin + 2;
+      const sumRightX = pageWidth - margin - 2;
+      const sumStep = isA4 ? 4.8 : 3.8;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(isA4 ? 9 : isThermal58 ? 6.5 : 7.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text('Subtotal:', sumLeftX, y);
+      doc.text(formatPKR(sale.subtotal), sumRightX, y, { align: 'right' });
+      y += sumStep;
+
+      if (Number(sale.discountTotal || 0) > 0) {
+        doc.setTextColor(15, 118, 110);
+        doc.text('Discount:', sumLeftX, y);
+        doc.text(`-${formatPKR(sale.discountTotal)}`, sumRightX, y, { align: 'right' });
+        y += sumStep;
+      }
+
+      if (Number(sale.taxTotal || 0) > 0) {
+        doc.setTextColor(30, 41, 59);
+        doc.text(`Tax (${settings.taxRatePercentage}%):`, sumLeftX, y);
+        doc.text(formatPKR(sale.taxTotal), sumRightX, y, { align: 'right' });
+        y += sumStep;
+      }
+
+      // Highlighted NET TOTAL Box
+      const netBoxH = isA4 ? 8.5 : 6.8;
+      const netBoxX = isA4 ? margin + contentWidth * 0.42 : margin;
+      const netBoxW = pageWidth - margin - netBoxX;
+      doc.setFillColor(236, 253, 245); // emerald-50
+      doc.setDrawColor(15, 118, 110);
+      doc.setLineWidth(0.45);
+      doc.rect(netBoxX, y - 1, netBoxW, netBoxH, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isA4 ? 11 : isThermal58 ? 7.8 : 9);
+      doc.setTextColor(11, 25, 30);
+      doc.text('NET TOTAL:', netBoxX + 2.5, y + netBoxH / 2);
+      doc.setTextColor(15, 118, 110);
+      doc.text(formatPKR(sale.grandTotal), sumRightX, y + netBoxH / 2, { align: 'right' });
+      y += netBoxH + 2.5;
+
+      // Payment Settlement Details (High-contrast slate-900)
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(isA4 ? 8.5 : isThermal58 ? 6.2 : 7.1);
+      doc.setTextColor(30, 41, 59);
+
+      if (sale.paymentMethod === 'Credit') {
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(180, 83, 9);
+        doc.text('Debited to Patient Credit Ledger Balance', sumRightX, y, { align: 'right' });
+        y += sumStep;
+      } else {
+        doc.text('Amount Paid:', sumLeftX, y);
+        doc.text(formatPKR(sale.amountPaid), sumRightX, y, { align: 'right' });
+        y += sumStep;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text('Change Returned:', sumLeftX, y);
+        doc.text(formatPKR(sale.changeGiven), sumRightX, y, { align: 'right' });
+        y += sumStep + 1;
+      }
+
+      // Vector Barcode + Invoice Verification Strip
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.25);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 3.5;
+
+      const barUnit = isA4 ? 0.85 : isThermal58 ? 0.52 : 0.65;
+      const totalBarcodeW = BARCODE_WEIGHTS.reduce((acc, w) => acc + w * barUnit + 0.4, 0);
+      let bx = isA4 ? margin + 2 : (pageWidth - totalBarcodeW) / 2;
+      const barH = isA4 ? 7 : 5;
+
+      doc.setFillColor(15, 23, 42);
+      BARCODE_WEIGHTS.forEach((w, idx) => {
+        const bw = w * barUnit;
+        if (idx % 2 === 0) {
+          doc.rect(bx, y, bw, barH, 'F');
+        }
+        bx += bw + 0.4;
+      });
+
+      if (isA4) {
+        // Pharmacist Stamp Box on A4 right side
+        doc.setDrawColor(100, 116, 139);
+        doc.line(pageWidth - margin - 45, y + barH + 1, pageWidth - margin, y + barH + 1);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(51, 65, 85);
+        doc.text('PHARMACIST SIGNATURE & STAMP', pageWidth - margin - 22.5, y + barH + 4.5, { align: 'center' });
+      }
+
+      y += barH + 3.2;
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(isA4 ? 7.5 : 6);
+      doc.setTextColor(51, 65, 85);
+      doc.text(`*${sale.invoiceNumber}*`, isA4 ? margin + totalBarcodeW / 2 + 2 : pageWidth / 2, y, {
+        align: 'center',
+      });
+      y += isA4 ? 6 : 4.2;
+
+      // Return Policy Footer
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 3.5;
+
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(isA4 ? 8 : isThermal58 ? 5.6 : 6.3);
+      doc.setTextColor(51, 65, 85);
+      const footerLines: string[] = doc.splitTextToSize(invoiceFooterText, contentWidth);
+      footerLines.forEach(line => {
+        doc.text(line, pageWidth / 2, y, { align: 'center' });
+        y += isA4 ? 3.8 : 2.9;
+      });
+
+      y += 1.5;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(isA4 ? 7.5 : 5.6);
+      doc.setTextColor(15, 118, 110);
+      doc.text('Thank you for trusting our pharmacy with your care.', pageWidth / 2, y, {
+        align: 'center',
+      });
+      y += 4;
+
+      return y;
+    };
+
+    // Pass 1: Measure exact content height so thermal PDFs never cut off top or bottom
+    const measureDoc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: isA4 ? 'a4' : [pageWidth, 500],
+    });
+    const exactHeight = renderPdfContent(measureDoc);
+
+    // Pass 2: Generate crisp final PDF sized accurately
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: printFormat === 'A4' ? 'a4' : [pageWidth, estimatedHeight],
+      format: isA4 ? 'a4' : [pageWidth, Math.max(135, exactHeight + 4)],
     });
-
-    const margin = isThermal58 ? 4 : isThermal80 ? 5 : 15;
-    const contentWidth = pageWidth - margin * 2;
-    let y = margin + 4;
-
-    // Store Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(printFormat === 'A4' ? 16 : isThermal58 ? 10 : 12);
-    doc.text(String(settings?.storeName || 'PharmaCare').toUpperCase(), pageWidth / 2, y, { align: 'center' });
-    y += printFormat === 'A4' ? 6 : 4.5;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(printFormat === 'A4' ? 9 : 7);
-    doc.text(settings?.storeTagline || 'Registered Retail & Clinical Pharmacy', pageWidth / 2, y, { align: 'center' });
-    y += 4;
-    doc.text(`${settings?.storeAddress || ''}, ${settings?.city || ''}`, pageWidth / 2, y, { align: 'center' });
-    y += 4;
-    doc.text(`Ph: ${settings?.phone || ''} | DRAP: ${settings?.drugLicenseNumber || ''}`, pageWidth / 2, y, { align: 'center' });
-    y += 3.5;
-    doc.text(`NTN: ${settings?.taxRegistrationNumber || ''}`, pageWidth / 2, y, { align: 'center' });
-    y += 3;
-
-    doc.setLineWidth(0.3);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 4.5;
-
-    // Invoice Meta
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(printFormat === 'A4' ? 10 : 7.5);
-    doc.text(`INVOICE: #${sale.invoiceNumber || ''}`, margin, y);
-    y += 4;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(printFormat === 'A4' ? 9 : 7);
-    doc.text(`Date & Time: ${sale.date || ''} ${sale.time || ''}`, margin, y);
-    y += 3.8;
-    doc.text(`Dispenser: ${sale.staffName || 'Cashier'}`, margin, y);
-    y += 3.8;
-    doc.text(
-      `Customer: ${sale.customerName || 'Walk-in'}${sale.customerPhone ? ` (${sale.customerPhone})` : ''}`,
-      margin,
-      y
-    );
-    y += 3.8;
-    doc.text(`Payment Method: ${sale.paymentMethod || 'Cash'} | Status: ${String(sale.status || 'completed').toUpperCase()}`, margin, y);
-    y += 3.5;
-
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 4;
-
-    // Table Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(printFormat === 'A4' ? 9 : 7);
-    doc.text('Medicine / Batch', margin, y);
-    doc.text('Qty', margin + contentWidth * 0.58, y, { align: 'center' });
-    doc.text('Rate', margin + contentWidth * 0.76, y, { align: 'right' });
-    doc.text('Total', pageWidth - margin, y, { align: 'right' });
-    y += 2.5;
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 4;
-
-    // Items
-    doc.setFont('helvetica', 'normal');
-    saleItems.forEach((item, idx) => {
-      const itemTitle = `${idx + 1}. ${item.medicineName || 'Medicine'}`;
-      doc.setFont('helvetica', 'bold');
-      doc.text(itemTitle.substring(0, isThermal58 ? 20 : 34), margin, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(item.quantity), margin + contentWidth * 0.58, y, { align: 'center' });
-      doc.text(item.unitPrice.toFixed(0), margin + contentWidth * 0.76, y, { align: 'right' });
-      doc.text(item.totalAmount.toFixed(0), pageWidth - margin, y, { align: 'right' });
-      y += 3.5;
-
-      doc.setFontSize(printFormat === 'A4' ? 7.5 : 6);
-      doc.text(
-        `   Batch: ${item.batchNumber} | Exp: ${item.expiryDate}${
-          item.discountAmount > 0 ? ` | Disc: -Rs.${item.discountAmount}` : ''
-        }`,
-        margin,
-        y
-      );
-      doc.setFontSize(printFormat === 'A4' ? 9 : 7);
-      y += 4.2;
-    });
-
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 4.5;
-
-    // Summary Totals
-    doc.setFont('helvetica', 'normal');
-    doc.text('Subtotal:', margin + contentWidth * 0.35, y);
-    doc.text(formatPKR(sale.subtotal), pageWidth - margin, y, { align: 'right' });
-    y += 4;
-
-    if (sale.discountTotal > 0) {
-      doc.text('Discount:', margin + contentWidth * 0.35, y);
-      doc.text(`-${formatPKR(sale.discountTotal)}`, pageWidth - margin, y, { align: 'right' });
-      y += 4;
-    }
-
-    if (sale.taxTotal > 0) {
-      doc.text(`Tax (${settings.taxRatePercentage}%):`, margin + contentWidth * 0.35, y);
-      doc.text(formatPKR(sale.taxTotal), pageWidth - margin, y, { align: 'right' });
-      y += 4;
-    }
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(printFormat === 'A4' ? 11 : 8.5);
-    doc.text('NET TOTAL:', margin + contentWidth * 0.35, y);
-    doc.text(formatPKR(sale.grandTotal), pageWidth - margin, y, { align: 'right' });
-    y += 4.5;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(printFormat === 'A4' ? 8.5 : 7);
-    doc.text('Amount Paid:', margin + contentWidth * 0.35, y);
-    doc.text(formatPKR(sale.amountPaid), pageWidth - margin, y, { align: 'right' });
-    y += 3.8;
-
-    doc.text('Change Returned:', margin + contentWidth * 0.35, y);
-    doc.text(formatPKR(sale.changeGiven), pageWidth - margin, y, { align: 'right' });
-    y += 5;
-
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 4.5;
-
-    doc.setFontSize(printFormat === 'A4' ? 8 : 6.5);
-    doc.text(settings.invoiceFooter || 'Thank you for choosing our pharmacy!', pageWidth / 2, y, {
-      align: 'center',
-      maxWidth: contentWidth,
-    });
-
+    renderPdfContent(doc);
     doc.save(`${sale.invoiceNumber}.pdf`);
   };
 
   return (
-    <div className="print-invoice-modal fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 print:static print:bg-white print:p-0">
-      <div className={`relative w-full ${printFormat === '58mm' ? 'max-w-sm' : printFormat === '80mm' ? 'max-w-md' : 'max-w-3xl'} bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transition-all print:shadow-none print:border-none print:rounded-none`}>
-        {/* Action Header bar (no-print) */}
-        <div className="no-print p-3.5 sm:p-4 bg-[#0B191E] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-              <div className="min-w-0">
-                <h3 className="font-bold text-sm text-white truncate">
-                  Sale: {sale.invoiceNumber}
-                </h3>
-                <p className="text-[11px] text-slate-300">
-                  FEFO Stock Deducted • Select Printer Format:
-                </p>
-              </div>
+    <div className="print-invoice-modal fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 print:static print:bg-white print:p-0">
+      <div
+        className={`relative w-full ${
+          printFormat === 'A4' ? 'max-w-3xl' : 'max-w-2xl'
+        } max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transition-all print:max-h-none print:shadow-none print:border-none print:rounded-none print:block`}
+      >
+        {/* Action Header Bar (Always Pinned & Never Cut Off) */}
+        <div className="no-print shrink-0 px-4 py-3 bg-[#0B191E] text-white flex flex-wrap items-center justify-between gap-2.5 border-b border-emerald-500/25">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
-            <button
-              onClick={onClose}
-              className="sm:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 shrink-0"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Print Format Tabs */}
-          <div className="flex flex-wrap items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
-            <button
-              type="button"
-              onClick={() => setPrintFormat('58mm')}
-              className={`flex-1 sm:flex-initial min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                printFormat === '58mm'
-                  ? 'bg-emerald-500 text-[#0B191E]'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              58mm Thermal
-            </button>
-            <button
-              type="button"
-              onClick={() => setPrintFormat('80mm')}
-              className={`flex-1 sm:flex-initial min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                printFormat === '80mm'
-                  ? 'bg-emerald-500 text-[#0B191E]'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              80mm Thermal
-            </button>
-            <button
-              type="button"
-              onClick={() => setPrintFormat('A4')}
-              className={`flex-1 sm:flex-initial min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                printFormat === 'A4'
-                  ? 'bg-emerald-500 text-[#0B191E]'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              A4 Standard
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handlePrint}
-              className="min-h-[38px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0B191E] font-bold text-xs shadow-xs transition-colors"
-            >
-              <Printer className="w-4 h-4" /> Print
-            </button>
-            <button
-              onClick={handleDownloadRealPDF}
-              className="min-h-[38px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 font-semibold text-xs border border-white/15 transition-colors"
-            >
-              <Download className="w-4 h-4" /> Download PDF
-            </button>
-            <button
-              onClick={onClose}
-              className="hidden sm:inline-flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* The Printable Invoice Container */}
-        <div
-          ref={printContainerRef}
-          className={`bg-white text-slate-900 mx-auto print:m-0 print:p-0 ${
-            printFormat === '58mm'
-              ? 'p-4 max-w-[280px] text-[11px] font-mono leading-tight'
-              : printFormat === '80mm'
-              ? 'p-6 max-w-[360px] text-xs font-mono leading-tight'
-              : 'p-6 sm:p-8 max-w-2xl font-sans'
-          }`}
-        >
-          {/* Pharmacy Header */}
-          <div className="text-center pb-3 border-b-2 border-slate-900">
-            <div className="inline-flex items-center gap-2 justify-center mb-1">
-              <div className="w-6 h-6 rounded bg-teal-700 text-white flex items-center justify-center font-bold">
-                <Pill className="w-3.5 h-3.5" />
-              </div>
-              <h1 className="text-base sm:text-xl font-black tracking-tight text-slate-900 uppercase">
-                {settings.storeName}
-              </h1>
-            </div>
-            <p className="text-[10px] font-semibold text-slate-600">
-              {settings.storeTagline}
-            </p>
-            <p className="text-[10px] text-slate-500 mt-0.5">
-              {settings.storeAddress}, {settings.city}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2 text-[9px] text-slate-600 mt-1 font-mono">
-              <span>Ph: {settings.phone}</span>
-              <span>•</span>
-              <span>DRAP: {settings.drugLicenseNumber}</span>
-              <span>•</span>
-              <span>NTN: {settings.taxRegistrationNumber}</span>
-            </div>
-          </div>
-
-          {/* Memo Title & Meta Details */}
-          <div className="py-2.5 border-b border-dashed border-slate-300 flex flex-wrap items-center justify-between gap-1 text-[11px]">
-            <div>
-              <span className="font-bold text-slate-900 uppercase tracking-wide block">
-                {settings.invoiceHeader}
-              </span>
-              <span className="font-mono font-bold text-teal-800 text-xs">
-                #{sale.invoiceNumber}
-              </span>
-            </div>
-
-            <div className="text-right text-[10px] text-slate-600 space-y-0.5">
-              <div>
-                <span className="font-semibold text-slate-700">Date:</span> {sale.date} {sale.time}
-              </div>
-              <div>
-                <span className="font-semibold text-slate-700">Dispenser:</span> {sale.staffName}
-              </div>
-              <div>
-                <span className="font-semibold text-slate-700">Payment:</span> {sale.paymentMethod}
-              </div>
-            </div>
-          </div>
-
-          {/* Customer Meta */}
-          <div className="py-2 bg-slate-50 px-2.5 rounded border border-slate-100 my-2 flex items-center justify-between text-[11px]">
-            <div>
-              <span className="text-[9px] text-slate-400 uppercase font-bold block">Patient / Customer</span>
-              <span className="font-bold text-slate-800">{sale.customerName}</span>
-              {sale.customerPhone && (
-                <span className="text-slate-500 ml-1.5 text-[10px]">({sale.customerPhone})</span>
-              )}
-            </div>
-            <div className="text-right">
-              <span className="text-[9px] text-slate-400 uppercase font-bold block">Status</span>
-              <span className="font-bold text-emerald-700 uppercase">{sale.status}</span>
-            </div>
-          </div>
-
-          {/* Items Table */}
-          <div className="overflow-x-auto my-3">
-            <table className="w-full text-[11px] text-left border-collapse">
-              <thead>
-                <tr className="border-b-2 border-slate-800 text-[10px] font-bold uppercase text-slate-700 bg-slate-100">
-                  <th className="py-1.5 px-1.5">Item</th>
-                  <th className="py-1.5 px-1">Batch</th>
-                  <th className="py-1.5 px-1 text-center">Qty</th>
-                  <th className="py-1.5 px-1 text-right">Rate</th>
-                  <th className="py-1.5 px-1 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 tabular-nums">
-                {(sale.items || []).map((item, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/50">
-                    <td className="py-1.5 px-1.5">
-                      <span className="font-bold text-slate-900 block truncate max-w-[120px] sm:max-w-none">{item.medicineName || 'Medicine'}</span>
-                      <span className="text-[9px] text-slate-500 block truncate max-w-[120px] sm:max-w-none">{item.genericName || ''}</span>
-                    </td>
-                    <td className="py-1.5 px-1 font-mono text-[10px] text-slate-700">
-                      {item.batchNumber || '-'}
-                    </td>
-                    <td className="py-1.5 px-1 text-center font-bold text-slate-800">
-                      {Number(item.quantity || 0)}
-                    </td>
-                    <td className="py-1.5 px-1 text-right font-mono text-[10px]">
-                      {Number(item.unitPrice || 0).toFixed(0)}
-                    </td>
-                    <td className="py-1.5 px-1 text-right font-mono font-bold text-slate-900">
-                      {Number(item.totalAmount || 0).toFixed(0)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Totals & Calculations */}
-          <div className="border-t-2 border-slate-800 pt-2 flex justify-end">
-            <div className="w-56 space-y-1 text-[11px] text-slate-700">
-              <div className="flex justify-between">
-                <span>Subtotal:</span>
-                <span className="font-mono">{formatPKR(sale.subtotal)}</span>
-              </div>
-              {sale.discountTotal > 0 && (
-                <div className="flex justify-between text-emerald-700 font-medium">
-                  <span>Discount:</span>
-                  <span className="font-mono">-{formatPKR(sale.discountTotal)}</span>
-                </div>
-              )}
-              {sale.taxTotal > 0 && (
-                <div className="flex justify-between">
-                  <span>Tax ({settings.taxRatePercentage}%):</span>
-                  <span className="font-mono">{formatPKR(sale.taxTotal)}</span>
-                </div>
-              )}
-              <div className="border-t-2 border-slate-900 pt-1 flex justify-between text-xs font-black text-slate-950">
-                <span>NET TOTAL:</span>
-                <span className="font-mono text-sm text-teal-800">{formatPKR(sale.grandTotal)}</span>
-              </div>
-
-              {sale.paymentMethod === 'Cash' && (
-                <>
-                  <div className="flex justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-200">
-                    <span>Cash Tendered:</span>
-                    <span className="font-mono">{formatPKR(sale.amountPaid)}</span>
-                  </div>
-                  <div className="flex justify-between text-[10px] font-bold text-slate-800">
-                    <span>Change Returned:</span>
-                    <span className="font-mono">{formatPKR(sale.changeGiven)}</span>
-                  </div>
-                </>
-              )}
-
-              {sale.paymentMethod === 'Credit' && (
-                <div className="text-[10px] text-amber-700 font-bold text-right pt-1 border-t border-slate-200">
-                  Debited to Patient Ledger Balance
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Barcode & Signature stamp */}
-          <div className="mt-6 pt-3 border-t border-dashed border-slate-300 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-            <div>
-              {/* Simulated Code-128 Barcode Display */}
-              <div className="inline-block p-1 bg-white border border-slate-200 rounded">
-                <div className="h-6 w-36 flex items-stretch gap-0.5 justify-center">
-                  {[3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 1, 2, 4, 1, 3].map((w, i) => (
-                    <div
-                      key={i}
-                      style={{ width: `${w * 1.2}px` }}
-                      className={`h-full ${i % 2 === 0 ? 'bg-slate-900' : 'bg-transparent'}`}
-                    />
-                  ))}
-                </div>
-                <p className="text-[8px] font-mono tracking-widest text-slate-600 text-center mt-0.5">
-                  *{sale.invoiceNumber}*
-                </p>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <div className="h-7 border-b border-slate-400 w-32 mx-auto sm:ml-auto"></div>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider mt-0.5 font-semibold">
-                Pharmacist Stamp
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm text-white truncate">
+                Sale: {sale.invoiceNumber}
+              </h3>
+              <p className="text-[11px] text-emerald-200/80 truncate">
+                FEFO Stock Deducted • Thermal &amp; A4 Receipt
               </p>
             </div>
           </div>
 
-          {/* Return Policy Notice */}
-          <div className="mt-3 pt-2 text-center text-[9px] text-slate-500 italic border-t border-slate-100">
-            {settings.invoiceFooter}
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            {/* Print Format Tabs */}
+            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+              {(['58mm', '80mm', 'A4'] as ReceiptPrintFormat[]).map(fmt => (
+                <button
+                  key={fmt}
+                  type="button"
+                  onClick={() => setPrintFormat(fmt)}
+                  className={`min-h-[32px] px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
+                    printFormat === fmt
+                      ? 'bg-emerald-500 text-[#0B191E] shadow-xs'
+                      : 'text-slate-200 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {fmt === 'A4' ? 'A4 Page' : `${fmt} Thermal`}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="min-h-[36px] flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0B191E] font-bold text-xs shadow-xs whitespace-nowrap transition-colors"
+            >
+              <Printer className="w-4 h-4 shrink-0" />
+              <span>Print</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDownloadRealPDF}
+              className="min-h-[36px] flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/15 whitespace-nowrap transition-colors"
+            >
+              <Download className="w-4 h-4 shrink-0" />
+              <span>Download PDF</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close receipt preview"
+              className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Modal Bottom Actions */}
-        <div className="no-print p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-2">
-          <span className="text-xs text-slate-500 text-center sm:text-left">
-            Print ready for 58mm / 80mm thermal or standard A4 printer
+        {/* Scrollable Receipt Preview Stage */}
+        <div className="flex-1 overflow-y-auto bg-slate-100/90 p-3 sm:p-6 print:p-0 print:bg-white print:overflow-visible">
+          {/* The Printable Invoice Paper Sheet */}
+          <div
+            ref={printContainerRef}
+            className={`print-invoice-paper bg-white text-slate-950 mx-auto rounded-xl border border-slate-200 shadow-md overflow-hidden print:m-0 print:border-none print:shadow-none print:rounded-none ${
+              printFormat === '58mm'
+                ? 'max-w-[300px] text-[11px] font-mono leading-snug'
+                : printFormat === '80mm'
+                ? 'max-w-[390px] text-xs font-mono leading-snug'
+                : 'max-w-2xl text-xs font-sans leading-normal'
+            }`}
+          >
+            {/* Crisp Clinical Top Accent Strip */}
+            <div className="h-1.5 bg-gradient-to-r from-[#0B191E] via-[#0F766E] to-emerald-500" />
+
+            <div className={printFormat === '58mm' ? 'p-3.5' : printFormat === '80mm' ? 'p-5' : 'p-6 sm:p-8'}>
+              {/* Pharmacy Header */}
+              <div className="text-center pb-3 border-b-2 border-slate-900">
+                <div className="inline-flex items-center gap-2 justify-center mb-1">
+                  <div className="w-6 h-6 rounded-md bg-[#0B191E] text-emerald-400 flex items-center justify-center shrink-0">
+                    <Pill className="w-3.5 h-3.5" />
+                  </div>
+                  <h1
+                    className={`font-black tracking-tight text-slate-950 uppercase break-words ${
+                      printFormat === '58mm'
+                        ? 'text-sm'
+                        : printFormat === '80mm'
+                        ? 'text-base'
+                        : 'text-lg sm:text-xl'
+                    }`}
+                  >
+                    {storeName}
+                  </h1>
+                </div>
+
+                {storeTagline && (
+                  <p className="text-[11px] font-semibold text-slate-700 mt-0.5">
+                    {storeTagline}
+                  </p>
+                )}
+
+                {fullAddress && (
+                  <p className="text-[10.5px] text-slate-700 mt-0.5">
+                    {fullAddress}
+                  </p>
+                )}
+
+                {regulatoryParts.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-slate-800 mt-1.5 font-mono">
+                    {regulatoryParts.map((part, i) => (
+                      <React.Fragment key={part}>
+                        {i > 0 && <span className="text-slate-400">•</span>}
+                        <span>{part}</span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Memo Title & Meta Details */}
+              <div className="py-2.5 border-b border-dashed border-slate-400 space-y-2 text-[11px]">
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100 border border-slate-300 rounded-lg px-2.5 py-1.5">
+                  <div>
+                    <span className="font-extrabold text-[#0F766E] uppercase tracking-wide block text-[10px]">
+                      {invoiceHeaderLabel}
+                    </span>
+                    <span className="font-mono font-black text-slate-950 text-xs">
+                      #{sale.invoiceNumber}
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-[10px] uppercase">
+                    {sale.status || 'COMPLETED'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px] text-slate-800">
+                  <div>
+                    <span className="font-semibold text-slate-600">Date: </span>
+                    <span className="font-semibold text-slate-950 tabular-nums">
+                      {sale.date} {sale.time}
+                    </span>
+                  </div>
+                  <div className="sm:text-right">
+                    <span className="font-semibold text-slate-600">Dispenser: </span>
+                    <span className="font-bold text-slate-950">{sale.staffName || 'Cashier'}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-600">Patient: </span>
+                    <span className="font-bold text-slate-950">
+                      {sale.customerName || 'Walk-in Customer'}
+                    </span>
+                    {sale.customerPhone && (
+                      <span className="text-slate-700 ml-1 text-[10px]">({sale.customerPhone})</span>
+                    )}
+                  </div>
+                  <div className="sm:text-right">
+                    <span className="font-semibold text-slate-600">Payment: </span>
+                    <span className="font-bold text-slate-950">{sale.paymentMethod || 'Cash'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table (High Contrast, Full Visible Details) */}
+              <div className="my-3 overflow-x-auto">
+                <table className="w-full text-[11px] text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#0B191E] text-white text-[10px] font-bold uppercase tracking-wider">
+                      <th className="py-1.5 px-2 rounded-tl-md">Item / Batch</th>
+                      <th className="py-1.5 px-1.5 text-center">Qty</th>
+                      <th className="py-1.5 px-1.5 text-right">Rate</th>
+                      <th className="py-1.5 px-2 text-right rounded-tr-md">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 tabular-nums">
+                    {saleItems.map((item, idx) => (
+                      <tr key={idx} className="align-top">
+                        <td className="py-2 px-1.5 pr-2">
+                          <span className="font-bold text-slate-950 block break-words">
+                            {idx + 1}. {item.medicineName || 'Medicine'}
+                          </span>
+                          {item.genericName && (
+                            <span className="text-[10px] text-slate-700 block break-words">
+                              {item.genericName}
+                            </span>
+                          )}
+                          <span className="text-[9.5px] font-mono text-slate-700 block mt-0.5">
+                            Batch: <strong className="text-slate-900">{item.batchNumber || '-'}</strong>
+                            {item.expiryDate ? ` • Exp: ${item.expiryDate}` : ''}
+                            {Number(item.discountAmount || 0) > 0
+                              ? ` • Disc: -Rs.${formatMoneyPlain(item.discountAmount)}`
+                              : ''}
+                          </span>
+                        </td>
+                        <td className="py-2 px-1.5 text-center font-bold text-slate-950">
+                          {Number(item.quantity || 0)}
+                        </td>
+                        <td className="py-2 px-1.5 text-right font-mono text-slate-800">
+                          {formatMoneyPlain(Number(item.unitPrice || 0))}
+                        </td>
+                        <td className="py-2 px-1.5 text-right font-mono font-bold text-slate-950">
+                          {formatMoneyPlain(Number(item.totalAmount || 0))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals & Settlement Block */}
+              <div className="border-t-2 border-slate-900 pt-2.5 flex justify-end">
+                <div className={`${printFormat === '58mm' ? 'w-full' : 'w-full sm:w-64'} space-y-1.5 text-[11px] text-slate-900 tabular-nums`}>
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-slate-700">Subtotal:</span>
+                    <span className="font-mono font-semibold text-slate-950">{formatPKR(sale.subtotal)}</span>
+                  </div>
+
+                  {Number(sale.discountTotal || 0) > 0 && (
+                    <div className="flex justify-between text-[#0F766E] font-semibold">
+                      <span>Discount:</span>
+                      <span className="font-mono">-{formatPKR(sale.discountTotal)}</span>
+                    </div>
+                  )}
+
+                  {Number(sale.taxTotal || 0) > 0 && (
+                    <div className="flex justify-between">
+                      <span className="font-semibold text-slate-700">Tax ({settings.taxRatePercentage}%):</span>
+                      <span className="font-mono font-semibold text-slate-950">{formatPKR(sale.taxTotal)}</span>
+                    </div>
+                  )}
+
+                  <div className="p-2 rounded-lg bg-emerald-50 border-2 border-[#0F766E] flex justify-between items-center font-black text-slate-950">
+                    <span className="text-xs">NET TOTAL:</span>
+                    <span className="font-mono text-sm text-[#0F766E]">{formatPKR(sale.grandTotal)}</span>
+                  </div>
+
+                  {sale.paymentMethod === 'Credit' ? (
+                    <div className="text-[10.5px] text-amber-800 font-bold text-right pt-1">
+                      Debited to Patient Credit Ledger Balance
+                    </div>
+                  ) : (
+                    <div className="pt-1 space-y-1 border-t border-slate-300 text-[11px]">
+                      <div className="flex justify-between text-slate-800">
+                        <span className="font-semibold">Amount Paid:</span>
+                        <span className="font-mono font-bold text-slate-950">{formatPKR(sale.amountPaid)}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-950 font-bold">
+                        <span>Change Returned:</span>
+                        <span className="font-mono">{formatPKR(sale.changeGiven)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Barcode & Pharmacist Stamp */}
+              <div className="mt-5 pt-3 border-t border-dashed border-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                <div className="inline-block px-2 py-1.5 bg-white border border-slate-300 rounded-md">
+                  <div className="h-6 w-36 flex items-stretch gap-0.5 justify-center">
+                    {BARCODE_WEIGHTS.map((w, i) => (
+                      <div
+                        key={i}
+                        style={{ width: `${w * 1.2}px` }}
+                        className={`h-full ${i % 2 === 0 ? 'bg-slate-950' : 'bg-transparent'}`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[9px] font-mono font-bold tracking-widest text-slate-800 text-center mt-1">
+                    *{sale.invoiceNumber}*
+                  </p>
+                </div>
+
+                <div className="text-center sm:text-right">
+                  <div className="h-6 border-b border-slate-600 w-36 mx-auto sm:ml-auto" />
+                  <p className="text-[9.5px] text-slate-800 uppercase tracking-wider mt-1 font-bold">
+                    Pharmacist Signature &amp; Stamp
+                  </p>
+                </div>
+              </div>
+
+              {/* Return Policy Notice */}
+              <div className="mt-3 pt-2.5 text-center text-[10px] text-slate-700 border-t border-slate-200 space-y-1">
+                <p className="italic">{invoiceFooterText}</p>
+                <p className="font-bold text-[#0F766E] text-[10px]">
+                  Thank you for trusting {storeName} with your health!
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Bottom Actions (Always Visible & Pinned) */}
+        <div className="no-print shrink-0 px-4 py-3 bg-white border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-2">
+          <span className="text-xs text-slate-600 font-medium text-center sm:text-left">
+            Print &amp; PDF ready for 58mm / 80mm thermal or standard A4 paper
           </span>
           <button
+            type="button"
             onClick={onClose}
             className="w-full sm:w-auto min-h-[40px] px-5 py-2 rounded-xl bg-[#0B191E] hover:bg-[#112A32] text-white text-xs font-bold transition-colors"
           >
