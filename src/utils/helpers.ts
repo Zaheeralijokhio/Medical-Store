@@ -75,17 +75,17 @@ export function getMedicineStockStatus(
       return {
         status: 'expired',
         label: 'Expired',
-        badgeBg: 'bg-rose-950/20 text-rose-900 border-rose-300',
-        badgeText: 'text-rose-950 font-bold',
-        badgeBorder: 'border-rose-400',
+        badgeBg: 'bg-gradient-to-r from-rose-800 to-red-950 text-white shadow-xs shadow-rose-900/25',
+        badgeText: 'text-white font-bold',
+        badgeBorder: 'border-rose-900/40',
       };
     }
     return {
       status: 'out_of_stock',
       label: 'Out of Stock',
-      badgeBg: 'bg-red-50 text-red-700 border-red-200',
-      badgeText: 'text-red-700 font-semibold',
-      badgeBorder: 'border-red-300',
+      badgeBg: 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-xs shadow-rose-500/25',
+      badgeText: 'text-white font-bold',
+      badgeBorder: 'border-rose-600/20',
     };
   }
 
@@ -93,9 +93,9 @@ export function getMedicineStockStatus(
     return {
       status: 'expired',
       label: 'Has Expired Batch',
-      badgeBg: 'bg-rose-100 text-rose-900 border-rose-300',
-      badgeText: 'text-rose-900 font-semibold',
-      badgeBorder: 'border-rose-400',
+      badgeBg: 'bg-gradient-to-r from-rose-700 to-red-900 text-white shadow-xs shadow-rose-800/25',
+      badgeText: 'text-white font-bold',
+      badgeBorder: 'border-rose-800/30',
     };
   }
 
@@ -103,9 +103,9 @@ export function getMedicineStockStatus(
     return {
       status: 'near_expiry',
       label: 'Near Expiry',
-      badgeBg: 'bg-amber-50 text-amber-800 border-amber-300',
-      badgeText: 'text-amber-800 font-semibold',
-      badgeBorder: 'border-amber-400',
+      badgeBg: 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 shadow-xs shadow-amber-400/30',
+      badgeText: 'text-slate-950 font-bold',
+      badgeBorder: 'border-amber-500/40',
     };
   }
 
@@ -113,18 +113,18 @@ export function getMedicineStockStatus(
     return {
       status: 'low',
       label: 'Low Stock',
-      badgeBg: 'bg-yellow-50 text-yellow-800 border-yellow-300',
-      badgeText: 'text-yellow-800 font-semibold',
-      badgeBorder: 'border-yellow-400',
+      badgeBg: 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs shadow-orange-500/25',
+      badgeText: 'text-white font-bold',
+      badgeBorder: 'border-orange-600/20',
     };
   }
 
   return {
     status: 'available',
     label: 'In Stock',
-    badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    badgeText: 'text-emerald-800 font-semibold',
-    badgeBorder: 'border-emerald-300',
+    badgeBg: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-xs shadow-emerald-500/25',
+    badgeText: 'text-white font-bold',
+    badgeBorder: 'border-emerald-600/20',
   };
 }
 

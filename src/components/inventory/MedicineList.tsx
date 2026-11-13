@@ -18,11 +18,16 @@ import {
   ArrowUpDown,
   Lock,
   PackagePlus,
-  Eye,
   X,
   CheckSquare,
   Square,
   Check,
+  CheckCircle2,
+  AlertTriangle,
+  AlertOctagon,
+  PackageX,
+  Boxes,
+  Wallet,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
@@ -56,6 +61,24 @@ interface QuickAddStockModalProps {
 
 const generateDefaultBatchCode = () =>
   `BAT-${new Date().getFullYear().toString().slice(-2)}${Math.floor(100 + Math.random() * 900)}`;
+
+const AVATAR_GRADIENTS = [
+  'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm shadow-emerald-500/25',
+  'bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sm shadow-sky-500/25',
+  'bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm shadow-indigo-500/25',
+  'bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-sm shadow-amber-500/25',
+  'bg-gradient-to-br from-rose-500 to-pink-600 text-white shadow-sm shadow-rose-500/25',
+  'bg-gradient-to-br from-cyan-500 to-teal-600 text-white shadow-sm shadow-cyan-500/25',
+];
+
+const getMedicineAvatarGradient = (name: string) => {
+  const clean = (name || 'Medicine').trim();
+  let hash = 0;
+  for (let i = 0; i < clean.length; i++) {
+    hash = (hash * 31 + clean.charCodeAt(i)) % AVATAR_GRADIENTS.length;
+  }
+  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
+};
 
 const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
   medicine,
@@ -503,6 +526,30 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
     sortAsc,
   ]);
 
+  const inventorySummary = useMemo(() => {
+    let inStockCount = 0;
+    let lowOrOutCount = 0;
+    let totalUnits = 0;
+    let totalRetailValue = 0;
+
+    medicines.forEach(med => {
+      const st = getMedicineStockStatus(med, settings.expiryAlertDays).status;
+      if (st === 'available') inStockCount += 1;
+      if (st === 'low' || st === 'out_of_stock') lowOrOutCount += 1;
+      const qty = Number(med.totalQuantity || 0);
+      totalUnits += qty;
+      totalRetailValue += qty * getFixedPrice(med);
+    });
+
+    return {
+      totalItems: medicines.length,
+      inStockCount,
+      lowOrOutCount,
+      totalUnits,
+      totalRetailValue,
+    };
+  }, [medicines, settings.expiryAlertDays]);
+
   const selectableMedicines = useMemo(() => {
     return filteredMedicines.filter(med => {
       const fefoBatches = getFefoBatches(med);
@@ -670,41 +717,143 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       )}
 
       {/* Top Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card p-4">
-        <div>
-          <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-            <Pill className="w-5 h-5 text-[#0F766E]" />
-            Master Medicine Catalog &amp; Fixed Price Inventory
-          </h3>
-          <p className="text-xs text-slate-500">
-            Select multiple medicines at once to sell in POS · Fixed inventory prices auto-apply on sale
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-white via-teal-50/35 to-emerald-50/40">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#0F766E] via-teal-600 to-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-teal-600/25">
+            <Pill className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-base tracking-tight">
+              Master Medicine Catalog &amp; Fixed Price Inventory
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Select medicines for POS checkout · Fixed selling prices apply automatically on invoices
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
+            type="button"
             onClick={handleExportCSV}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors min-h-[42px]"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200/90 text-sky-800 font-bold text-xs transition-all min-h-[40px] whitespace-nowrap shrink-0 shadow-2xs"
           >
-            <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
+            <Download className="w-3.5 h-3.5 text-sky-600" />
+            <span>Export CSV</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setShowImportModal(true)}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors min-h-[42px]"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/90 text-indigo-800 font-bold text-xs transition-all min-h-[40px] whitespace-nowrap shrink-0 shadow-2xs"
           >
-            <Upload className="w-3.5 h-3.5 text-[#0F766E]" /> Bulk Import
+            <Upload className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Bulk Import</span>
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setMedicineToEdit(null);
               setShowAddEditModal(true);
             }}
-            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shadow-xs transition-colors min-h-[42px]"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#0F766E] via-teal-600 to-emerald-500 hover:from-[#0D655E] hover:to-emerald-400 text-white font-bold text-xs shadow-md shadow-teal-600/25 hover:-translate-y-0.5 transition-all min-h-[40px] whitespace-nowrap shrink-0"
           >
-            <Plus className="w-4 h-4" /> Add Medicine &amp; Fixed Price
+            <Plus className="w-4 h-4" />
+            <span>Add Medicine</span>
           </button>
+        </div>
+      </div>
+
+      {/* Quick Inventory Overview Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <button
+          type="button"
+          onClick={() => setSelectedStatus('All')}
+          className={`rounded-2xl p-3.5 text-left transition-all border bg-gradient-to-br from-[#0B191E] via-[#102E37] to-[#0F766E] text-white shadow-md hover:-translate-y-0.5 ${
+            selectedStatus === 'All'
+              ? 'border-emerald-400 ring-2 ring-emerald-400/30'
+              : 'border-teal-900/50'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-emerald-200">Total Catalog Items</span>
+            <div className="w-7 h-7 rounded-lg bg-white/15 text-emerald-300 flex items-center justify-center shrink-0">
+              <Boxes className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="text-xl font-black text-white tabular-nums">
+              {inventorySummary.totalItems}
+            </span>
+            <span className="text-[11px] font-mono font-bold text-emerald-300 tabular-nums">
+              {inventorySummary.totalUnits.toLocaleString()} units
+            </span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSelectedStatus(selectedStatus === 'available' ? 'All' : 'available')}
+          className={`rounded-2xl p-3.5 text-left transition-all border bg-gradient-to-br from-emerald-50 via-teal-50/70 to-white hover:border-emerald-400 hover:-translate-y-0.5 shadow-xs ${
+            selectedStatus === 'available'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/25'
+              : 'border-emerald-200/90'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-emerald-800">In Stock &amp; Ready</span>
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="text-xl font-black text-emerald-900 tabular-nums">
+              {inventorySummary.inStockCount}
+            </span>
+            <span className="text-[11px] font-bold text-emerald-700 whitespace-nowrap">
+              Filter Ready
+            </span>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSelectedStatus(selectedStatus === 'out_of_stock' ? 'All' : 'out_of_stock')}
+          className={`rounded-2xl p-3.5 text-left transition-all border bg-gradient-to-br from-amber-50 via-orange-50/70 to-white hover:border-orange-400 hover:-translate-y-0.5 shadow-xs ${
+            selectedStatus === 'out_of_stock' || selectedStatus === 'low'
+              ? 'border-orange-500 ring-2 ring-orange-500/25'
+              : 'border-amber-200/90'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-orange-800">Low / Out of Stock</span>
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <AlertTriangle className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="text-xl font-black text-orange-900 tabular-nums">
+              {inventorySummary.lowOrOutCount}
+            </span>
+            <span className="text-[11px] font-bold text-orange-700 whitespace-nowrap">
+              Needs Restock
+            </span>
+          </div>
+        </button>
+
+        <div className="rounded-2xl p-3.5 text-left border border-indigo-200/90 bg-gradient-to-br from-indigo-50 via-violet-50/70 to-white shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-indigo-800">Retail Stock Value</span>
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Wallet className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between gap-2">
+            <span className="text-lg sm:text-xl font-black text-indigo-950 font-mono tabular-nums truncate">
+              {formatPKR(inventorySummary.totalRetailValue, false)}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -712,7 +861,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       {selectedList.length > 0 && (
         <div className="sticky top-16 z-20 p-3.5 bg-[#0B191E] text-white rounded-2xl shadow-xl border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-sm shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-sm shrink-0 tabular-nums">
               {selectedList.length}
             </div>
             <div>
@@ -729,14 +878,14 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={() => setSelectedForSale({})}
-              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-semibold transition-colors min-h-[40px]"
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-semibold transition-colors min-h-[40px] whitespace-nowrap shrink-0"
             >
               Clear Selection
             </button>
             <button
               type="button"
               onClick={handleSellSelectedNow}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-md transition-all min-h-[40px]"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-md transition-all min-h-[40px] whitespace-nowrap shrink-0"
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Sell Selected ({selectedList.length}) in POS</span>
@@ -746,7 +895,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       )}
 
       {/* Search & Advanced Filters Bar */}
-      <div className="p-4 pro-card space-y-3">
+      <div className="p-4 pro-card rounded-2xl space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search Box */}
           <div className="relative">
@@ -804,7 +953,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
               className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white min-h-[40px]"
             >
               <option value="All">All Stock Statuses</option>
-              <option value="available">Available in Stock</option>
+              <option value="available">In Stock</option>
               <option value="low">Low Stock</option>
               <option value="out_of_stock">Out of Stock</option>
               <option value="near_expiry">Near Expiry (&lt;90 days)</option>
@@ -817,7 +966,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       {/* MOBILE TOUCH CARDS VIEW (<1024px) */}
       <div className="lg:hidden space-y-3">
         {filteredMedicines.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 pro-card">
+          <div className="py-12 text-center text-slate-400 pro-card rounded-2xl">
             <Pill className="w-8 h-8 mx-auto mb-2 opacity-30" />
             <p className="text-xs">No medicines matching the selected criteria.</p>
           </div>
@@ -829,11 +978,12 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             const isChecked = !!selectedForSale[med.id];
             const checkedQty = selectedForSale[med.id] || 1;
             const canSell = getFefoBatches(med).reduce((s, b) => s + b.quantity, 0) > 0;
+            const batchCount = (med.batches || []).length;
 
             return (
               <div
                 key={med.id}
-                className={`pro-card p-4 space-y-3 transition-all ${
+                className={`pro-card rounded-2xl p-4 space-y-3 transition-all ${
                   isChecked ? '!border-emerald-500 bg-emerald-50/20' : ''
                 }`}
               >
@@ -844,12 +994,12 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                       type="button"
                       disabled={!canSell}
                       onClick={() => toggleSelectForSale(med)}
-                      className={`mt-0.5 p-1 rounded-lg ${
+                      className={`mt-0.5 p-1.5 rounded-lg transition-colors ${
                         !canSell
-                          ? 'text-slate-200'
+                          ? 'text-slate-200 cursor-not-allowed'
                           : isChecked
-                          ? 'text-teal-600 bg-teal-100'
-                          : 'text-slate-400 hover:text-teal-600'
+                          ? 'text-[#0F766E] bg-teal-100'
+                          : 'text-slate-400 hover:text-[#0F766E]'
                       }`}
                     >
                       {isChecked ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
@@ -858,34 +1008,39 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <h4 className="font-bold text-sm text-slate-900">{med.name}</h4>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                          {med.medicineType}
+                        <span className="text-[11px] font-medium text-slate-500">
+                          · {med.medicineType}{med.requiresPrescription ? ' · Rx' : ''}
                         </span>
-                        {med.requiresPrescription && (
-                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                            Rx
-                          </span>
-                        )}
                       </div>
-                      <p className="text-xs text-slate-500 truncate mt-0.5">{med.genericName}</p>
-                      <p className="text-[11px] text-slate-400">
-                        {med.manufacturer} • {med.storageLocation}
+                      <p className="text-xs text-slate-600 truncate mt-0.5">{med.genericName}</p>
+                      <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                        {med.manufacturer || 'Standard'} · {med.storageLocation || 'Shelf'}
                       </p>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="text-base font-black text-teal-800 font-mono block">
+                    <span className="text-base font-black text-[#0F766E] font-mono tabular-nums block whitespace-nowrap">
                       {fixedPrice > 0 ? formatPKR(fixedPrice) : 'N/A'}
                     </span>
-                    <span className="text-[9px] text-teal-700 font-bold flex items-center justify-end gap-0.5">
-                      <Lock className="w-2.5 h-2.5" /> Fixed Price
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold border inline-block mt-1 ${statusInfo.badgeBg} ${statusInfo.badgeText} ${statusInfo.badgeBorder}`}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedStatus(selectedStatus === statusInfo.status ? 'All' : statusInfo.status)
+                      }
+                      className={`mt-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border inline-flex items-center gap-1 whitespace-nowrap shrink-0 ${statusInfo.badgeBg} ${statusInfo.badgeText} ${statusInfo.badgeBorder}`}
                     >
-                      {statusInfo.label}
-                    </span>
+                      {statusInfo.status === 'available' ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                      ) : statusInfo.status === 'out_of_stock' ? (
+                        <PackageX className="w-3 h-3" />
+                      ) : statusInfo.status === 'expired' ? (
+                        <AlertOctagon className="w-3 h-3" />
+                      ) : (
+                        <AlertTriangle className="w-3 h-3" />
+                      )}
+                      <span>{statusInfo.label}</span>
+                    </button>
                   </div>
                 </div>
 
@@ -897,15 +1052,17 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                       <button
                         type="button"
                         onClick={() => updateSelectedQty(med, checkedQty - 1)}
-                        className="w-6 h-6 rounded bg-white text-teal-900 flex items-center justify-center font-bold"
+                        className="w-7 h-7 rounded-lg bg-white text-teal-900 flex items-center justify-center font-bold border border-teal-200"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
-                      <span className="font-mono font-black text-sm text-teal-950">{checkedQty}</span>
+                      <span className="font-mono font-black text-sm text-teal-950 tabular-nums px-1">
+                        {checkedQty}
+                      </span>
                       <button
                         type="button"
                         onClick={() => updateSelectedQty(med, checkedQty + 1)}
-                        className="w-6 h-6 rounded bg-white text-teal-900 flex items-center justify-center font-bold"
+                        className="w-7 h-7 rounded-lg bg-white text-teal-900 flex items-center justify-center font-bold border border-teal-200"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -914,74 +1071,69 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                 )}
 
                 {/* Stock info */}
-                <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <div className="flex items-center justify-between text-xs bg-slate-50/90 px-3 py-2.5 rounded-xl border border-slate-200/70">
                   <div>
                     <span className="text-slate-500 block text-[10px]">Current Stock</span>
-                    <strong className="text-slate-900 font-bold">{med.totalQuantity} units</strong>
-                    <span className="text-slate-400 text-[10px] ml-1">(Min: {med.minStockLevel})</span>
+                    <strong className="text-slate-900 font-bold tabular-nums">{med.totalQuantity} units</strong>
+                    <span className="text-slate-400 text-[10px] ml-1 tabular-nums">(Min: {med.minStockLevel})</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-slate-500 block text-[10px]">Earliest Expiry</span>
-                    <strong className="font-mono text-slate-800">
-                      {primaryBatch ? primaryBatch.expiryDate : 'N/A'}
+                    <span className="text-slate-500 block text-[10px]">Batches / Expiry</span>
+                    <strong className="font-mono text-slate-800 tabular-nums">
+                      {batchCount} batch{batchCount !== 1 ? 'es' : ''} · {primaryBatch ? primaryBatch.expiryDate : 'None'}
                     </strong>
                   </div>
                 </div>
 
-                {/* 4 Action Buttons with high touch target (>44px) */}
+                {/* 5 Colorful Touch Action Buttons */}
                 <div className="grid grid-cols-5 gap-1.5 pt-2 border-t border-slate-100">
-                  {/* Sell Button */}
                   <button
                     type="button"
                     disabled={!canSell}
                     onClick={() => handleSellSingleMedicine(med)}
-                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-teal-50 hover:bg-teal-100 disabled:opacity-30 text-teal-800 font-bold text-[11px] transition-colors"
+                    className="flex flex-col items-center justify-center min-h-[48px] py-1.5 px-1 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:from-slate-100 disabled:to-slate-200 text-white disabled:text-slate-400 font-bold text-[11px] transition-all shadow-sm shadow-emerald-600/20 disabled:shadow-none"
                     title="Sell at Fixed Price"
                   >
-                    <ShoppingCart className="w-4 h-4 text-teal-600 mb-0.5" />
+                    <ShoppingCart className="w-4 h-4 mb-0.5" />
                     <span>Sell</span>
                   </button>
 
-                  {/* Add Stock Button */}
                   <button
                     type="button"
                     onClick={() => setQuickStockMed(med)}
-                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[11px] transition-colors"
-                    title="Add Inward Stock Batch"
+                    className="flex flex-col items-center justify-center min-h-[48px] py-1.5 px-1 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-[11px] transition-all shadow-sm shadow-sky-500/20"
+                    title="Quick Add Inward Stock"
                   >
-                    <PackagePlus className="w-4 h-4 text-emerald-600 mb-0.5" />
+                    <PackagePlus className="w-4 h-4 mb-0.5" />
                     <span>+ Stock</span>
                   </button>
 
-                  {/* View Details / Batches */}
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedMedForBatches(med);
                       setShowBatchModal(true);
                     }}
-                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-[11px] transition-colors"
-                    title="View Batches & Expiry"
+                    className="flex flex-col items-center justify-center min-h-[48px] py-1.5 px-1 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white font-bold text-[11px] transition-all shadow-sm shadow-indigo-500/20"
+                    title="Manage Batches & Expiry"
                   >
-                    <Eye className="w-4 h-4 text-slate-600 mb-0.5" />
-                    <span>Batches</span>
+                    <Layers className="w-4 h-4 mb-0.5" />
+                    <span>Batch</span>
                   </button>
 
-                  {/* Edit Button */}
                   <button
                     type="button"
                     onClick={() => {
                       setMedicineToEdit(med);
                       setShowAddEditModal(true);
                     }}
-                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-semibold text-[11px] transition-colors"
+                    className="flex flex-col items-center justify-center min-h-[48px] py-1.5 px-1 rounded-xl bg-amber-50 hover:bg-amber-500 border border-amber-200 hover:border-amber-500 text-amber-800 hover:text-white font-bold text-[11px] transition-all"
                     title="Edit Formulation & Fixed Price"
                   >
-                    <Edit2 className="w-4 h-4 text-indigo-600 mb-0.5" />
+                    <Edit2 className="w-4 h-4 mb-0.5" />
                     <span>Edit</span>
                   </button>
 
-                  {/* Delete Button */}
                   <button
                     type="button"
                     onClick={() => {
@@ -993,10 +1145,10 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                         deleteMedicine(med.id);
                       }
                     }}
-                    className="flex flex-col items-center justify-center min-h-[46px] py-1.5 px-1 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-[11px] transition-colors"
+                    className="flex flex-col items-center justify-center min-h-[48px] py-1.5 px-1 rounded-xl bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 text-rose-700 hover:text-white font-bold text-[11px] transition-all"
                     title="Delete Formulation"
                   >
-                    <Trash2 className="w-4 h-4 text-rose-600 mb-0.5" />
+                    <Trash2 className="w-4 h-4 mb-0.5" />
                     <span>Delete</span>
                   </button>
                 </div>
@@ -1007,21 +1159,21 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       </div>
 
       {/* DESKTOP SORTABLE TABLE (>=1024px) */}
-      <div className="hidden lg:block pro-card overflow-hidden">
+      <div className="hidden lg:block pro-card rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
-                <th className="py-3 px-3 w-10 text-center">
+              <tr className="border-b border-slate-200 bg-[#0B191E] text-slate-200 font-semibold text-[11px] tracking-wide">
+                <th className="py-3.5 px-3 w-10 text-center">
                   <button
                     type="button"
                     onClick={handleSelectAllVisible}
-                    className="text-slate-500 hover:text-teal-600"
+                    className="text-slate-300 hover:text-emerald-400 transition-colors"
                     title="Select all available medicines for sale"
                   >
                     {selectableMedicines.length > 0 &&
                     selectableMedicines.every(m => !!selectedForSale[m.id]) ? (
-                      <CheckSquare className="w-4 h-4 text-teal-600 mx-auto" />
+                      <CheckSquare className="w-4 h-4 text-emerald-400 mx-auto" />
                     ) : (
                       <Square className="w-4 h-4 mx-auto" />
                     )}
@@ -1029,44 +1181,47 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                 </th>
                 <th
                   onClick={() => toggleSort('name')}
-                  className="py-3 px-3 cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="py-3.5 px-3 cursor-pointer hover:bg-white/5 transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center gap-1">
-                    <span>Medicine & Generic</span>
-                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  <div className="flex items-center gap-1.5">
+                    <span>Medicine &amp; Generic</span>
+                    <ArrowUpDown className="w-3.5 h-3.5 text-emerald-400/80" />
                   </div>
                 </th>
-                <th className="py-3 px-3">Type & Strength</th>
-                <th className="py-3 px-3">Manufacturer</th>
-                <th className="py-3 px-3 text-center">Batches</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">Type &amp; Strength</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">Manufacturer</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">Batches</th>
                 <th
                   onClick={() => toggleSort('stock')}
-                  className="py-3 px-3 text-center cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="py-3.5 px-3 text-center cursor-pointer hover:bg-white/5 transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center gap-1.5">
                     <span>Stock</span>
-                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                    <ArrowUpDown className="w-3.5 h-3.5 text-emerald-400/80" />
                   </div>
                 </th>
                 <th
                   onClick={() => toggleSort('price')}
-                  className="py-3 px-3 text-right cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="py-3.5 px-3 text-right cursor-pointer hover:bg-white/5 transition-colors whitespace-nowrap"
                 >
-                  <div className="flex items-center justify-end gap-1">
-                    <Lock className="w-3 h-3 text-teal-600" />
-                    <span>Fixed Selling Price</span>
-                    <ArrowUpDown className="w-3 h-3 text-slate-400" />
+                  <div className="flex items-center justify-end gap-1.5">
+                    <Lock className="w-3 h-3 text-emerald-400" />
+                    <span>Fixed Price</span>
+                    <ArrowUpDown className="w-3.5 h-3.5 text-emerald-400/80" />
                   </div>
                 </th>
-                <th className="py-3 px-3 text-center">Status</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">Status</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 bg-white">
               {filteredMedicines.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
-                    No medicines matching the selected criteria.
+                  <td colSpan={9} className="py-14 text-center text-slate-400">
+                    <Pill className="w-8 h-8 mx-auto mb-2 opacity-25" />
+                    <p className="text-xs font-medium text-slate-500">
+                      No medicines matching the selected criteria.
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -1077,26 +1232,31 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                   const isChecked = !!selectedForSale[med.id];
                   const checkedQty = selectedForSale[med.id] || 1;
                   const canSell = getFefoBatches(med).reduce((s, b) => s + b.quantity, 0) > 0;
+                  const batchCount = (med.batches || []).length;
+                  const isLowOrOut =
+                    statusInfo.status === 'low' ||
+                    statusInfo.status === 'out_of_stock' ||
+                    statusInfo.status === 'expired';
 
                   return (
                     <tr
                       key={med.id}
-                      className={`transition-colors ${
-                        isChecked ? 'bg-teal-50/60 hover:bg-teal-50' : 'hover:bg-slate-50/70'
+                      className={`group transition-colors ${
+                        isChecked ? 'bg-teal-50/70 hover:bg-teal-50' : 'hover:bg-slate-50/90'
                       }`}
                     >
                       {/* Multi-select Checkbox */}
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-3.5 px-3 text-center">
                         <button
                           type="button"
                           disabled={!canSell}
                           onClick={() => toggleSelectForSale(med)}
-                          className={`p-1 rounded transition-colors ${
+                          className={`p-1 rounded-lg transition-colors ${
                             !canSell
                               ? 'text-slate-200 cursor-not-allowed'
                               : isChecked
-                              ? 'text-teal-600'
-                              : 'text-slate-400 hover:text-teal-600'
+                              ? 'text-[#0F766E] bg-teal-100'
+                              : 'text-slate-400 hover:text-[#0F766E]'
                           }`}
                           title={canSell ? 'Select to sell in POS' : 'Out of stock / expired'}
                         >
@@ -1109,62 +1269,119 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                       </td>
 
                       {/* Name & Generic */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-start gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 font-bold flex items-center justify-center shrink-0 text-[11px] mt-0.5">
-                            {(med.name || 'M').charAt(0)}
+                      <td className="py-3.5 px-3">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={`w-9 h-9 rounded-xl font-extrabold flex items-center justify-center shrink-0 text-xs ${getMedicineAvatarGradient(
+                              med.name
+                            )}`}
+                          >
+                            {(med.name || 'M').charAt(0).toUpperCase()}
                           </div>
-                          <div>
-                            <span className="font-bold text-slate-900 block">{med.name || 'Medicine'}</span>
-                            <span className="text-[11px] text-slate-500 block truncate max-w-xs">
-                              {med.genericName || ''}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-slate-900 text-[13px] leading-tight">
+                                {med.name || 'Medicine'}
+                              </span>
+                              {med.requiresPrescription && (
+                                <span className="text-[10px] font-bold text-white bg-gradient-to-r from-rose-500 to-pink-600 px-1.5 py-0.5 rounded shadow-2xs">
+                                  Rx
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-slate-600 block truncate max-w-[210px] mt-0.5">
+                              {med.genericName || 'Generic formulation'}
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              Barcode: {med.barcode || 'N/A'} • {med.storageLocation || 'Shelf'}
+                            <span className="text-[10px] text-slate-400 font-mono block truncate max-w-[230px] mt-0.5">
+                              {med.barcode || 'No Barcode'} · {med.storageLocation || 'Shelf'}
                             </span>
                           </div>
                         </div>
                       </td>
 
                       {/* Type & Strength */}
-                      <td className="py-3 px-3">
-                        <span className="font-semibold text-slate-800 block">{med.strength || '-'}</span>
-                        <span className="text-[11px] text-slate-500">
-                          {med.medicineType || 'Tablet'} • {med.packingSize || 'Pack'}
+                      <td className="py-3.5 px-3">
+                        <span className="font-bold text-slate-800 block whitespace-nowrap">
+                          {med.strength || '-'}
+                        </span>
+                        <span className="text-[11px] text-slate-500 block whitespace-nowrap mt-0.5">
+                          {med.medicineType || 'Tablet'} · {med.packingSize || 'Pack'}
                         </span>
                       </td>
 
                       {/* Manufacturer */}
-                      <td className="py-3 px-3 text-slate-700 font-medium">{med.manufacturer || '-'}</td>
+                      <td className="py-3.5 px-3">
+                        <span className="text-slate-700 font-medium block max-w-[145px] leading-snug">
+                          {med.manufacturer || '-'}
+                        </span>
+                      </td>
 
-                      {/* Batches count */}
-                      <td className="py-3 px-3 text-center">
+                      {/* Interactive Colorful Batch Button */}
+                      <td className="py-3.5 px-3 text-center">
                         <button
+                          type="button"
                           onClick={() => {
                             setSelectedMedForBatches(med);
                             setShowBatchModal(true);
                           }}
-                          className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] inline-flex items-center gap-1"
+                          className={`px-3 py-1.5 rounded-lg font-bold text-[11px] inline-flex items-center gap-1.5 border transition-all whitespace-nowrap shrink-0 tabular-nums hover:-translate-y-0.5 ${
+                            batchCount === 0
+                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 shadow-2xs'
+                              : 'bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500 text-white border-indigo-600/20 shadow-xs shadow-indigo-500/25'
+                          }`}
+                          title="Open Batch & Expiry Manager"
                         >
-                          <Layers className="w-3 h-3 text-teal-600" />
+                          <Layers className="w-3.5 h-3.5 shrink-0" />
                           <span>
-                            {(med.batches || []).length} batch{(med.batches || []).length !== 1 ? 'es' : ''}
+                            {batchCount} {batchCount === 1 ? 'Batch' : 'Batches'}
                           </span>
                         </button>
                       </td>
 
-                      {/* Available Stock */}
-                      <td className="py-3 px-3 text-center">
-                        <span className="text-sm font-black text-slate-900">
+                      {/* Available Stock + Health Bar */}
+                      <td className="py-3.5 px-3 text-center whitespace-nowrap">
+                        <span
+                          className={`text-sm font-black tabular-nums block ${
+                            med.totalQuantity === 0
+                              ? 'text-rose-600'
+                              : isLowOrOut
+                              ? 'text-orange-600'
+                              : 'text-slate-900'
+                          }`}
+                        >
                           {med.totalQuantity}
                         </span>
-                        <span className="text-[10px] text-slate-400 block">
+                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden mx-auto my-1 border border-slate-200/70">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              med.totalQuantity === 0
+                                ? 'bg-rose-500'
+                                : isLowOrOut
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-500'
+                                : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                            }`}
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                med.totalQuantity === 0
+                                  ? 0
+                                  : Math.max(
+                                      10,
+                                      Math.round(
+                                        (med.totalQuantity / Math.max((med.minStockLevel || 10) * 3, 1)) * 100
+                                      )
+                                    )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono tabular-nums block">
                           Min: {med.minStockLevel}
                         </span>
                       </td>
 
-                      {/* Fixed Selling Price (with inline quick-edit for Admin/Pharmacist) */}
-                      <td className="py-3 px-3 text-right">
+                      {/* Fixed Selling Price (with inline quick-edit) */}
+                      <td className="py-3.5 px-3 text-right whitespace-nowrap">
                         {editingPriceMedId === med.id ? (
                           <div className="inline-flex items-center gap-1 justify-end">
                             <input
@@ -1173,13 +1390,13 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                               min="0"
                               value={inlinePriceValue}
                               onChange={e => setInlinePriceValue(e.target.value)}
-                              className="w-20 p-1 border-2 border-teal-500 rounded text-right font-mono font-bold text-xs"
+                              className="w-20 p-1.5 border-2 border-teal-500 rounded-lg text-right font-mono font-bold text-xs tabular-nums"
                               autoFocus
                             />
                             <button
                               type="button"
                               onClick={() => handleSaveInlineFixedPrice(med)}
-                              className="p-1 rounded bg-teal-600 text-white hover:bg-teal-700"
+                              className="p-1.5 rounded-lg bg-[#0F766E] text-white hover:bg-[#0D655E]"
                               title="Save Fixed Price"
                             >
                               <Check className="w-3.5 h-3.5" />
@@ -1187,7 +1404,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                             <button
                               type="button"
                               onClick={() => setEditingPriceMedId(null)}
-                              className="p-1 rounded bg-slate-200 text-slate-600 hover:bg-slate-300"
+                              className="p-1.5 rounded-lg bg-slate-200 text-slate-600 hover:bg-slate-300"
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -1195,7 +1412,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                         ) : (
                           <div>
                             <div className="inline-flex items-center gap-1 justify-end">
-                              <span className="font-mono font-black text-sm text-teal-800">
+                              <span className="font-mono font-black text-[13px] text-[#0F766E] tabular-nums">
                                 {fixedPrice > 0 ? formatPKR(fixedPrice) : 'N/A'}
                               </span>
                               {canModifyPrices && (
@@ -1205,15 +1422,15 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                                     setEditingPriceMedId(med.id);
                                     setInlinePriceValue(String(fixedPrice));
                                   }}
-                                  className="text-slate-400 hover:text-teal-600 p-0.5"
-                                  title="Click to set/edit fixed selling price"
+                                  className="text-slate-400 hover:text-[#0F766E] p-1 rounded hover:bg-teal-50 transition-colors"
+                                  title="Edit Fixed Selling Price"
                                 >
                                   <Edit2 className="w-3 h-3" />
                                 </button>
                               )}
                             </div>
                             {primaryBatch && (
-                              <span className="text-[10px] text-slate-400 block font-mono">
+                              <span className="text-[10px] text-slate-400 block font-mono tabular-nums">
                                 Cost: {formatPKR(primaryBatch.purchasePrice)}
                               </span>
                             )}
@@ -1221,85 +1438,95 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                         )}
                       </td>
 
-                      {/* Status Badge */}
-                      <td className="py-3 px-3 text-center">
-                        <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] border ${statusInfo.badgeBg} ${statusInfo.badgeText} ${statusInfo.badgeBorder}`}
+                      {/* Interactive Colorful Status Button (never wraps onto 2 lines) */}
+                      <td className="py-3.5 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelectedStatus(
+                              selectedStatus === statusInfo.status ? 'All' : statusInfo.status
+                            )
+                          }
+                          title={
+                            selectedStatus === statusInfo.status
+                              ? 'Click to clear status filter'
+                              : `Filter by ${statusInfo.label}`
+                          }
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all hover:-translate-y-0.5 hover:shadow-sm ${statusInfo.badgeBg} ${statusInfo.badgeText} ${statusInfo.badgeBorder}`}
                         >
-                          {statusInfo.label}
-                        </span>
+                          {statusInfo.status === 'available' ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                          ) : statusInfo.status === 'out_of_stock' ? (
+                            <PackageX className="w-3.5 h-3.5 shrink-0" />
+                          ) : statusInfo.status === 'expired' ? (
+                            <AlertOctagon className="w-3.5 h-3.5 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          )}
+                          <span>{statusInfo.label}</span>
+                        </button>
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* If checked, show quantity stepper */}
+                      {/* Vibrant Cohesive Action Buttons */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap shrink-0">
                           {isChecked && (
-                            <div className="flex items-center gap-1 bg-teal-100 border border-teal-400 rounded-lg px-1.5 py-0.5 mr-1">
+                            <div className="flex items-center gap-1 bg-teal-100 border border-teal-300 rounded-lg px-1.5 py-1 mr-1">
                               <button
                                 type="button"
                                 onClick={() => updateSelectedQty(med, checkedQty - 1)}
-                                className="w-4 h-4 rounded bg-white text-teal-900 flex items-center justify-center font-bold"
+                                className="w-5 h-5 rounded bg-white text-teal-900 flex items-center justify-center font-bold"
                               >
                                 <Minus className="w-2.5 h-2.5" />
                               </button>
-                              <span className="font-mono font-bold text-xs text-teal-950 px-1">
+                              <span className="font-mono font-bold text-xs text-teal-950 px-1 tabular-nums">
                                 {checkedQty}
                               </span>
                               <button
                                 type="button"
                                 onClick={() => updateSelectedQty(med, checkedQty + 1)}
-                                className="w-4 h-4 rounded bg-white text-teal-900 flex items-center justify-center font-bold"
+                                className="w-5 h-5 rounded bg-white text-teal-900 flex items-center justify-center font-bold"
                               >
                                 <Plus className="w-2.5 h-2.5" />
                               </button>
                             </div>
                           )}
 
-                          {/* Sell Button */}
+                          {/* Primary Sell Button */}
                           <button
                             type="button"
                             disabled={!canSell}
                             onClick={() => handleSellSingleMedicine(med)}
-                            className="px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 text-white disabled:text-slate-400 font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
+                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 disabled:from-slate-100 disabled:to-slate-200 text-white disabled:text-slate-400 font-bold text-[11px] inline-flex items-center gap-1.5 transition-all shadow-sm shadow-emerald-600/25 disabled:shadow-none hover:-translate-y-0.5 disabled:hover:translate-y-0 whitespace-nowrap shrink-0"
                             title="Sell at Fixed Price in POS"
                           >
-                            <ShoppingCart className="w-3 h-3" />
+                            <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
                             <span>Sell</span>
                           </button>
 
-                          {/* Quick Add Stock */}
+                          {/* Quick Add Inward Stock Button */}
                           <button
+                            type="button"
                             onClick={() => setQuickStockMed(med)}
-                            className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold text-[11px] inline-flex items-center gap-1 transition-all shadow-sm shadow-sky-500/25 hover:-translate-y-0.5 whitespace-nowrap shrink-0"
                             title="Quick Add Inward Stock"
                           >
-                            <PackagePlus className="w-4 h-4 text-emerald-600" />
+                            <PackagePlus className="w-3.5 h-3.5 shrink-0" />
+                            <span>+ Stock</span>
                           </button>
 
-                          {/* Manage Batches */}
-                          <button
-                            onClick={() => {
-                              setSelectedMedForBatches(med);
-                              setShowBatchModal(true);
-                            }}
-                            className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
-                            title="Manage Batches"
-                          >
-                            <Layers className="w-4 h-4" />
-                          </button>
-
-                          {/* Edit (Admin or permitted role only) */}
+                          {/* Edit Formulation */}
                           {canModifyPrices ? (
                             <button
+                              type="button"
                               onClick={() => {
                                 setMedicineToEdit(med);
                                 setShowAddEditModal(true);
                               }}
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              className="p-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-500 hover:border-amber-500 text-amber-700 hover:text-white transition-all shadow-2xs"
                               title="Edit Formulation & Fixed Selling Price"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-3.5 h-3.5" />
                             </button>
                           ) : (
                             <span
@@ -1310,7 +1537,9 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                             </span>
                           )}
 
+                          {/* Delete Formulation */}
                           <button
+                            type="button"
                             onClick={() => {
                               if (
                                 confirm(
@@ -1320,10 +1549,10 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                                 deleteMedicine(med.id);
                               }
                             }}
-                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-600 hover:border-rose-600 text-rose-600 hover:text-white transition-all shadow-2xs"
                             title="Delete Formulation"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>

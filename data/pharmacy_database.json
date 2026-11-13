@@ -6,17 +6,17 @@
       "time": "12:00 PM",
       "items": [
         {
-          "medicineId": "med-test-1",
-          "medicineName": "Medicine",
-          "genericName": "",
           "batchId": "bat-test-1",
-          "batchNumber": "N/A",
           "quantity": 1,
-          "unitPrice": 350,
-          "purchaseCost": 0,
-          "discountAmount": 0,
           "taxAmount": 0,
-          "totalAmount": 350
+          "unitPrice": 350,
+          "medicineId": "med-test-1",
+          "batchNumber": "N/A",
+          "genericName": "",
+          "totalAmount": 350,
+          "medicineName": "Medicine",
+          "purchaseCost": 0,
+          "discountAmount": 0
         }
       ],
       "status": "completed",
@@ -80,12 +80,12 @@
       "joiningDate": "2026-11-11",
       "permissions": {
         "canMakeSales": true,
-        "canAddCustomer": true,
-        "canAdjustStock": true,
-        "canViewReports": false,
-        "canModifyPrices": true,
         "canViewInventory": true,
-        "canManagePurchases": true
+        "canAddCustomer": true,
+        "canViewReports": false,
+        "canAdjustStock": true,
+        "canManagePurchases": true,
+        "canModifyPrices": true
       },
       "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
     }
@@ -216,32 +216,32 @@
     {
       "id": "log-1794403881383-2zs5",
       "action": "MEDICINE_ADDED",
-      "description": "Added new medicine: Panadol (500mg) - Fixed Price Rs. 20",
       "userId": "usr-owner-1",
+      "details": {
+        "medId": "med-1794403881382"
+      },
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
       "timestamp": "11 Nov 2026, 06:31:21 pm",
-      "details": {
-        "medId": "med-1794403881382"
-      }
+      "description": "Added new medicine: Panadol (500mg) - Fixed Price Rs. 20"
     },
     {
       "id": "log-1794396431001-jgkh",
       "action": "STAFF_UPDATED",
-      "description": "Updated staff account details for ID usr-owner-1",
       "userId": "usr-owner-1",
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
-      "timestamp": "11 Nov 2026, 04:27:11 pm"
+      "timestamp": "11 Nov 2026, 04:27:11 pm",
+      "description": "Updated staff account details for ID usr-owner-1"
     },
     {
       "id": "log-1794396370448-7lag",
       "action": "STAFF_CREATED",
-      "description": "Dr. Abdul Rehman (Owner) created new account for Shafique (Medicine Seller & Inventory Staff)",
       "userId": "usr-owner-1",
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
-      "timestamp": "11 Nov 2026, 04:26:10 pm"
+      "timestamp": "11 Nov 2026, 04:26:10 pm",
+      "description": "Dr. Abdul Rehman (Owner) created new account for Shafique (Medicine Seller & Inventory Staff)"
     }
   ],
   "cashMemos": [
@@ -277,16 +277,16 @@
       "batches": [
         {
           "id": "bat-1794403881382",
+          "mfgDate": "2025-01-10",
+          "quantity": 100,
+          "salePrice": 20,
+          "expiryDate": "2027-12-31",
           "medicineId": "med-1794403881382",
           "batchNumber": "BAT-26X62",
+          "receivedDate": "2026-11-11",
           "purchasePrice": 15,
-          "salePrice": 20,
           "wholesalePrice": 18,
-          "quantity": 100,
-          "initialQuantity": 100,
-          "mfgDate": "2025-01-10",
-          "expiryDate": "2027-12-31",
-          "receivedDate": "2026-11-11"
+          "initialQuantity": 100
         }
       ],
       "storeId": "store-1",
@@ -333,17 +333,17 @@
   "purchases": [],
   "saleItems": [
     {
-      "medicineId": "med-test-1",
-      "medicineName": "Medicine",
-      "genericName": "",
       "batchId": "bat-test-1",
-      "batchNumber": "N/A",
       "quantity": 1,
+      "taxAmount": 0,
       "unitPrice": 350,
+      "medicineId": "med-test-1",
+      "batchNumber": "N/A",
+      "genericName": "",
+      "totalAmount": 350,
+      "medicineName": "Medicine",
       "purchaseCost": 0,
       "discountAmount": 0,
-      "taxAmount": 0,
-      "totalAmount": 350,
       "id": "sal-test-dup-item-1",
       "saleId": "sal-test-dup",
       "storeId": "store-1"
@@ -356,70 +356,70 @@
       "storeId": "store-1",
       "name": "Analgesics & Antipyretics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-2",
       "storeId": "store-1",
       "name": "Antibiotics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-3",
       "storeId": "store-1",
       "name": "Gastrointestinal",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-4",
       "storeId": "store-1",
       "name": "Antihistamines & Respiratory",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-5",
       "storeId": "store-1",
       "name": "Cardiovascular & Hypertension",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-6",
       "storeId": "store-1",
       "name": "Antidiabetics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-7",
       "storeId": "store-1",
       "name": "Vitamins & Supplements",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-8",
       "storeId": "store-1",
       "name": "Dermatological",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-9",
       "storeId": "store-1",
       "name": "Surgical & First Aid",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     },
     {
       "id": "cat-10",
       "storeId": "store-1",
       "name": "General",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T05:40:19.579Z"
+      "createdAt": "2026-11-13T11:44:17.818Z"
     }
   ],
   "deletedIds": [
@@ -436,7 +436,7 @@
     "usr-staff-e2e-check"
   ],
   "adjustments": [],
-  "lastUpdated": "2026-11-13T05:40:19.579Z",
+  "lastUpdated": "2026-11-13T11:44:17.819Z",
   "saleReturns": [],
   "cleanVersion": "pharmacare_clean_v3",
   "staffMembers": [
@@ -482,12 +482,12 @@
       "joiningDate": "2026-11-11",
       "permissions": {
         "canMakeSales": true,
-        "canAddCustomer": true,
-        "canAdjustStock": true,
-        "canViewReports": false,
-        "canModifyPrices": true,
         "canViewInventory": true,
-        "canManagePurchases": true
+        "canAddCustomer": true,
+        "canViewReports": false,
+        "canAdjustStock": true,
+        "canManagePurchases": true,
+        "canModifyPrices": true
       },
       "passwordHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
     }
@@ -495,23 +495,23 @@
   "notifications": [
     {
       "id": "notif-1794396370449",
+      "date": "2026-11-11",
+      "read": false,
       "type": "staff_activity",
       "title": "New Staff Account Created",
       "message": "Shafique (@shafique) was added as Medicine Seller & Inventory Staff.",
-      "date": "2026-11-11",
-      "timestamp": "11/11/2026, 4:26:10 pm",
-      "read": false,
-      "severity": "info"
+      "severity": "info",
+      "timestamp": "11/11/2026, 4:26:10 pm"
     },
     {
       "id": "notif-1794403881387",
+      "date": "2026-11-11",
+      "read": false,
       "type": "stock_adjustment",
       "title": "New Medicine Registered",
       "message": "Panadol added to inventory catalog at Fixed Price Rs. 20.",
-      "date": "2026-11-11",
-      "timestamp": "11/11/2026, 6:31:21 pm",
-      "read": false,
       "severity": "info",
+      "timestamp": "11/11/2026, 6:31:21 pm",
       "referenceId": "med-1794403881382"
     }
   ],
@@ -540,12 +540,12 @@
       "username": "shafique",
       "role": "staff",
       "canMakeSales": true,
-      "canAddCustomer": true,
-      "canAdjustStock": true,
-      "canViewReports": false,
-      "canModifyPrices": true,
       "canViewInventory": true,
-      "canManagePurchases": true
+      "canAddCustomer": true,
+      "canViewReports": false,
+      "canAdjustStock": true,
+      "canManagePurchases": true,
+      "canModifyPrices": true
     }
   ],
   "forceStaffReplace": false,
