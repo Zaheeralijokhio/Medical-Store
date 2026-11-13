@@ -51,9 +51,9 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   if (!isOpen) return null;
 
   const visibleNotifications = isAdmin
-    ? notifications
-    : notifications.filter(
-        n => n.type !== 'staff_activity' && n.type !== 'payment_due' && !n.message.includes('Owner')
+    ? (notifications || [])
+    : (notifications || []).filter(
+        n => n && n.type !== 'staff_activity' && n.type !== 'payment_due' && !String(n.message || '').includes('Owner')
       );
 
   const unreadCount = visibleNotifications.filter(n => !n.read).length;

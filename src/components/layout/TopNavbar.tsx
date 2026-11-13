@@ -130,9 +130,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   }, [onNavigate]);
 
   const visibleNotifications = isAdmin
-    ? notifications
-    : notifications.filter(
-        n => n.type !== 'staff_activity' && n.type !== 'payment_due' && !n.message.includes('Owner')
+    ? (notifications || [])
+    : (notifications || []).filter(
+        n => n && n.type !== 'staff_activity' && n.type !== 'payment_due' && !String(n.message || '').includes('Owner')
       );
   const unreadNotifs = visibleNotifications.filter(n => !n.read).length;
 
@@ -327,11 +327,11 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     isAdmin ? 'bg-indigo-600' : 'bg-teal-600'
                   }`}
                 >
-                  {currentUser?.fullName.charAt(0) || 'U'}
+                  {(currentUser?.fullName || currentUser?.username || 'U').charAt(0)}
                 </div>
                 <div className="hidden sm:block text-left">
                   <span className="text-xs font-semibold text-slate-800 block leading-tight">
-                    {currentUser?.fullName}
+                    {currentUser?.fullName || currentUser?.username || 'User'}
                   </span>
                   <span className="text-[10px] text-slate-500 block leading-none">
                     {isAdmin ? 'Store Owner' : currentUser?.designation || 'Seller / Staff'}

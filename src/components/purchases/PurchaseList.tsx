@@ -41,10 +41,10 @@ export const PurchaseList: React.FC = () => {
       if (statusFilter !== 'All' && p.paymentStatus !== statusFilter) return false;
 
       if (q) {
-        const matchNum = p.purchaseNumber.toLowerCase().includes(q);
-        const matchSup = p.supplierName.toLowerCase().includes(q);
-        const matchInv = p.invoiceNumber.toLowerCase().includes(q);
-        const matchMed = p.items.some(i => i.medicineName.toLowerCase().includes(q));
+        const matchNum = String(p.purchaseNumber || '').toLowerCase().includes(q);
+        const matchSup = String(p.supplierName || '').toLowerCase().includes(q);
+        const matchInv = String(p.invoiceNumber || '').toLowerCase().includes(q);
+        const matchMed = (p.items || []).some(i => String(i?.medicineName || '').toLowerCase().includes(q));
         if (!matchNum && !matchSup && !matchInv && !matchMed) return false;
       }
 
@@ -53,9 +53,9 @@ export const PurchaseList: React.FC = () => {
   }, [purchases, searchQuery, statusFilter]);
 
   // Aggregations
-  const totalPurchased = purchases.reduce((sum, p) => sum + p.totalAmount, 0);
-  const totalPaid = purchases.reduce((sum, p) => sum + p.paidAmount, 0);
-  const totalPending = purchases.reduce((sum, p) => sum + p.balanceAmount, 0);
+  const totalPurchased = purchases.reduce((sum, p) => sum + Number(p.totalAmount || 0), 0);
+  const totalPaid = purchases.reduce((sum, p) => sum + Number(p.paidAmount || 0), 0);
+  const totalPending = purchases.reduce((sum, p) => sum + Number(p.balanceAmount || 0), 0);
 
   const handleExportCSV = () => {
     const rows = filteredPurchases.map(p => ({
@@ -63,7 +63,7 @@ export const PurchaseList: React.FC = () => {
       Supplier: p.supplierName,
       SupplierBill: p.invoiceNumber,
       PurchaseDate: p.purchaseDate,
-      ItemsCount: p.items.length,
+      ItemsCount: (p.items || []).length,
       TotalAmount: p.totalAmount,
       PaidAmount: p.paidAmount,
       BalanceAmount: p.balanceAmount,

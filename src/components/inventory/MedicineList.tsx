@@ -294,12 +294,12 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       }
 
       if (q) {
-        const matchName = med.name.toLowerCase().includes(q);
-        const matchGen = med.genericName.toLowerCase().includes(q);
-        const matchBrand = med.brandName.toLowerCase().includes(q);
-        const matchBarcode = med.barcode.includes(q);
-        const matchCode = med.code.toLowerCase().includes(q);
-        const matchBatch = med.batches.some(b => b.batchNumber.toLowerCase().includes(q));
+        const matchName = String(med.name || '').toLowerCase().includes(q);
+        const matchGen = String(med.genericName || '').toLowerCase().includes(q);
+        const matchBrand = String(med.brandName || '').toLowerCase().includes(q);
+        const matchBarcode = String(med.barcode || '').includes(q);
+        const matchCode = String(med.code || '').toLowerCase().includes(q);
+        const matchBatch = (med.batches || []).some(b => String(b?.batchNumber || '').toLowerCase().includes(q));
         if (!matchName && !matchGen && !matchBrand && !matchBarcode && !matchCode && !matchBatch) {
           return false;
         }
@@ -311,14 +311,14 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
     return filtered.sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'name') {
-        comparison = a.name.localeCompare(b.name);
+        comparison = String(a.name || '').localeCompare(String(b.name || ''));
       } else if (sortBy === 'stock') {
-        comparison = a.totalQuantity - b.totalQuantity;
+        comparison = Number(a.totalQuantity || 0) - Number(b.totalQuantity || 0);
       } else if (sortBy === 'price') {
         comparison = getFixedPrice(a) - getFixedPrice(b);
       } else if (sortBy === 'expiry') {
-        const expA = a.batches[0]?.expiryDate || '9999-99-99';
-        const expB = b.batches[0]?.expiryDate || '9999-99-99';
+        const expA = (a.batches || [])[0]?.expiryDate || '9999-99-99';
+        const expB = (b.batches || [])[0]?.expiryDate || '9999-99-99';
         comparison = expA.localeCompare(expB);
       }
       return sortAsc ? comparison : -comparison;
@@ -927,15 +927,15 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                       <td className="py-3 px-3">
                         <div className="flex items-start gap-2">
                           <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 font-bold flex items-center justify-center shrink-0 text-[11px] mt-0.5">
-                            {med.name.charAt(0)}
+                            {(med.name || 'M').charAt(0)}
                           </div>
                           <div>
-                            <span className="font-bold text-slate-900 block">{med.name}</span>
+                            <span className="font-bold text-slate-900 block">{med.name || 'Medicine'}</span>
                             <span className="text-[11px] text-slate-500 block truncate max-w-xs">
-                              {med.genericName}
+                              {med.genericName || ''}
                             </span>
                             <span className="text-[10px] text-slate-400 font-mono">
-                              Barcode: {med.barcode} • {med.storageLocation}
+                              Barcode: {med.barcode || 'N/A'} • {med.storageLocation || 'Shelf'}
                             </span>
                           </div>
                         </div>
@@ -943,14 +943,14 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
 
                       {/* Type & Strength */}
                       <td className="py-3 px-3">
-                        <span className="font-semibold text-slate-800 block">{med.strength}</span>
+                        <span className="font-semibold text-slate-800 block">{med.strength || '-'}</span>
                         <span className="text-[11px] text-slate-500">
-                          {med.medicineType} • {med.packingSize}
+                          {med.medicineType || 'Tablet'} • {med.packingSize || 'Pack'}
                         </span>
                       </td>
 
                       {/* Manufacturer */}
-                      <td className="py-3 px-3 text-slate-700 font-medium">{med.manufacturer}</td>
+                      <td className="py-3 px-3 text-slate-700 font-medium">{med.manufacturer || '-'}</td>
 
                       {/* Batches count */}
                       <td className="py-3 px-3 text-center">
@@ -963,7 +963,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
                         >
                           <Layers className="w-3 h-3 text-teal-600" />
                           <span>
-                            {med.batches.length} batch{med.batches.length !== 1 ? 'es' : ''}
+                            {(med.batches || []).length} batch{(med.batches || []).length !== 1 ? 'es' : ''}
                           </span>
                         </button>
                       </td>

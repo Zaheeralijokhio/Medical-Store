@@ -209,10 +209,10 @@ export const CustomerList: React.FC = () => {
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-teal-100 text-teal-800 font-bold flex items-center justify-center text-xs">
-                          {cust.name.charAt(0)}
+                          {(cust.name || 'C').charAt(0)}
                         </div>
                         <div>
-                          <span className="font-bold text-slate-900 block">{cust.name}</span>
+                          <span className="font-bold text-slate-900 block">{cust.name || 'Customer'}</span>
                           <span className="text-[10px] text-slate-400 font-mono">ID: {cust.id}</span>
                         </div>
                       </div>
@@ -353,7 +353,7 @@ export const CustomerList: React.FC = () => {
                       <tr key={s.id}>
                         <td className="p-2 font-mono font-bold text-teal-800">{s.invoiceNumber}</td>
                         <td className="p-2 font-mono">{s.date}</td>
-                        <td className="p-2">{s.items.length} item(s)</td>
+                        <td className="p-2">{(s.items || []).length} item(s)</td>
                         <td className="p-2 text-right font-mono font-bold">{formatPKR(s.grandTotal)}</td>
                         <td className="p-2 text-center">
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">

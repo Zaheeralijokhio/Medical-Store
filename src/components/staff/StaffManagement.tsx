@@ -90,10 +90,10 @@ export const StaffManagement: React.FC = () => {
     return staffMembers.filter(s => {
       if (!q) return true;
       return (
-        s.fullName.toLowerCase().includes(q) ||
-        s.username.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        s.designation.toLowerCase().includes(q)
+        String(s.fullName || '').toLowerCase().includes(q) ||
+        String(s.username || '').toLowerCase().includes(q) ||
+        String(s.email || '').toLowerCase().includes(q) ||
+        String(s.designation || '').toLowerCase().includes(q)
       );
     });
   }, [staffMembers, searchQuery]);
@@ -588,11 +588,11 @@ export const StaffManagement: React.FC = () => {
                               : 'bg-emerald-600'
                           }`}
                         >
-                          {staff.fullName.charAt(0)}
+                          {(staff.fullName || staff.username || 'S').charAt(0)}
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-slate-900">{staff.fullName}</span>
+                            <span className="font-bold text-slate-900">{staff.fullName || staff.username}</span>
                             {isCurrentActive && (
                               <span className="px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 font-bold text-[10px]">
                                 Active Session

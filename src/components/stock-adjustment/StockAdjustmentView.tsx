@@ -39,7 +39,7 @@ export const StockAdjustmentView: React.FC = () => {
   const handleOpenModal = () => {
     if (medicines.length > 0) {
       setSelectedMedId(medicines[0].id);
-      if (medicines[0].batches.length > 0) {
+      if ((medicines[0].batches || []).length > 0) {
         setSelectedBatchId(medicines[0].batches[0].id);
       }
     }
@@ -216,7 +216,7 @@ export const StockAdjustmentView: React.FC = () => {
                   onChange={e => {
                     setSelectedMedId(e.target.value);
                     const m = medicines.find(med => med.id === e.target.value);
-                    if (m && m.batches.length > 0) {
+                    if (m && (m.batches || []).length > 0) {
                       setSelectedBatchId(m.batches[0].id);
                     }
                   }}

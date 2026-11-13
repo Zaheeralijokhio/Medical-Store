@@ -112,6 +112,9 @@ export function sanitizeStaffAccounts(users?: User[]): User[] {
         byUsername.set(uname, {
           ...u,
           username: uname,
+          fullName: String(u.fullName || (u as any).name || uname),
+          email: String(u.email || ''),
+          designation: String(u.designation || 'Staff Dispenser'),
           status: u.status || 'active',
           pin: u.pin || '5678',
           password: u.password || 'seller123',

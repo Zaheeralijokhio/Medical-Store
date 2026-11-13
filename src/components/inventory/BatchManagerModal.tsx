@@ -100,7 +100,7 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <span className="font-semibold text-slate-700">
-                Active Batches ({medicine.batches.length})
+                Active Batches ({(medicine.batches || []).length})
               </span>
               <p className="text-[11px] text-slate-500">
                 Sorted by FEFO (First Expiry, First Out)
@@ -207,12 +207,12 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
 
           {/* Batches Table */}
           <div className="space-y-2">
-            {medicine.batches.length === 0 ? (
+            {(medicine.batches || []).length === 0 ? (
               <div className="py-8 text-center text-slate-400">
                 No active batches recorded. Add an opening batch.
               </div>
             ) : (
-              medicine.batches.map(batch => {
+              (medicine.batches || []).map(batch => {
                 const expired = isExpired(batch.expiryDate);
                 const nearExp = !expired && isNearExpiry(batch.expiryDate, settings.expiryAlertDays);
 

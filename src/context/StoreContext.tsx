@@ -60,6 +60,15 @@ import {
   pushCloudMedicineRealtime,
   fetchCloudMedicines,
 } from '../services/cloudSync';
+import {
+  normalizeMedicine,
+  normalizeSale,
+  normalizePurchase,
+  normalizeAuditLog,
+  normalizeNotification,
+  normalizeSettings,
+  normalizeStaffList,
+} from '../utils/normalizers';
 
 interface StoreContextType {
   // Data
@@ -219,19 +228,41 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, syncStaffList } = useAuth();
 
-  const [settings, setSettings] = useState<StoreSettings>(() => loadFromStorage('settings', INITIAL_SETTINGS));
-  const [medicines, setMedicines] = useState<Medicine[]>(() => loadFromStorage('medicines', INITIAL_MEDICINES));
+  const [settings, setSettings] = useState<StoreSettings>(() =>
+    normalizeSettings(loadFromStorage('settings', INITIAL_SETTINGS))
+  );
+  const [medicines, setMedicines] = useState<Medicine[]>(() =>
+    (loadFromStorage<any[]>('medicines', INITIAL_MEDICINES) || [])
+      .map(normalizeMedicine)
+      .filter((m): m is Medicine => m !== null)
+  );
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadFromStorage('suppliers', INITIAL_SUPPLIERS));
   const [customers, setCustomers] = useState<Customer[]>(() => loadFromStorage('customers', INITIAL_CUSTOMERS));
-  const [sales, setSales] = useState<Sale[]>(() => loadFromStorage('sales', INITIAL_SALES));
+  const [sales, setSales] = useState<Sale[]>(() =>
+    (loadFromStorage<any[]>('sales', INITIAL_SALES) || [])
+      .map(normalizeSale)
+      .filter((s): s is Sale => s !== null)
+  );
   const [saleReturns, setSaleReturns] = useState<SaleReturn[]>(() => loadFromStorage('returns', []));
-  const [purchases, setPurchases] = useState<Purchase[]>(() => loadFromStorage('purchases', INITIAL_PURCHASES));
+  const [purchases, setPurchases] = useState<Purchase[]>(() =>
+    (loadFromStorage<any[]>('purchases', INITIAL_PURCHASES) || [])
+      .map(normalizePurchase)
+      .filter((p): p is Purchase => p !== null)
+  );
   const [expenses, setExpenses] = useState<Expense[]>(() => loadFromStorage('expenses', INITIAL_EXPENSES));
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>(() => loadFromStorage('adjustments', INITIAL_ADJUSTMENTS));
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => loadFromStorage('audit_logs', INITIAL_AUDIT_LOGS));
-  const [notifications, setNotifications] = useState<PharmacyNotification[]>(() => loadFromStorage('notifications', INITIAL_NOTIFICATIONS));
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() =>
+    (loadFromStorage<any[]>('audit_logs', INITIAL_AUDIT_LOGS) || [])
+      .map(normalizeAuditLog)
+      .filter((l): l is AuditLog => l !== null)
+  );
+  const [notifications, setNotifications] = useState<PharmacyNotification[]>(() =>
+    (loadFromStorage<any[]>('notifications', INITIAL_NOTIFICATIONS) || [])
+      .map(normalizeNotification)
+      .filter((n): n is PharmacyNotification => n !== null)
+  );
   const [staffMembers, setStaffMembers] = useState<User[]>(() =>
-    sanitizeStaffAccounts(loadFromStorage('staff', INITIAL_USERS))
+    normalizeStaffList(loadFromStorage('staff', INITIAL_USERS))
   );
 
   // Connectivity & Sync States
@@ -348,10 +379,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       const delSet = deletedRecordIdsRef.current;
 
-      if (d.settings) setSettings(d.settings);
+      if (d.settings) setSettings(normalizeSettings(d.settings));
       if (Array.isArray(d.medicines)) {
+        const cleanIncomingMeds = d.medicines
+          .map(normalizeMedicine)
+          .filter((m: Medicine | null): m is Medicine => m !== null);
         setMedicines(prev => {
-          const merged = mergeById(prev, d.medicines, delSet);
+          const merged = mergeById(prev, cleanIncomingMeds, delSet);
           try {
             localStorage.setItem('pharmacare_medicines', JSON.stringify(merged));
           } catch {}
@@ -365,13 +399,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCustomers(prev => mergeById(prev, d.customers, delSet));
       }
       if (Array.isArray(d.sales)) {
-        setSales(prev => mergeById(prev, d.sales, delSet));
+        const cleanSales = d.sales
+          .map(normalizeSale)
+          .filter((s: Sale | null): s is Sale => s !== null);
+        setSales(prev => mergeById(prev, cleanSales, delSet));
       }
       if (Array.isArray(d.saleReturns)) {
         setSaleReturns(prev => mergeById(prev, d.saleReturns, delSet));
       }
       if (Array.isArray(d.purchases)) {
-        setPurchases(prev => mergeById(prev, d.purchases, delSet));
+        const cleanPurchases = d.purchases
+          .map(normalizePurchase)
+          .filter((p: Purchase | null): p is Purchase => p !== null);
+        setPurchases(prev => mergeById(prev, cleanPurchases, delSet));
       }
       if (Array.isArray(d.expenses)) {
         setExpenses(prev => mergeById(prev, d.expenses, delSet));
@@ -380,15 +420,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setAdjustments(prev => mergeById(prev, d.adjustments, delSet));
       }
       if (Array.isArray(d.auditLogs) && d.auditLogs.length > 0) {
-        setAuditLogs(prev => mergeById(prev, d.auditLogs, delSet));
+        const cleanLogs = d.auditLogs
+          .map(normalizeAuditLog)
+          .filter((l: AuditLog | null): l is AuditLog => l !== null);
+        setAuditLogs(prev => mergeById(prev, cleanLogs, delSet));
       }
       if (Array.isArray(d.notifications) && d.notifications.length > 0) {
-        setNotifications(prev => mergeById(prev, d.notifications, delSet));
+        const cleanNotifs = d.notifications
+          .map(normalizeNotification)
+          .filter((n: PharmacyNotification | null): n is PharmacyNotification => n !== null);
+        setNotifications(prev => mergeById(prev, cleanNotifs, delSet));
       }
       if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
         setStaffMembers(prevLocal => {
           const combined = mergeById<User>(prevLocal, d.staffMembers, delSet);
-          return sanitizeStaffAccounts(combined);
+          return normalizeStaffList(combined);
         });
       }
     };
@@ -409,8 +455,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               cloudMeds.deletedIds.forEach(id => recordDeletedId(id));
             }
             if (cloudMeds.medicines.length > 0) {
+              const cleanCloudMeds = cloudMeds.medicines
+                .map(normalizeMedicine)
+                .filter((m): m is Medicine => m !== null);
               setMedicines(prev => {
-                const merged = mergeById(prev, cloudMeds.medicines, deletedRecordIdsRef.current);
+                const merged = mergeById(prev, cleanCloudMeds, deletedRecordIdsRef.current);
                 try {
                   localStorage.setItem('pharmacare_medicines', JSON.stringify(merged));
                 } catch {}
@@ -454,14 +503,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
-            setMedicines(prev => mergeById(prev, parsed, deletedRecordIdsRef.current));
+            const cleanMeds = parsed
+              .map(normalizeMedicine)
+              .filter((m): m is Medicine => m !== null);
+            setMedicines(prev => mergeById(prev, cleanMeds, deletedRecordIdsRef.current));
           }
         } catch {}
       } else if (e.key === 'pharmacare_sales' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
-            setSales(prev => mergeById(prev, parsed, deletedRecordIdsRef.current));
+            const cleanSales = parsed
+              .map(normalizeSale)
+              .filter((s): s is Sale => s !== null);
+            setSales(prev => mergeById(prev, cleanSales, deletedRecordIdsRef.current));
           }
         } catch {}
       } else if (e.key === 'pharmacare_deleted_ids' && e.newValue) {
@@ -509,36 +564,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 d.deletedIds.forEach((id: string) => recordDeletedId(id));
               }
               const delSet = deletedRecordIdsRef.current;
-              if (d.settings) setSettings(d.settings);
+              if (d.settings) setSettings(normalizeSettings(d.settings));
               if (Array.isArray(d.medicines)) {
-                setMedicines(d.medicines.filter((m: any) => !delSet.has(m.id)));
+                setMedicines(
+                  d.medicines
+                    .filter((m: any) => m && !delSet.has(m.id))
+                    .map(normalizeMedicine)
+                    .filter((m: Medicine | null): m is Medicine => m !== null)
+                );
               }
               if (Array.isArray(d.suppliers)) {
-                setSuppliers(d.suppliers.filter((s: any) => !delSet.has(s.id)));
+                setSuppliers(d.suppliers.filter((s: any) => s && !delSet.has(s.id)));
               }
               if (Array.isArray(d.customers)) {
-                setCustomers(d.customers.filter((c: any) => !delSet.has(c.id)));
+                setCustomers(d.customers.filter((c: any) => c && !delSet.has(c.id)));
               }
               if (Array.isArray(d.sales)) {
-                setSales(d.sales.filter((s: any) => !delSet.has(s.id)));
+                setSales(
+                  d.sales
+                    .filter((s: any) => s && !delSet.has(s.id))
+                    .map(normalizeSale)
+                    .filter((s: Sale | null): s is Sale => s !== null)
+                );
               }
               if (Array.isArray(d.saleReturns)) {
                 setSaleReturns(d.saleReturns);
               }
               if (Array.isArray(d.purchases)) {
-                setPurchases(d.purchases);
+                setPurchases(
+                  d.purchases
+                    .map(normalizePurchase)
+                    .filter((p: Purchase | null): p is Purchase => p !== null)
+                );
               }
               if (Array.isArray(d.expenses)) {
-                setExpenses(d.expenses.filter((e: any) => !delSet.has(e.id)));
+                setExpenses(d.expenses.filter((e: any) => e && !delSet.has(e.id)));
               }
               if (Array.isArray(d.adjustments)) {
                 setAdjustments(d.adjustments);
               }
               if (Array.isArray(d.auditLogs)) {
-                setAuditLogs(d.auditLogs);
+                setAuditLogs(
+                  d.auditLogs
+                    .map(normalizeAuditLog)
+                    .filter((l: AuditLog | null): l is AuditLog => l !== null)
+                );
               }
               if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
-                setStaffMembers(sanitizeStaffAccounts(d.staffMembers.filter((u: any) => !delSet.has(u.id))));
+                setStaffMembers(normalizeStaffList(d.staffMembers.filter((u: any) => u && !delSet.has(u.id))));
               }
             }
           } catch {}
@@ -567,7 +640,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         bc = new BroadcastChannel('pharmacare_erp_realtime_sync');
         bc.onmessage = (event) => {
           if (event.data?.type === 'MEDICINE_SYNC' && event.data?.medicine) {
-            const incomingMed = event.data.medicine;
+            const incomingMed = normalizeMedicine(event.data.medicine);
+            if (!incomingMed) return;
             deletedRecordIdsRef.current.delete(incomingMed.id);
             setMedicines(prev => {
               const next = [incomingMed, ...prev.filter(m => m.id !== incomingMed.id)];

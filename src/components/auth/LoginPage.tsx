@@ -164,7 +164,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
           <div className="text-left">
             <h1 className="text-2xl font-black text-white tracking-tight">
-              {settings.storeName.split(' ')[0]} <span className="text-teal-400">Pro</span>
+              {String(settings?.storeName || 'PharmaCare').split(' ')[0]} <span className="text-teal-400">Pro</span>
             </h1>
             <p className="text-xs text-teal-200/80 font-medium">
               Medical Store & Pharmacy ERP System
@@ -420,11 +420,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         >
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0 bg-teal-600">
-                              {user.fullName.charAt(0)}
+                              {(user.fullName || user.username || 'S').charAt(0)}
                             </div>
                             <div className="min-w-0">
                               <p className="text-xs font-bold text-white truncate">
-                                {user.fullName}
+                                {user.fullName || user.username}
                               </p>
                               <p className="text-[10px] text-slate-400 truncate">
                                 @{user.username} • {user.designation}

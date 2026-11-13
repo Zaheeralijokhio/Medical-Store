@@ -41,8 +41,9 @@ export const NotificationCenter: React.FC = () => {
   const [stockThreshold, setStockThreshold] = useState(settings.lowStockThresholdDefault || 25);
 
   const filteredNotifications = useMemo(() => {
-    return notifications.filter(n => {
-      if (!isAdmin && (n.type === 'staff_activity' || n.type === 'payment_due' || n.message.includes('Owner'))) {
+    return (notifications || []).filter(n => {
+      if (!n) return false;
+      if (!isAdmin && (n.type === 'staff_activity' || n.type === 'payment_due' || String(n.message || '').includes('Owner'))) {
         return false;
       }
       if (filterType === 'All') return true;

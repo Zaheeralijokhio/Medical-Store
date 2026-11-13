@@ -462,10 +462,10 @@ export const SystemSettingsView: React.FC = () => {
                         : 'bg-amber-600'
                     }`}
                   >
-                    {user.fullName.charAt(0)}
+                    {(user.fullName || user.username || 'U').charAt(0)}
                   </div>
                   <div>
-                    <span className="font-bold text-slate-900 block text-xs">{user.fullName}</span>
+                    <span className="font-bold text-slate-900 block text-xs">{user.fullName || user.username}</span>
                     <span className="text-[11px] text-slate-500 block">
                       Username: <code className="text-teal-700 font-mono font-semibold">{user.username}</code> • Role: <strong className="capitalize">{user.role}</strong>
                     </span>

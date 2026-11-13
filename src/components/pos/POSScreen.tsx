@@ -199,16 +199,16 @@ export const POSScreen: React.FC = () => {
   // Filtered medicines for product grid/table
   const filteredMedicines = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return medicines.filter(med => {
-      if (med.status !== 'active') return false;
+    return (medicines || []).filter(med => {
+      if (!med || med.status !== 'active') return false;
       const matchesCat = selectedCategory === 'All' || med.category === selectedCategory;
       const matchesSearch =
         !q ||
-        med.name.toLowerCase().includes(q) ||
-        med.genericName.toLowerCase().includes(q) ||
-        med.brandName.toLowerCase().includes(q) ||
-        med.barcode.includes(q) ||
-        med.code.toLowerCase().includes(q);
+        String(med.name || '').toLowerCase().includes(q) ||
+        String(med.genericName || '').toLowerCase().includes(q) ||
+        String(med.brandName || '').toLowerCase().includes(q) ||
+        String(med.barcode || '').includes(q) ||
+        String(med.code || '').toLowerCase().includes(q);
       return matchesCat && matchesSearch;
     });
   }, [medicines, searchQuery, selectedCategory]);

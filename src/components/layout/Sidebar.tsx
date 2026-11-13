@@ -58,8 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { currentUser, isAdmin, logout } = useAuth();
   const { settings, notifications, medicines } = useStore();
 
-  const unreadNotifs = notifications.filter(n => !n.read).length;
-  const lowStockCount = medicines.filter(m => m.totalQuantity <= m.minStockLevel).length;
+  const unreadNotifs = (notifications || []).filter(n => n && !n.read).length;
+  const lowStockCount = (medicines || []).filter(m => m && Number(m.totalQuantity || 0) <= Number(m.minStockLevel ?? 15)).length;
 
   const perms = currentUser?.permissions;
   const canManagePurchases = isAdmin || currentUser?.role === 'pharmacist' || Boolean(perms?.canManagePurchases);
@@ -155,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="overflow-hidden">
               <h1 className="font-bold text-base text-white tracking-tight truncate leading-tight">
-                {settings.storeName.split(' ')[0]} <span className="text-teal-400">Pro</span>
+                {String(settings?.storeName || 'PharmaCare').split(' ')[0]} <span className="text-teal-400">Pro</span>
               </h1>
               <p className="text-xs text-slate-400 truncate">Pharmacy Management</p>
             </div>
@@ -167,12 +167,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
             isAdmin ? 'bg-indigo-600 text-white' : 'bg-teal-600 text-white'
           }`}>
-            {currentUser?.fullName.charAt(0) || 'U'}
+            {(currentUser?.fullName || currentUser?.username || 'U').charAt(0)}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-semibold text-slate-100 truncate block">
-                {currentUser?.fullName}
+                {currentUser?.fullName || currentUser?.username || 'Store User'}
               </span>
             </div>
             <div className="flex items-center gap-1 mt-0.5">

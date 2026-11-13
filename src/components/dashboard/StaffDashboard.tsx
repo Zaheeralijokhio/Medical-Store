@@ -38,13 +38,15 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
   }, [sales, currentUser, todayStr]);
 
   const myTotalRevenueToday = useMemo(() => {
-    return myTodaySales.reduce((sum, s) => sum + s.grandTotal, 0);
+    return myTodaySales.reduce((sum, s) => sum + Number(s.grandTotal || 0), 0);
   }, [myTodaySales]);
 
   // Inventory Quick Stats
-  const activeMeds = medicines.filter(m => m.totalQuantity > 0).length;
-  const lowStockCount = medicines.filter(m => m.totalQuantity <= m.minStockLevel && m.totalQuantity > 0).length;
-  const outOfStockCount = medicines.filter(m => m.totalQuantity === 0).length;
+  const activeMeds = (medicines || []).filter(m => Number(m.totalQuantity || 0) > 0).length;
+  const lowStockCount = (medicines || []).filter(
+    m => Number(m.totalQuantity || 0) <= Number(m.minStockLevel ?? 15) && Number(m.totalQuantity || 0) > 0
+  ).length;
+  const outOfStockCount = (medicines || []).filter(m => Number(m.totalQuantity || 0) === 0).length;
 
   return (
     <div className="space-y-6">
@@ -202,7 +204,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
                         {sale.customerName}
                       </td>
                       <td className="py-2.5 px-3 text-slate-500">
-                        {sale.items.length} item(s)
+                        {(sale.items || []).length} item(s)
                       </td>
                       <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
                         {sale.time}

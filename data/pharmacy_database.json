@@ -40,7 +40,8 @@
       },
       "storeId": "store-1",
       "createdBy": "usr-owner-1",
-      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+      "lastLogin": "2026-11-13T04:06:57.338Z"
     },
     {
       "id": "usr-staff-1794402296131",
@@ -302,63 +303,63 @@
       "storeId": "store-1",
       "name": "Analgesics & Antipyretics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     },
     {
       "id": "cat-2",
       "storeId": "store-1",
       "name": "Antibiotics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     },
     {
       "id": "cat-3",
       "storeId": "store-1",
       "name": "Gastrointestinal",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     },
     {
       "id": "cat-4",
       "storeId": "store-1",
       "name": "Antihistamines & Respiratory",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     },
     {
       "id": "cat-5",
       "storeId": "store-1",
       "name": "Cardiovascular & Hypertension",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     },
     {
       "id": "cat-6",
       "storeId": "store-1",
       "name": "Antidiabetics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     },
     {
       "id": "cat-7",
       "storeId": "store-1",
       "name": "Vitamins & Supplements",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     },
     {
       "id": "cat-8",
       "storeId": "store-1",
       "name": "Dermatological",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     },
     {
       "id": "cat-9",
       "storeId": "store-1",
       "name": "Surgical & First Aid",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-12T12:04:45.471Z"
+      "createdAt": "2026-11-13T04:06:58.170Z"
     }
   ],
   "deletedIds": [
@@ -369,10 +370,11 @@
     "med-test-1",
     "sup-test-1",
     "cust-test-1",
-    "exp-test-1"
+    "exp-test-1",
+    "med-1794403198569"
   ],
   "adjustments": [],
-  "lastUpdated": "2026-11-12T12:04:45.471Z",
+  "lastUpdated": "2026-11-13T04:06:58.170Z",
   "saleReturns": [],
   "cleanVersion": "pharmacare_clean_v3",
   "staffMembers": [
@@ -399,7 +401,8 @@
       },
       "storeId": "store-1",
       "createdBy": "usr-owner-1",
-      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+      "lastLogin": "2026-11-13T04:06:57.338Z"
     },
     {
       "id": "usr-staff-1794402296131",
@@ -429,6 +432,16 @@
   ],
   "notifications": [
     {
+      "id": "notif-1794396370449",
+      "date": "2026-11-11",
+      "read": false,
+      "type": "staff_activity",
+      "title": "New Staff Account Created",
+      "message": "Shafique (@shafique) was added as Medicine Seller & Inventory Staff.",
+      "severity": "info",
+      "timestamp": "11/11/2026, 4:26:10 pm"
+    },
+    {
       "id": "notif-1794403881387",
       "date": "2026-11-11",
       "read": false,
@@ -438,16 +451,6 @@
       "severity": "info",
       "timestamp": "11/11/2026, 6:31:21 pm",
       "referenceId": "med-1794403881382"
-    },
-    {
-      "id": "notif-1794396370449",
-      "date": "2026-11-11",
-      "read": false,
-      "type": "staff_activity",
-      "title": "New Staff Account Created",
-      "message": "Shafique (@shafique) was added as Medicine Seller & Inventory Staff.",
-      "severity": "info",
-      "timestamp": "11/11/2026, 4:26:10 pm"
     }
   ],
   "purchaseItems": [],

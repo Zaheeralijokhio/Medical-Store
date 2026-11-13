@@ -10,6 +10,7 @@
 
 import { User } from '../types/pharmacy';
 import { DATA_CLEAN_VERSION, sanitizeStaffAccounts } from '../data/initialData';
+import { normalizeMedicine } from '../utils/normalizers';
 
 // Primary Cloud SQL (PostgreSQL) Backend Server URL (works from Hostinger medicalstore.edulinker.online & all devices)
 export const CLOUD_SQL_BACKEND_URL =
@@ -135,7 +136,10 @@ export async function fetchCloudMedicines(): Promise<{ medicines: any[]; deleted
   if (!foundAny) return null;
 
   return {
-    medicines: mergedMeds.filter((m: any) => m && m.id && !deletedSet.has(m.id)),
+    medicines: mergedMeds
+      .filter((m: any) => m && m.id && !deletedSet.has(m.id))
+      .map(normalizeMedicine)
+      .filter(Boolean),
     deletedIds: Array.from(deletedSet),
   };
 }
@@ -231,6 +235,22 @@ export async function fetchCloudStaff(): Promise<User[] | null> {
   const collected: User[] = [];
   const deletedIds = new Set<string>();
 
+  // 1. Live Cloud SQL PostgreSQL Backend (works from Hostinger medicalstore.edulinker.online too)
+  try {
+    const res = await fetch(`${CLOUD_SQL_BACKEND_URL}/api/staff`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json?.staffMembers)) {
+        collected.push(...json.staffMembers);
+      }
+    }
+  } catch {}
+
+  // 2. Fallback RESTful Cloud Object
   try {
     const res = await fetch(STAFF_CLOUD_OBJECT_URL, {
       method: 'GET',
@@ -258,7 +278,7 @@ export async function fetchCloudStaff(): Promise<User[] | null> {
   const byUsername = new Map<string, User>();
   for (const u of collected) {
     if (!u || !u.id || deletedIds.has(u.id)) continue;
-    const key = (u.username || u.id).toLowerCase().trim();
+    const key = String(u.username || u.id).toLowerCase().trim();
     byUsername.set(key, u);
   }
 
@@ -407,12 +427,17 @@ export async function fetchCloudStoreState(): Promise<CloudStorePayload | null> 
     }
   } catch {}
 
-  if (combined && deletedIds.size > 0) {
-    combined.deletedIds = Array.from(deletedIds);
-    combined.medicines = (combined.medicines || []).filter(m => !deletedIds.has(m.id));
-    combined.suppliers = (combined.suppliers || []).filter(s => !deletedIds.has(s.id));
-    combined.customers = (combined.customers || []).filter(c => !deletedIds.has(c.id));
-    combined.expenses = (combined.expenses || []).filter(e => !deletedIds.has(e.id));
+  if (combined) {
+    if (deletedIds.size > 0) {
+      combined.deletedIds = Array.from(deletedIds);
+    }
+    combined.medicines = (combined.medicines || [])
+      .filter(m => m && !deletedIds.has(m.id))
+      .map(normalizeMedicine)
+      .filter(Boolean);
+    combined.suppliers = (combined.suppliers || []).filter(s => s && !deletedIds.has(s.id));
+    combined.customers = (combined.customers || []).filter(c => c && !deletedIds.has(c.id));
+    combined.expenses = (combined.expenses || []).filter(e => e && !deletedIds.has(e.id));
   }
 
   return combined;

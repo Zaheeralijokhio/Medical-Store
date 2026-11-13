@@ -62,25 +62,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     let nearExpiryCount = 0;
     let expiredCount = 0;
 
-    medicines.forEach(med => {
+    (medicines || []).forEach(med => {
       if (!med) return;
-      totalStockQty += Number(med.totalQuantity || 0);
+      const qty = Number(med.totalQuantity || 0);
+      const minStock = Number(med.minStockLevel ?? 15);
+      totalStockQty += qty;
 
-      if (med.totalQuantity === 0) {
+      if (qty === 0) {
         outOfStockCount++;
-      } else if (med.totalQuantity <= med.minStockLevel) {
+      } else if (qty <= minStock) {
         lowStockCount++;
       }
 
       (med.batches || []).forEach(b => {
         if (!b) return;
-        purchaseVal += Number(b.quantity || 0) * Number(b.purchasePrice || 0);
-        saleVal += Number(b.quantity || 0) * Number(b.salePrice || 0);
+        const bQty = Number(b.quantity || 0);
+        purchaseVal += bQty * Number(b.purchasePrice || 0);
+        saleVal += bQty * Number(b.salePrice || 0);
 
-        if (b.quantity > 0) {
+        if (bQty > 0) {
           if (isExpired(b.expiryDate)) {
             expiredCount++;
-          } else if (isNearExpiry(b.expiryDate, settings.expiryAlertDays)) {
+          } else if (isNearExpiry(b.expiryDate, settings?.expiryAlertDays ?? 90)) {
             nearExpiryCount++;
           }
         }
@@ -88,7 +91,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     });
 
     return {
-      totalMedicines: medicines.length,
+      totalMedicines: (medicines || []).length,
       totalStockQty,
       purchaseVal,
       saleVal,
@@ -97,7 +100,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       nearExpiryCount,
       expiredCount,
     };
-  }, [medicines, settings.expiryAlertDays]);
+  }, [medicines, settings?.expiryAlertDays]);
 
   // Financial & Sales Aggregations (Part 4 Strict Definitions)
   const salesStats = useMemo(() => {
@@ -195,19 +198,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   const topSellingMedicines = useMemo(() => {
     const medSalesMap: Record<string, { name: string; quantity: number; revenue: number }> = {};
 
-    sales
-      .filter(s => s.status !== 'returned')
+    (sales || [])
+      .filter(s => s && s.status !== 'returned')
       .forEach(s => {
-        s.items.forEach(item => {
+        (s.items || []).forEach(item => {
+          if (!item || !item.medicineId) return;
           if (!medSalesMap[item.medicineId]) {
             medSalesMap[item.medicineId] = {
-              name: item.medicineName,
+              name: String(item.medicineName || 'Medicine'),
               quantity: 0,
               revenue: 0,
             };
           }
-          medSalesMap[item.medicineId].quantity += item.quantity;
-          medSalesMap[item.medicineId].revenue += item.totalAmount;
+          medSalesMap[item.medicineId].quantity += Number(item.quantity || 0);
+          medSalesMap[item.medicineId].revenue += Number(item.totalAmount || 0);
         });
       });
 
@@ -219,11 +223,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   // Category-Wise Stock Distribution
   const categoryDistribution = useMemo(() => {
     const catMap: Record<string, { count: number; value: number }> = {};
-    medicines.forEach(m => {
+    (medicines || []).forEach(m => {
+      if (!m) return;
       const cat = m.category || 'General';
       if (!catMap[cat]) catMap[cat] = { count: 0, value: 0 };
-      catMap[cat].count += m.totalQuantity;
-      const catVal = m.batches.reduce((sum, b) => sum + b.quantity * b.purchasePrice, 0);
+      catMap[cat].count += Number(m.totalQuantity || 0);
+      const catVal = (m.batches || []).reduce(
+        (sum, b) => sum + Number(b?.quantity || 0) * Number(b?.purchasePrice || 0),
+        0
+      );
       catMap[cat].value += catVal;
     });
 
@@ -236,15 +244,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   // Staff-Wise Performance
   const staffPerformance = useMemo(() => {
     const staffMap: Record<string, { name: string; totalSales: number; count: number }> = {};
-    staffMembers.forEach(sm => {
-      staffMap[sm.id] = { name: sm.fullName, totalSales: 0, count: 0 };
+    (staffMembers || []).forEach(sm => {
+      if (!sm || !sm.id) return;
+      staffMap[sm.id] = {
+        name: String(sm.fullName || sm.username || 'Staff'),
+        totalSales: 0,
+        count: 0,
+      };
     });
 
-    sales
-      .filter(s => s.status !== 'returned')
+    (sales || [])
+      .filter(s => s && s.status !== 'returned')
       .forEach(s => {
-        if (staffMap[s.staffId]) {
-          staffMap[s.staffId].totalSales += s.grandTotal;
+        if (s.staffId && staffMap[s.staffId]) {
+          staffMap[s.staffId].totalSales += Number(s.grandTotal || 0);
           staffMap[s.staffId].count += 1;
         }
       });
@@ -261,13 +274,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       const dateStr = d.toISOString().split('T')[0];
       const label = d.toLocaleDateString('en-PK', { weekday: 'short', day: 'numeric' });
 
-      const daySales = sales
-        .filter(s => s.date === dateStr && s.status !== 'returned')
-        .reduce((sum, s) => sum + s.grandTotal, 0);
+      const daySales = (sales || [])
+        .filter(s => s && s.date === dateStr && s.status !== 'returned')
+        .reduce((sum, s) => sum + Number(s.grandTotal || 0), 0);
 
-      const dayPurchases = purchases
-        .filter(p => p.purchaseDate === dateStr)
-        .reduce((sum, p) => sum + p.totalAmount, 0);
+      const dayPurchases = (purchases || [])
+        .filter(p => p && p.purchaseDate === dateStr)
+        .reduce((sum, p) => sum + Number(p.totalAmount || 0), 0);
 
       days.push({ date: dateStr, label, sales: daySales, purchases: dayPurchases });
     }
@@ -275,7 +288,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   }, [sales, purchases]);
 
   const maxTrendVal = Math.max(
-    ...last7DaysTrend.map(d => Math.max(d.sales, d.purchases)),
+    ...last7DaysTrend.map(d => Math.max(Number(d.sales || 0), Number(d.purchases || 0))),
     1000
   );
 
@@ -392,7 +405,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               {formatPKR(salesStats.totalRevenue)}
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              Completed Sales ({sales.filter(s => s.status !== 'returned').length} invoices)
+              Completed Sales ({(sales || []).filter(s => s && s.status !== 'returned').length} invoices)
             </p>
           </div>
         </div>
@@ -819,10 +832,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center">
-                    {staff.name.charAt(0)}
+                    {(staff.name || 'S').charAt(0)}
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800">{staff.name}</h4>
+                    <h4 className="text-xs font-bold text-slate-800">{staff.name || 'Staff'}</h4>
                     <p className="text-[11px] text-slate-500">{staff.count} transactions completed</p>
                   </div>
                 </div>
@@ -866,34 +879,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {auditLogs.slice(0, 6).map(log => (
-                <tr key={log.id} className="hover:bg-slate-50/50">
-                  <td className="py-2.5 px-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                    {log.timestamp}
-                  </td>
-                  <td className="py-2.5 px-3 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        log.action.includes('SALE')
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : log.action.includes('PURCHASE')
-                          ? 'bg-blue-100 text-blue-800'
-                          : log.action.includes('ADJUST')
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-slate-100 text-slate-800'
-                      }`}
-                    >
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 whitespace-nowrap font-medium text-slate-800">
-                    {log.userName}
-                  </td>
-                  <td className="py-2.5 px-3 text-slate-700">
-                    {log.description}
-                  </td>
-                </tr>
-              ))}
+              {(auditLogs || []).slice(0, 6).map(log => {
+                const actionStr = String(log?.action || 'ACTIVITY');
+                return (
+                  <tr key={log.id} className="hover:bg-slate-50/50">
+                    <td className="py-2.5 px-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
+                      {log.timestamp || ''}
+                    </td>
+                    <td className="py-2.5 px-3 whitespace-nowrap">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          actionStr.includes('SALE')
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : actionStr.includes('PURCHASE')
+                            ? 'bg-blue-100 text-blue-800'
+                            : actionStr.includes('ADJUST')
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-800'
+                        }`}
+                      >
+                        {actionStr}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 whitespace-nowrap font-medium text-slate-800">
+                      {log.userName || 'System'}
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-700">
+                      {log.description || ''}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -51,7 +51,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
     const query = searchInvoice.trim().toUpperCase();
     if (!query) return;
 
-    const found = sales.find(s => s.invoiceNumber.toUpperCase() === query);
+    const found = sales.find(s => String(s?.invoiceNumber || '').toUpperCase() === query);
     if (!found) {
       setStatusMessage({ type: 'error', text: `Invoice "${query}" not found in sales history.` });
       setMatchedSale(null);
@@ -65,13 +65,13 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
 
     setMatchedSale(found);
     setReturnItems(
-      found.items.map(i => ({
+      (found.items || []).map(i => ({
         medicineId: i.medicineId,
         batchId: i.batchId,
-        medicineName: i.medicineName,
-        batchNumber: i.batchNumber,
-        unitPrice: i.unitPrice,
-        maxQty: i.quantity,
+        medicineName: i.medicineName || 'Medicine',
+        batchNumber: i.batchNumber || 'Batch',
+        unitPrice: Number(i.unitPrice || 0),
+        maxQty: Number(i.quantity || 0),
         quantity: 0,
         reason: 'Doctor changed prescription',
       }))

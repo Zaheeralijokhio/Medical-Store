@@ -71,17 +71,20 @@ export const ReportsAnalytics: React.FC = () => {
     let totalCOGS = 0;
 
     filteredSales.forEach(sale => {
-      grossSales += sale.subtotal;
-      totalDiscount += sale.discountTotal;
-      netSales += sale.grandTotal;
+      grossSales += Number(sale.subtotal || 0);
+      totalDiscount += Number(sale.discountTotal || 0);
+      netSales += Number(sale.grandTotal || 0);
 
       // Exact COGS = sum of (quantity * item.purchaseCost) from the specific sold batch!
-      const saleCOGS = sale.items.reduce((acc, item) => acc + item.quantity * item.purchaseCost, 0);
+      const saleCOGS = (sale.items || []).reduce(
+        (acc, item) => acc + Number(item?.quantity || 0) * Number(item?.purchaseCost || 0),
+        0
+      );
       totalCOGS += saleCOGS;
     });
 
-    const totalExpenseAmount = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
-    const totalReturnsAmount = saleReturns.reduce((acc, r) => acc + r.totalRefund, 0);
+    const totalExpenseAmount = filteredExpenses.reduce((acc, e) => acc + Number(e.amount || 0), 0);
+    const totalReturnsAmount = saleReturns.reduce((acc, r) => acc + Number(r.totalRefund || 0), 0);
 
     const grossProfit = Math.max(0, netSales - totalCOGS);
     const netProfit = grossProfit - totalExpenseAmount - totalReturnsAmount;
@@ -89,16 +92,16 @@ export const ReportsAnalytics: React.FC = () => {
     const netMarginPercent = netSales > 0 ? ((netProfit / netSales) * 100).toFixed(1) : '0';
 
     // Balance Sheet snapshots
-    const supplierPayable = suppliers.reduce((sum, s) => sum + s.outstandingBalance, 0);
-    const customerReceivable = customers.reduce((sum, c) => sum + c.outstandingBalance, 0);
+    const supplierPayable = suppliers.reduce((sum, s) => sum + Number(s.outstandingBalance || 0), 0);
+    const customerReceivable = customers.reduce((sum, c) => sum + Number(c.outstandingBalance || 0), 0);
 
     // Current Inventory Valuation
     let inventoryCost = 0;
     let inventoryRetail = 0;
     medicines.forEach(m => {
-      m.batches.forEach(b => {
-        inventoryCost += b.quantity * b.purchasePrice;
-        inventoryRetail += b.quantity * b.salePrice;
+      (m.batches || []).forEach(b => {
+        inventoryCost += Number(b?.quantity || 0) * Number(b?.purchasePrice || 0);
+        inventoryRetail += Number(b?.quantity || 0) * Number(b?.salePrice || 0);
       });
     });
 
@@ -125,7 +128,8 @@ export const ReportsAnalytics: React.FC = () => {
   const methodSales = useMemo(() => {
     const map: Record<string, number> = {};
     filteredSales.forEach(s => {
-      map[s.paymentMethod] = (map[s.paymentMethod] || 0) + s.grandTotal;
+      const method = s.paymentMethod || 'Cash';
+      map[method] = (map[method] || 0) + Number(s.grandTotal || 0);
     });
     return map;
   }, [filteredSales]);
@@ -135,21 +139,24 @@ export const ReportsAnalytics: React.FC = () => {
     const map: Record<string, { name: string; quantity: number; revenue: number; cogs: number; profit: number }> = {};
 
     filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
+      (sale.items || []).forEach(item => {
+        if (!item || !item.medicineId) return;
         if (!map[item.medicineId]) {
           map[item.medicineId] = {
-            name: item.medicineName,
+            name: String(item.medicineName || 'Medicine'),
             quantity: 0,
             revenue: 0,
             cogs: 0,
             profit: 0,
           };
         }
-        const cost = item.quantity * item.purchaseCost;
-        map[item.medicineId].quantity += item.quantity;
-        map[item.medicineId].revenue += item.totalAmount;
+        const qty = Number(item.quantity || 0);
+        const rev = Number(item.totalAmount || 0);
+        const cost = qty * Number(item.purchaseCost || 0);
+        map[item.medicineId].quantity += qty;
+        map[item.medicineId].revenue += rev;
         map[item.medicineId].cogs += cost;
-        map[item.medicineId].profit += item.totalAmount - cost;
+        map[item.medicineId].profit += rev - cost;
       });
     });
 

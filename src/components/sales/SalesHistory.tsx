@@ -63,10 +63,10 @@ export const SalesHistory: React.FC = () => {
 
       // Search match
       if (q) {
-        const matchInv = sale.invoiceNumber.toLowerCase().includes(q);
-        const matchCust = sale.customerName.toLowerCase().includes(q);
-        const matchStaff = sale.staffName.toLowerCase().includes(q);
-        const matchItem = sale.items.some(i => i.medicineName.toLowerCase().includes(q));
+        const matchInv = String(sale.invoiceNumber || '').toLowerCase().includes(q);
+        const matchCust = String(sale.customerName || '').toLowerCase().includes(q);
+        const matchStaff = String(sale.staffName || '').toLowerCase().includes(q);
+        const matchItem = (sale.items || []).some(i => String(i?.medicineName || '').toLowerCase().includes(q));
         if (!matchInv && !matchCust && !matchStaff && !matchItem) return false;
       }
 
@@ -75,8 +75,8 @@ export const SalesHistory: React.FC = () => {
   }, [effectiveStaffSales, searchQuery, selectedStaff, selectedPayment, dateFilter, todayStr]);
 
   // Aggregate totals
-  const totalVolume = filteredSales.reduce((sum, s) => sum + s.grandTotal, 0);
-  const totalDiscounts = filteredSales.reduce((sum, s) => sum + s.discountTotal, 0);
+  const totalVolume = filteredSales.reduce((sum, s) => sum + Number(s.grandTotal || 0), 0);
+  const totalDiscounts = filteredSales.reduce((sum, s) => sum + Number(s.discountTotal || 0), 0);
 
   const handleExportCSV = () => {
     const rows = filteredSales.map(s => ({
@@ -86,7 +86,7 @@ export const SalesHistory: React.FC = () => {
       StaffName: s.staffName,
       CustomerName: s.customerName,
       CustomerPhone: s.customerPhone || 'N/A',
-      ItemsCount: s.items.length,
+      ItemsCount: (s.items || []).length,
       Subtotal: s.subtotal,
       Discount: s.discountTotal,
       Tax: s.taxTotal,

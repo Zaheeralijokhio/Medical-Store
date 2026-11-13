@@ -51,7 +51,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     const isThermal58 = printFormat === '58mm';
     const isThermal80 = printFormat === '80mm';
     const pageWidth = isThermal58 ? 58 : isThermal80 ? 80 : 210;
-    const estimatedHeight = Math.max(160, 110 + sale.items.length * 12);
+    const saleItems = Array.isArray(sale.items) ? sale.items : [];
+    const estimatedHeight = Math.max(160, 110 + saleItems.length * 12);
 
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -66,18 +67,18 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     // Store Header
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(printFormat === 'A4' ? 16 : isThermal58 ? 10 : 12);
-    doc.text(settings.storeName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+    doc.text(String(settings?.storeName || 'PharmaCare').toUpperCase(), pageWidth / 2, y, { align: 'center' });
     y += printFormat === 'A4' ? 6 : 4.5;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(printFormat === 'A4' ? 9 : 7);
-    doc.text(settings.storeTagline || 'Registered Retail & Clinical Pharmacy', pageWidth / 2, y, { align: 'center' });
+    doc.text(settings?.storeTagline || 'Registered Retail & Clinical Pharmacy', pageWidth / 2, y, { align: 'center' });
     y += 4;
-    doc.text(`${settings.storeAddress}, ${settings.city}`, pageWidth / 2, y, { align: 'center' });
+    doc.text(`${settings?.storeAddress || ''}, ${settings?.city || ''}`, pageWidth / 2, y, { align: 'center' });
     y += 4;
-    doc.text(`Ph: ${settings.phone} | DRAP: ${settings.drugLicenseNumber}`, pageWidth / 2, y, { align: 'center' });
+    doc.text(`Ph: ${settings?.phone || ''} | DRAP: ${settings?.drugLicenseNumber || ''}`, pageWidth / 2, y, { align: 'center' });
     y += 3.5;
-    doc.text(`NTN: ${settings.taxRegistrationNumber}`, pageWidth / 2, y, { align: 'center' });
+    doc.text(`NTN: ${settings?.taxRegistrationNumber || ''}`, pageWidth / 2, y, { align: 'center' });
     y += 3;
 
     doc.setLineWidth(0.3);
@@ -87,22 +88,22 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     // Invoice Meta
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(printFormat === 'A4' ? 10 : 7.5);
-    doc.text(`INVOICE: #${sale.invoiceNumber}`, margin, y);
+    doc.text(`INVOICE: #${sale.invoiceNumber || ''}`, margin, y);
     y += 4;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(printFormat === 'A4' ? 9 : 7);
-    doc.text(`Date & Time: ${sale.date} ${sale.time}`, margin, y);
+    doc.text(`Date & Time: ${sale.date || ''} ${sale.time || ''}`, margin, y);
     y += 3.8;
-    doc.text(`Dispenser: ${sale.staffName}`, margin, y);
+    doc.text(`Dispenser: ${sale.staffName || 'Cashier'}`, margin, y);
     y += 3.8;
     doc.text(
-      `Customer: ${sale.customerName}${sale.customerPhone ? ` (${sale.customerPhone})` : ''}`,
+      `Customer: ${sale.customerName || 'Walk-in'}${sale.customerPhone ? ` (${sale.customerPhone})` : ''}`,
       margin,
       y
     );
     y += 3.8;
-    doc.text(`Payment Method: ${sale.paymentMethod} | Status: ${sale.status.toUpperCase()}`, margin, y);
+    doc.text(`Payment Method: ${sale.paymentMethod || 'Cash'} | Status: ${String(sale.status || 'completed').toUpperCase()}`, margin, y);
     y += 3.5;
 
     doc.line(margin, y, pageWidth - margin, y);
@@ -121,8 +122,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
     // Items
     doc.setFont('helvetica', 'normal');
-    sale.items.forEach((item, idx) => {
-      const itemTitle = `${idx + 1}. ${item.medicineName}`;
+    saleItems.forEach((item, idx) => {
+      const itemTitle = `${idx + 1}. ${item.medicineName || 'Medicine'}`;
       doc.setFont('helvetica', 'bold');
       doc.text(itemTitle.substring(0, isThermal58 ? 20 : 34), margin, y);
       doc.setFont('helvetica', 'normal');
@@ -355,23 +356,23 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {sale.items.map((item, idx) => (
+              {(sale.items || []).map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-50/50">
                   <td className="py-1.5 px-1.5">
-                    <span className="font-bold text-slate-900 block truncate max-w-[120px] sm:max-w-none">{item.medicineName}</span>
-                    <span className="text-[9px] text-slate-500 block truncate max-w-[120px] sm:max-w-none">{item.genericName}</span>
+                    <span className="font-bold text-slate-900 block truncate max-w-[120px] sm:max-w-none">{item.medicineName || 'Medicine'}</span>
+                    <span className="text-[9px] text-slate-500 block truncate max-w-[120px] sm:max-w-none">{item.genericName || ''}</span>
                   </td>
                   <td className="py-1.5 px-1 font-mono text-[10px] text-slate-700">
-                    {item.batchNumber}
+                    {item.batchNumber || '-'}
                   </td>
                   <td className="py-1.5 px-1 text-center font-bold text-slate-800">
-                    {item.quantity}
+                    {Number(item.quantity || 0)}
                   </td>
                   <td className="py-1.5 px-1 text-right font-mono text-[10px]">
-                    {item.unitPrice.toFixed(0)}
+                    {Number(item.unitPrice || 0).toFixed(0)}
                   </td>
                   <td className="py-1.5 px-1 text-right font-mono font-bold text-slate-900">
-                    {item.totalAmount.toFixed(0)}
+                    {Number(item.totalAmount || 0).toFixed(0)}
                   </td>
                 </tr>
               ))}

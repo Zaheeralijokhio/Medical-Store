@@ -26,6 +26,7 @@ import { ReportsAnalytics } from './components/reports/ReportsAnalytics';
 import { StaffManagement } from './components/staff/StaffManagement';
 import { NotificationCenter } from './components/notifications/NotificationCenter';
 import { SystemSettingsView } from './components/settings/SystemSettingsView';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const MainAppContent: React.FC = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -86,7 +87,11 @@ const MainAppContent: React.FC = () => {
       case 'settings':
         return <SystemSettingsView />;
       default:
-        return <AdminDashboard onNavigate={setCurrentTab} />;
+        return isAdmin ? (
+          <AdminDashboard onNavigate={setCurrentTab} />
+        ) : (
+          <StaffDashboard onNavigate={setCurrentTab} />
+        );
     }
   };
 
@@ -109,7 +114,9 @@ const MainAppContent: React.FC = () => {
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-20 lg:pb-8">
-          {renderActiveView()}
+          <ErrorBoundary>
+            {renderActiveView()}
+          </ErrorBoundary>
         </main>
       </div>
 
@@ -125,10 +132,12 @@ const MainAppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <StoreProvider>
-        <MainAppContent />
-      </StoreProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <StoreProvider>
+          <MainAppContent />
+        </StoreProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
