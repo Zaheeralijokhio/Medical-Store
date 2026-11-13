@@ -90,11 +90,11 @@ export const StockAdjustmentView: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card p-4">
         <div>
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-            <SlidersHorizontal className="w-5 h-5 text-teal-600" />
-            Stock Audit, Reconciliation & Damage Records
+            <SlidersHorizontal className="w-5 h-5 text-[#0F766E]" />
+            Stock Audit, Reconciliation &amp; Damage Records
           </h3>
           <p className="text-xs text-slate-500">
             Immutable audit trail for physical inventory counts, broken glass, leaked syrups, and expired disposals
@@ -103,33 +103,83 @@ export const StockAdjustmentView: React.FC = () => {
 
         <button
           onClick={handleOpenModal}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors"
+          className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shadow-xs transition-colors min-h-[42px]"
         >
           <Plus className="w-4 h-4" /> Perform Stock Adjustment
         </button>
       </div>
 
       {/* Audit Log Overview */}
-      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
+      <div className="p-3.5 pro-card">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
             value={searchLog}
             onChange={e => setSearchLog(e.target.value)}
             placeholder="Search audit trail by medicine, batch number, reason, pharmacist..."
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 min-h-[40px]"
           />
         </div>
       </div>
 
-      {/* Adjustments Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* MOBILE AUDIT CARDS (<768px) */}
+      <div className="md:hidden space-y-3">
+        {filteredLogs.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 pro-card">
+            <SlidersHorizontal className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-xs">No stock adjustments recorded. Inventory matches physical shelf counts.</p>
+          </div>
+        ) : (
+          filteredLogs.map(log => (
+            <div key={log.id} className="pro-card p-4 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h4 className="font-bold text-sm text-slate-900 truncate">{log.medicineName}</h4>
+                  <p className="text-[11px] font-mono text-[#0F766E] font-semibold">Batch: {log.batchNumber}</p>
+                </div>
+                <span
+                  className={`px-2 py-0.5 rounded-lg text-xs font-mono font-bold tabular-nums shrink-0 ${
+                    log.adjustedQuantity > 0
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-rose-100 text-rose-800'
+                  }`}
+                >
+                  {log.adjustedQuantity > 0 ? `+${log.adjustedQuantity}` : log.adjustedQuantity}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 tabular-nums">
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Previous</span>
+                  <strong className="font-mono text-slate-700">{log.previousQuantity}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block">New Stock</span>
+                  <strong className="font-mono text-slate-900">{log.newQuantity}</strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">Type</span>
+                  <strong className="uppercase text-[10px] text-slate-700">{log.adjustmentType.replace('_', ' ')}</strong>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600">{log.reason}</p>
+              <p className="text-[10px] text-slate-400 font-mono">
+                {log.timestamp} · By {log.performedByName}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* DESKTOP ADJUSTMENTS TABLE (>=768px) */}
+      <div className="hidden md:block pro-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
-                <th className="py-3 px-3">Date & Timestamp</th>
+                <th className="py-3 px-3">Date &amp; Timestamp</th>
                 <th className="py-3 px-3">Medicine Formulation</th>
                 <th className="py-3 px-3">Batch Number</th>
                 <th className="py-3 px-3 text-center">Previous Qty</th>
@@ -156,13 +206,13 @@ export const StockAdjustmentView: React.FC = () => {
                     <td className="py-3 px-3 font-bold text-slate-900">
                       {log.medicineName}
                     </td>
-                    <td className="py-3 px-3 font-mono font-bold text-teal-800">
+                    <td className="py-3 px-3 font-mono font-bold text-[#0F766E]">
                       {log.batchNumber}
                     </td>
-                    <td className="py-3 px-3 text-center font-mono text-slate-600">
+                    <td className="py-3 px-3 text-center font-mono tabular-nums text-slate-600">
                       {log.previousQuantity}
                     </td>
-                    <td className="py-3 px-3 text-center font-mono font-bold">
+                    <td className="py-3 px-3 text-center font-mono tabular-nums font-bold">
                       <span
                         className={`px-2 py-0.5 rounded text-[11px] ${
                           log.adjustedQuantity > 0
@@ -173,7 +223,7 @@ export const StockAdjustmentView: React.FC = () => {
                         {log.adjustedQuantity > 0 ? `+${log.adjustedQuantity}` : log.adjustedQuantity}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-center font-mono font-bold text-slate-900">
+                    <td className="py-3 px-3 text-center font-mono tabular-nums font-bold text-slate-900">
                       {log.newQuantity}
                     </td>
                     <td className="py-3 px-3">

@@ -116,28 +116,28 @@ export const CustomerList: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card p-4">
         <div>
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-            <Users className="w-5 h-5 text-teal-600" />
-            Customer & Patient Directory
+            <Users className="w-5 h-5 text-[#0F766E]" />
+            Customer &amp; Patient Directory
           </h3>
           <p className="text-xs text-slate-500">
             Registered pharmacy patients, chronic medication accounts, and purchase histories
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors min-h-[42px]"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
           </button>
 
           <button
             onClick={handleOpenAdd}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shadow-xs transition-colors min-h-[42px]"
           >
             <Plus className="w-4 h-4" /> Register Customer
           </button>
@@ -146,43 +146,114 @@ export const CustomerList: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="p-4 pro-card">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Registered Patient Profiles
           </span>
-          <h4 className="text-xl font-black text-slate-900 mt-1">
+          <h4 className="text-xl font-black text-slate-900 mt-1 tabular-nums">
             {totalPatients} Profiles
           </h4>
-          <span className="text-[10px] text-slate-400">Regular clinic & walk-in customers</span>
+          <span className="text-[11px] text-slate-400">Regular clinic &amp; walk-in customers</span>
         </div>
 
-        <div className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="p-4 pro-card">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Cumulative Dispensed Value
           </span>
-          <h4 className="text-xl font-black text-teal-800 mt-1">
+          <h4 className="text-xl font-black text-[#0F766E] mt-1 tabular-nums">
             {formatPKR(totalCustomerVolume)}
           </h4>
-          <span className="text-[10px] text-slate-400">Lifetime purchases by registered patients</span>
+          <span className="text-[11px] text-slate-400">Lifetime purchases by registered patients</span>
         </div>
       </div>
 
       {/* Search Bar */}
-      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
+      <div className="p-3.5 pro-card">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search patient name, phone number, address..."
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 min-h-[40px]"
           />
         </div>
       </div>
 
-      {/* Customers Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* MOBILE CUSTOMER CARDS (<768px) */}
+      <div className="md:hidden space-y-3">
+        {filteredCustomers.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 pro-card">
+            <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-xs">No customers found matching your search.</p>
+          </div>
+        ) : (
+          filteredCustomers.map(cust => (
+            <div key={cust.id} className="pro-card p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 text-[#0F766E] font-bold flex items-center justify-center text-xs shrink-0">
+                    {(cust.name || 'C').charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-sm text-slate-900 truncate">{cust.name}</h4>
+                    <p className="text-[11px] text-slate-500 font-mono">{cust.phone}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{cust.address || 'Walk-in'}</p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] text-slate-400 uppercase block">Credit Due</span>
+                  <span className={`font-mono font-black text-sm tabular-nums ${cust.outstandingBalance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                    {cust.outstandingBalance > 0 ? formatPKR(cust.outstandingBalance) : 'Rs. 0'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 tabular-nums">
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Lifetime Purchases</span>
+                  <strong className="font-mono text-slate-900">{formatPKR(cust.totalPurchases)}</strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">Last Visited</span>
+                  <strong className="font-mono text-slate-700">{cust.lastPurchaseDate || 'Recent'}</strong>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedCustomerForStatement(cust)}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0F766E] font-bold text-xs flex items-center justify-center gap-1.5 min-h-[42px]"
+                >
+                  <Receipt className="w-4 h-4" /> Statement
+                </button>
+                <button
+                  onClick={() => handleOpenEdit(cust)}
+                  className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 min-h-[42px] min-w-[42px] flex items-center justify-center"
+                  title="Edit"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete customer record for ${cust.name}?`)) {
+                      deleteCustomer(cust.id);
+                    }
+                  }}
+                  className="p-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 min-h-[42px] min-w-[42px] flex items-center justify-center"
+                  title="Delete"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* DESKTOP CUSTOMERS TABLE (>=768px) */}
+      <div className="hidden md:block pro-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
@@ -208,7 +279,7 @@ export const CustomerList: React.FC = () => {
                   <tr key={cust.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-teal-100 text-teal-800 font-bold flex items-center justify-center text-xs">
+                        <div className="w-7 h-7 rounded-full bg-emerald-100 text-[#0F766E] font-bold flex items-center justify-center text-xs">
                           {(cust.name || 'C').charAt(0)}
                         </div>
                         <div>
@@ -223,10 +294,10 @@ export const CustomerList: React.FC = () => {
                     <td className="py-3 px-3 text-slate-600">
                       {cust.address || 'Walk-in (PECHS / Clifton)'}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                    <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-slate-900">
                       {formatPKR(cust.totalPurchases)}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold">
+                    <td className="py-3 px-3 text-right font-mono tabular-nums font-bold">
                       {cust.outstandingBalance > 0 ? (
                         <span className="text-rose-700">{formatPKR(cust.outstandingBalance)}</span>
                       ) : (
@@ -240,13 +311,13 @@ export const CustomerList: React.FC = () => {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => setSelectedCustomerForStatement(cust)}
-                          className="px-2 py-1 rounded bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold text-[11px] inline-flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#0F766E] font-semibold text-[11px] inline-flex items-center gap-1"
                         >
-                          <Receipt className="w-3.5 h-3.5 text-teal-600" /> Statement
+                          <Receipt className="w-3.5 h-3.5" /> Statement
                         </button>
                         <button
                           onClick={() => handleOpenEdit(cust)}
-                          className="p-1 text-slate-400 hover:text-indigo-600 rounded"
+                          className="p-1.5 text-slate-400 hover:text-[#0F766E] rounded-lg"
                           title="Edit"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -257,7 +328,7 @@ export const CustomerList: React.FC = () => {
                               deleteCustomer(cust.id);
                             }
                           }}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -337,8 +408,8 @@ export const CustomerList: React.FC = () => {
             {/* Invoices History for this customer */}
             <div>
               <span className="font-bold text-slate-800 block mb-2">Prescription Cash Memos:</span>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-[11px] text-left">
+              <div className="border border-slate-200 rounded-xl overflow-x-auto">
+                <table className="w-full text-[11px] text-left min-w-[400px]">
                   <thead className="bg-slate-100 font-semibold text-slate-700">
                     <tr>
                       <th className="p-2">Invoice #</th>
@@ -348,10 +419,10 @@ export const CustomerList: React.FC = () => {
                       <th className="p-2 text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 tabular-nums">
                     {sales.filter(s => s.customerId === selectedCustomerForStatement.id || s.customerName === selectedCustomerForStatement.name).map(s => (
                       <tr key={s.id}>
-                        <td className="p-2 font-mono font-bold text-teal-800">{s.invoiceNumber}</td>
+                        <td className="p-2 font-mono font-bold text-[#0F766E]">{s.invoiceNumber}</td>
                         <td className="p-2 font-mono">{s.date}</td>
                         <td className="p-2">{(s.items || []).length} item(s)</td>
                         <td className="p-2 text-right font-mono font-bold">{formatPKR(s.grandTotal)}</td>

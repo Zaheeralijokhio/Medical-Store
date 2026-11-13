@@ -184,25 +184,25 @@ export const ReportsAnalytics: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pro-card p-4">
         <div>
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-teal-600" />
+            <BarChart3 className="w-5 h-5 text-[#0F766E]" />
             Financial Analytics & Executive Management Reports
           </h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 mt-0.5">
             Certified profit calculations using actual batch purchase costs, COGS, and expense ledgers
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Date Range Selector */}
           <select
             value={dateRange}
             onChange={e => setDateRange(e.target.value as any)}
-            className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white"
+            className="min-h-[40px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-600"
           >
-            <option value="today">Today's Shift</option>
+            <option value="today">Today&apos;s Shift</option>
             <option value="7days">Last 7 Days</option>
             <option value="month">Current Month (MTD)</option>
             <option value="year">Current Year (YTD)</option>
@@ -211,22 +211,22 @@ export const ReportsAnalytics: React.FC = () => {
 
           <button
             onClick={handleExportFinancialsCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+            className="min-h-[40px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" /> Export Statement
           </button>
 
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors"
+            className="min-h-[40px] flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shadow-xs transition-colors"
           >
-            <Printer className="w-3.5 h-3.5" /> Print P&L
+            <Printer className="w-3.5 h-3.5" /> Print P&amp;L
           </button>
         </div>
       </div>
 
-      {/* Tabs Bar */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-1">
+      {/* Tabs Bar (Horizontally Scrollable on Mobile) */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-slate-200 pb-2">
         {[
           { id: 'financial', label: 'Profit & Loss Statement (COGS)' },
           { id: 'sales', label: 'Formulation Sales & Margin Ranking' },
@@ -236,10 +236,10 @@ export const ReportsAnalytics: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setReportTab(tab.id as any)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all ${
               reportTab === tab.id
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-[#0F766E] text-white shadow-xs'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
           >
             {tab.label}
@@ -252,23 +252,23 @@ export const ReportsAnalytics: React.FC = () => {
         <div className="space-y-4">
           {/* Main Profit Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Net Sales Revenue
               </span>
-              <h4 className="text-2xl font-black text-slate-900 mt-1">
+              <h4 className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
                 {formatPKR(financialMetrics.netSales)}
               </h4>
-              <p className="text-[10px] text-slate-400 mt-1">
+              <p className="text-[10px] text-slate-400 mt-1 tabular-nums">
                 Gross: {formatPKR(financialMetrics.grossSales)} (Disc: -{formatPKR(financialMetrics.totalDiscount)})
               </p>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Cost of Goods Sold (COGS)
               </span>
-              <h4 className="text-2xl font-black text-slate-700 mt-1">
+              <h4 className="text-2xl font-black text-slate-700 mt-1 tabular-nums">
                 {formatPKR(financialMetrics.totalCOGS)}
               </h4>
               <p className="text-[10px] text-slate-400 mt-1">
@@ -276,83 +276,83 @@ export const ReportsAnalytics: React.FC = () => {
               </p>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Gross Profit
               </span>
-              <h4 className="text-2xl font-black text-teal-800 mt-1">
+              <h4 className="text-2xl font-black text-[#0F766E] mt-1 tabular-nums">
                 {formatPKR(financialMetrics.grossProfit)}
               </h4>
-              <p className="text-[10px] text-teal-600 font-semibold mt-1">
+              <p className="text-[10px] text-teal-600 font-semibold mt-1 tabular-nums">
                 Gross Margin: {financialMetrics.grossMarginPercent}%
               </p>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Net Clean Store Profit
               </span>
-              <h4 className="text-2xl font-black text-emerald-700 mt-1">
+              <h4 className="text-2xl font-black text-emerald-700 mt-1 tabular-nums">
                 {formatPKR(financialMetrics.netProfit)}
               </h4>
-              <p className="text-[10px] text-emerald-600 font-semibold mt-1">
-                Net Margin: {financialMetrics.netMarginPercent}% (after expenses & returns)
+              <p className="text-[10px] text-emerald-600 font-semibold mt-1 tabular-nums">
+                Net Margin: {financialMetrics.netMarginPercent}% (after expenses &amp; returns)
               </p>
             </div>
           </div>
 
           {/* Detailed Financial Breakdown Table */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
+          <div className="pro-card p-4 sm:p-5">
             <h4 className="font-bold text-slate-900 text-sm mb-3">
-              Comprehensive Income & Expense Statement ({dateRange.toUpperCase()})
+              Comprehensive Income &amp; Expense Statement ({dateRange.toUpperCase()})
             </h4>
 
-            <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-2 border-b border-slate-100">
+            <div className="space-y-2 text-xs tabular-nums">
+              <div className="flex justify-between gap-3 py-2 border-b border-slate-100">
                 <span className="text-slate-600 font-medium">1. Gross Counter Sales (Subtotal)</span>
-                <span className="font-mono font-bold text-slate-900">{formatPKR(financialMetrics.grossSales)}</span>
+                <span className="font-mono font-bold text-slate-900 shrink-0">{formatPKR(financialMetrics.grossSales)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-slate-100 text-emerald-700">
+              <div className="flex justify-between gap-3 py-2 border-b border-slate-100 text-emerald-700">
                 <span className="font-medium">2. Less: Authorized Customer Discounts</span>
-                <span className="font-mono font-bold">-{formatPKR(financialMetrics.totalDiscount)}</span>
+                <span className="font-mono font-bold shrink-0">-{formatPKR(financialMetrics.totalDiscount)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-slate-200 font-bold bg-slate-50 px-2 rounded">
+              <div className="flex justify-between gap-3 py-2 border-b border-slate-200 font-bold bg-slate-50 px-2.5 rounded-lg">
                 <span className="text-slate-800">3. Net Revenue</span>
-                <span className="font-mono text-slate-900">{formatPKR(financialMetrics.netSales)}</span>
+                <span className="font-mono text-slate-900 shrink-0">{formatPKR(financialMetrics.netSales)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-slate-100 text-slate-600">
+              <div className="flex justify-between gap-3 py-2 border-b border-slate-100 text-slate-600">
                 <span className="font-medium">4. Less: Cost of Goods Sold (Exact Batch Purchase Cost)</span>
-                <span className="font-mono font-bold text-rose-700">-{formatPKR(financialMetrics.totalCOGS)}</span>
+                <span className="font-mono font-bold text-rose-700 shrink-0">-{formatPKR(financialMetrics.totalCOGS)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-slate-200 font-bold bg-teal-50 px-2 rounded text-teal-900">
+              <div className="flex justify-between gap-3 py-2 border-b border-slate-200 font-bold bg-teal-50 px-2.5 rounded-lg text-teal-900">
                 <span>5. Gross Margin Profit</span>
-                <span className="font-mono text-base">{formatPKR(financialMetrics.grossProfit)}</span>
+                <span className="font-mono text-base shrink-0">{formatPKR(financialMetrics.grossProfit)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-slate-100 text-slate-600">
+              <div className="flex justify-between gap-3 py-2 border-b border-slate-100 text-slate-600">
                 <span className="font-medium">6. Less: Operational Overhead (Rent, Electric, Salaries, Internet)</span>
-                <span className="font-mono font-bold text-rose-700">-{formatPKR(financialMetrics.totalExpenseAmount)}</span>
+                <span className="font-mono font-bold text-rose-700 shrink-0">-{formatPKR(financialMetrics.totalExpenseAmount)}</span>
               </div>
-              <div className="flex justify-between py-2 border-b border-slate-100 text-slate-600">
-                <span className="font-medium">7. Less: Sale Returns & Customer Refunds</span>
-                <span className="font-mono font-bold text-rose-700">-{formatPKR(financialMetrics.totalReturnsAmount)}</span>
+              <div className="flex justify-between gap-3 py-2 border-b border-slate-100 text-slate-600">
+                <span className="font-medium">7. Less: Sale Returns &amp; Customer Refunds</span>
+                <span className="font-mono font-bold text-rose-700 shrink-0">-{formatPKR(financialMetrics.totalReturnsAmount)}</span>
               </div>
-              <div className="flex justify-between py-3 border-t-2 border-slate-900 font-black text-sm bg-emerald-50 px-2 rounded text-emerald-950">
+              <div className="flex justify-between items-center gap-3 py-3 border-t-2 border-[#0B191E] font-black text-sm bg-emerald-50 px-3 rounded-xl text-emerald-950">
                 <span>NET STORE PROFIT (FINAL)</span>
-                <span className="font-mono text-lg text-emerald-800">{formatPKR(financialMetrics.netProfit)}</span>
+                <span className="font-mono text-lg text-emerald-800 shrink-0">{formatPKR(financialMetrics.netProfit)}</span>
               </div>
             </div>
           </div>
 
           {/* Payment Method Distribution Bar */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5">
+          <div className="pro-card p-4 sm:p-5">
             <h4 className="font-bold text-slate-900 text-sm mb-3">
               Payment Method Breakdown
             </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {Object.entries(methodSales).map(([method, amt]) => (
                 <div key={method} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                   <span className="text-[10px] text-slate-500 uppercase font-semibold block">{method}</span>
-                  <span className="text-base font-black font-mono text-slate-900 mt-0.5 block">{formatPKR(amt)}</span>
+                  <span className="text-base font-black font-mono text-slate-900 mt-0.5 block tabular-nums">{formatPKR(amt)}</span>
                 </div>
               ))}
             </div>
@@ -362,17 +362,58 @@ export const ReportsAnalytics: React.FC = () => {
 
       {/* Tab 2: Medicine-Wise Sales & Profit Margins */}
       {reportTab === 'sales' && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="pro-card overflow-hidden">
+          <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
             <h4 className="font-bold text-slate-900 text-sm">
-              Formulation Performance & Margin Contribution Ranking
+              Formulation Performance &amp; Margin Contribution Ranking
             </h4>
             <span className="text-xs text-slate-500">
               Sorted by Gross Sales Revenue
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Ranking Cards */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {medicineSalesRanking.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400">
+                No sales found for the selected date range.
+              </div>
+            ) : (
+              medicineSalesRanking.map((m, idx) => {
+                const marginPct = m.revenue > 0 ? ((m.profit / m.revenue) * 100).toFixed(1) : '0';
+                return (
+                  <div key={idx} className="p-3.5 space-y-2 text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-[#0F766E] uppercase">Rank #{idx + 1}</span>
+                        <p className="font-bold text-slate-900 text-sm truncate">{m.name}</p>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-teal-50 text-[#0F766E] border border-teal-200 font-mono font-bold text-[10px] shrink-0 tabular-nums">
+                        {marginPct}% Margin
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 tabular-nums">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Units Sold</span>
+                        <span className="font-bold text-slate-800">{m.quantity}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">Revenue</span>
+                        <span className="font-mono font-bold text-slate-900">{formatPKR(m.revenue)}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-400 block">Gross Profit</span>
+                        <span className="font-mono font-bold text-emerald-700">{formatPKR(m.profit)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
@@ -385,7 +426,7 @@ export const ReportsAnalytics: React.FC = () => {
                   <th className="p-3 text-right">Margin %</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 tabular-nums">
                 {medicineSalesRanking.map((m, idx) => {
                   const marginPct = m.revenue > 0 ? ((m.profit / m.revenue) * 100).toFixed(1) : '0';
                   return (
@@ -410,31 +451,31 @@ export const ReportsAnalytics: React.FC = () => {
       {reportTab === 'inventory' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Current Inventory Cost Valuation
               </span>
-              <h4 className="text-2xl font-black text-slate-900 mt-1">
+              <h4 className="text-2xl font-black text-slate-900 mt-1 tabular-nums">
                 {formatPKR(financialMetrics.inventoryCost)}
               </h4>
               <span className="text-[10px] text-slate-400">Working capital locked in active batches</span>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Current Inventory Retail Valuation
               </span>
-              <h4 className="text-2xl font-black text-teal-800 mt-1">
+              <h4 className="text-2xl font-black text-[#0F766E] mt-1 tabular-nums">
                 {formatPKR(financialMetrics.inventoryRetail)}
               </h4>
               <span className="text-[10px] text-slate-400">Expected revenue when fully dispensed</span>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Unrealized Stock Profit
               </span>
-              <h4 className="text-2xl font-black text-emerald-700 mt-1">
+              <h4 className="text-2xl font-black text-emerald-700 mt-1 tabular-nums">
                 {formatPKR(financialMetrics.potentialProfitInStock)}
               </h4>
               <span className="text-[10px] text-slate-400">Projected inventory margin</span>
@@ -447,21 +488,21 @@ export const ReportsAnalytics: React.FC = () => {
       {reportTab === 'purchases' && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Total Outstanding Vendor Payables
               </span>
-              <h4 className="text-2xl font-black text-rose-700 mt-1">
+              <h4 className="text-2xl font-black text-rose-700 mt-1 tabular-nums">
                 {formatPKR(financialMetrics.supplierPayable)}
               </h4>
               <span className="text-[10px] text-slate-400">Due to GSK, Getz, Abbott, Searle, etc.</span>
             </div>
 
-            <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs">
+            <div className="p-4 pro-card">
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 Total Customer Receivables (Credit)
               </span>
-              <h4 className="text-2xl font-black text-amber-700 mt-1">
+              <h4 className="text-2xl font-black text-amber-700 mt-1 tabular-nums">
                 {formatPKR(financialMetrics.customerReceivable)}
               </h4>
               <span className="text-[10px] text-slate-400">Due from regular patient clinic accounts</span>

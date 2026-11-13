@@ -10,11 +10,8 @@ import {
   ShoppingCart,
   PlusCircle,
   Clock,
-  ShieldCheck,
-  User as UserIcon,
   ChevronDown,
   RotateCcw,
-  Sparkles,
   Wifi,
   WifiOff,
   RefreshCw,
@@ -39,7 +36,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 }) => {
   const { currentUser, isAdmin, switchUser, availableUsers, logout } = useAuth();
   const {
-    settings,
     notifications,
     isOnline,
     pendingSyncCount,
@@ -64,13 +60,12 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           timeZone: 'Asia/Karachi',
           hour: '2-digit',
           minute: '2-digit',
-          second: '2-digit',
           hour12: true,
         })
       );
     };
     updateTime();
-    const timer = setInterval(updateTime, 1000);
+    const timer = setInterval(updateTime, 15000);
     return () => clearInterval(timer);
   }, []);
 
@@ -107,12 +102,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       }
       setInstallPrompt(null);
     } else {
-      // Check if iOS
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
       if (isIOS) {
         setShowIOSInstallGuide(true);
-      } else {
-        alert('To install PharmaCare Pro: click your browser menu (⋮ or Share) and select "Add to Home screen" or "Install App".');
       }
     }
   };
@@ -130,64 +122,68 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   }, [onNavigate]);
 
   const visibleNotifications = isAdmin
-    ? (notifications || [])
+    ? notifications || []
     : (notifications || []).filter(
-        n => n && n.type !== 'staff_activity' && n.type !== 'payment_due' && !String(n.message || '').includes('Owner')
+        n =>
+          n &&
+          n.type !== 'staff_activity' &&
+          n.type !== 'payment_due' &&
+          !String(n.message || '').includes('Owner')
       );
   const unreadNotifs = visibleNotifications.filter(n => !n.read).length;
 
   const tabTitles: Record<NavTab, { title: string; subtitle: string }> = {
     dashboard: {
-      title: isAdmin ? 'Executive Pharmacy Dashboard' : 'Cashier Counter & Shift Summary',
-      subtitle: 'Real-time store activity, inventory valuation, and sales metrics',
+      title: isAdmin ? 'Executive Dashboard' : 'Shift Summary',
+      subtitle: 'Store activity, valuation & real-time revenue',
     },
     pos: {
-      title: 'Point of Sale (POS) Terminal',
-      subtitle: 'Barcode scanner support, FEFO batch selection, instant checkout',
+      title: 'POS Billing Terminal',
+      subtitle: 'Barcode scanner, FEFO batches & instant cash memo',
     },
     inventory: {
-      title: 'Medicine Catalog & Batch Inventory',
-      subtitle: 'Multi-batch tracking, expiry alerts, wholesale & retail pricing',
+      title: 'Medicine Inventory',
+      subtitle: 'Batch tracking, expiry rules & fixed retail prices',
     },
     sales: {
-      title: 'Sales Transactions & Cash Memos',
-      subtitle: 'Completed sales invoices, customer receipts, and refunds',
+      title: 'Sales & Cash Memos',
+      subtitle: 'Completed invoices, receipts & customer returns',
     },
     purchases: {
-      title: 'Supplier Purchases & Goods Receipt',
-      subtitle: 'Stock replenishment, supplier bills, and batch records',
+      title: 'Supplier Purchases',
+      subtitle: 'Goods inflow, supplier bills & stock batches',
     },
     suppliers: {
-      title: 'Pharmaceutical Suppliers & Vendors',
-      subtitle: 'Company directory, outstanding balances, and payment ledgers',
+      title: 'Suppliers & Vendors',
+      subtitle: 'Pharmaceutical distributors & payable ledgers',
     },
     customers: {
-      title: 'Customer Directory & Accounts',
-      subtitle: 'Patient records, prescription history, and credit ledgers',
+      title: 'Customer Directory',
+      subtitle: 'Patient profiles, prescriptions & credit accounts',
     },
     staff: {
-      title: 'Staff Accounts & RBAC Permissions',
-      subtitle: 'Manage pharmacy dispensers, cashiers, and login access',
+      title: 'Staff & Access Control',
+      subtitle: 'Dispenser logins, passwords, PINs & permissions',
     },
     expenses: {
-      title: 'Pharmacy Operational Expenses',
-      subtitle: 'Utilities, rent, staff payroll, refrigeration & maintenance',
+      title: 'Store Expenses',
+      subtitle: 'Rent, utilities, payroll & cold chain costs',
     },
     adjustments: {
-      title: 'Stock Audit & Reconciliation',
-      subtitle: 'Physical count audits, damaged stocks, and expired batch logs',
+      title: 'Stock Audit & Adjust',
+      subtitle: 'Reconciliation, damage logs & expired disposal',
     },
     reports: {
-      title: 'Financial Reports & Profit Analytics',
-      subtitle: 'COGS batch profit, daily/monthly revenue, Excel & PDF exports',
+      title: 'Reports & P&L Analytics',
+      subtitle: 'Exact COGS profit, margins & CSV/PDF exports',
     },
     notifications: {
-      title: 'Alerts, Expiry Rules & Thresholds',
-      subtitle: 'Near-expiry warnings (90-day alert), stock level notifications',
+      title: 'Alerts & Expiry Center',
+      subtitle: 'Near-expiry thresholds & low stock notifications',
     },
     settings: {
-      title: 'System Settings & Pharmacy Profile',
-      subtitle: 'Store details, Drug License, NTN, currency, and data backups',
+      title: 'System Settings',
+      subtitle: 'Store details, DRAP license, tax & database backups',
     },
   };
 
@@ -198,97 +194,91 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
-        <div className="px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-          {/* Left: Mobile hamburger + Tab title */}
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
+        <div className="px-3.5 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2.5 sm:gap-4">
+          {/* Left: Mobile drawer trigger + Page Title */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <button
+              type="button"
               onClick={onToggleSidebar}
-              className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 lg:hidden focus:outline-hidden"
-              aria-label="Toggle Navigation"
+              className="min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-700 hover:text-slate-950 hover:bg-slate-100 lg:hidden transition-colors shrink-0"
+              aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight truncate">
                 {currentInfo.title}
               </h2>
-              <p className="hidden sm:block text-xs text-slate-500 font-medium">
+              <p className="hidden sm:block text-[11px] text-slate-500 font-medium truncate">
                 {currentInfo.subtitle}
               </p>
             </div>
           </div>
 
-          {/* Right Action buttons */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Online / Offline Sync Badge */}
-            <div className="flex items-center">
-              {isOnline ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    syncOfflineQueue();
-                    refreshData();
-                  }}
-                  disabled={isSyncing}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                  title="Real-time cloud database connected. Click to refresh medicines & state now."
-                >
-                  <Wifi className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="hidden md:inline font-semibold">Live Cloud Sync</span>
-                  {pendingSyncCount > 0 && (
-                    <span className="flex items-center gap-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                      <RefreshCw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                      {pendingSyncCount}
-                    </span>
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 animate-pulse"
-                  title="Running in Offline Cache Mode. Sales are safely stored in IndexedDB and will sync once reconnected."
-                >
-                  <WifiOff className="w-3.5 h-3.5 text-rose-600" />
-                  <span className="font-semibold">Offline</span>
-                  {pendingSyncCount > 0 && (
-                    <span className="bg-rose-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                      {pendingSyncCount} saved
-                    </span>
-                  )}
-                </button>
-              )}
-            </div>
+          {/* Right Action Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Sync / Offline Control */}
+            {isOnline ? (
+              <button
+                type="button"
+                onClick={() => {
+                  syncOfflineQueue();
+                  refreshData();
+                }}
+                disabled={isSyncing}
+                className="min-h-[38px] flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100 transition-colors whitespace-nowrap"
+                title="Sync cloud database"
+              >
+                <Wifi className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="hidden md:inline">Synced</span>
+                {pendingSyncCount > 0 && (
+                  <span className="flex items-center gap-1 bg-amber-500 text-white text-[10px] px-1.5 py-0.2 rounded-md font-bold tabular-nums">
+                    <RefreshCw className={`w-2.5 h-2.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                    {pendingSyncCount}
+                  </span>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="min-h-[38px] flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap"
+                title="Offline mode — queuing changes locally"
+              >
+                <WifiOff className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                <span className="hidden xs:inline">Offline</span>
+              </button>
+            )}
 
-            {/* PWA Install Button */}
-            {!isInstalled && (
+            {/* PWA Install Button when promptable */}
+            {!isInstalled && installPrompt && (
               <button
                 type="button"
                 onClick={handleInstallClick}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-semibold transition-colors"
-                title="Install Pharmacy POS App"
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 min-h-[38px] rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-xs font-semibold transition-colors whitespace-nowrap"
               >
                 <Download className="w-3.5 h-3.5 text-teal-600" />
-                <span className="hidden lg:inline">Install App</span>
+                <span className="hidden xl:inline">Install App</span>
               </button>
             )}
 
             {/* Live Clock Asia/Karachi */}
-            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-mono font-medium">
+            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100/90 text-slate-600 text-xs font-mono font-medium whitespace-nowrap">
               <Clock className="w-3.5 h-3.5 text-teal-600" />
-              <span>PKT: {currentTime}</span>
+              <span className="tabular-nums">PKT {currentTime}</span>
             </div>
 
-            {/* Quick POS Button */}
+            {/* Quick POS CTA */}
             {currentTab !== 'pos' && (
               <button
+                type="button"
                 onClick={() => onNavigate('pos')}
-                className="flex items-center gap-2 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs sm:text-sm shadow-sm shadow-teal-700/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="min-h-[38px] flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-xs transition-all active:scale-[0.98] whitespace-nowrap"
               >
-                <ShoppingCart className="w-4 h-4" />
-                <span className="hidden xs:inline">Open POS</span>
-                <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-teal-700/50 rounded text-teal-100 border border-teal-500/40 font-mono">
+                <ShoppingCart className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">POS</span>
+                <kbd className="hidden md:inline-block px-1.5 py-0.5 text-[10px] bg-white/15 rounded text-emerald-100 font-mono">
                   F2
                 </kbd>
               </button>
@@ -297,14 +287,18 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             {/* Notifications Button */}
             <div className="relative">
               <button
-                onClick={() => setIsNotifOpen(prev => !prev)}
-                className="relative p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                title="Notifications"
+                type="button"
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  setIsNotifOpen(prev => !prev);
+                }}
+                className="relative min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                aria-label="Notifications"
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-[18px] h-[18px]" />
                 {unreadNotifs > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
-                    {unreadNotifs}
+                  <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                    {unreadNotifs > 9 ? '9+' : unreadNotifs}
                   </span>
                 )}
               </button>
@@ -316,96 +310,84 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
               />
             </div>
 
-            {/* User Profile Dropdown (Account switching strictly restricted to Master Owner only) */}
+            {/* User Profile Dropdown */}
             <div className="relative">
               <button
-                onClick={() => setIsUserMenuOpen(prev => !prev)}
-                className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+                type="button"
+                onClick={() => {
+                  setIsNotifOpen(false);
+                  setIsUserMenuOpen(prev => !prev);
+                }}
+                className="min-h-[40px] flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-xl border border-slate-200/90 hover:border-teal-500/40 hover:bg-slate-50 transition-colors"
               >
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                    isAdmin ? 'bg-indigo-600' : 'bg-teal-600'
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-extrabold text-white shrink-0 ${
+                    isAdmin ? 'bg-[#0B191E]' : 'bg-teal-700'
                   }`}
                 >
                   {(currentUser?.fullName || currentUser?.username || 'U').charAt(0)}
                 </div>
-                <div className="hidden sm:block text-left">
-                  <span className="text-xs font-semibold text-slate-800 block leading-tight">
+                <div className="hidden md:block text-left max-w-[120px]">
+                  <span className="text-xs font-bold text-slate-800 block leading-tight truncate">
                     {currentUser?.fullName || currentUser?.username || 'User'}
                   </span>
-                  <span className="text-[10px] text-slate-500 block leading-none">
-                    {isAdmin ? 'Store Owner' : currentUser?.designation || 'Seller / Staff'}
+                  <span className="text-[10px] text-slate-500 block leading-none truncate">
+                    {isAdmin ? 'Store Owner' : currentUser?.designation || 'Staff'}
                   </span>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block shrink-0" />
               </button>
 
               {isUserMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-2 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="p-2.5 border-b border-slate-100 mb-1">
-                    <p className="text-xs font-bold text-slate-900">{currentUser?.fullName}</p>
-                    <p className="text-[11px] text-slate-500">@{currentUser?.username} • {currentUser?.email}</p>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          isAdmin
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                            : 'bg-teal-50 text-teal-700 border-teal-200'
-                        }`}
-                      >
-                        {currentUser?.designation}
-                      </span>
-                    </div>
+                <div className="fixed sm:absolute right-3 sm:right-0 top-14 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-[288px] sm:w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 p-2.5">
+                  <div className="p-2.5 border-b border-slate-100 mb-1.5">
+                    <p className="text-xs font-bold text-slate-900 truncate">
+                      {currentUser?.fullName}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                      @{currentUser?.username} · {currentUser?.designation}
+                    </p>
                   </div>
 
                   {isAdmin && (
                     <>
-                      <div className="pb-1 mb-1 border-b border-slate-100">
+                      <div className="pb-1.5 mb-1.5 border-b border-slate-100">
                         <button
                           type="button"
                           onClick={() => {
                             onNavigate('staff');
                             setIsUserMenuOpen(false);
                           }}
-                          className="w-full flex items-center justify-between p-2 rounded-lg text-xs font-bold bg-teal-50 text-teal-800 hover:bg-teal-100 transition-colors"
+                          className="w-full min-h-[40px] flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-900 hover:bg-emerald-100 transition-colors"
                         >
                           <span className="flex items-center gap-1.5">
-                            <PlusCircle className="w-3.5 h-3.5 text-teal-600" />
-                            Create / Remove Staff Accounts
-                          </span>
-                          <span className="text-[10px] bg-teal-600 text-white px-1.5 py-0.5 rounded">
-                            Owner
+                            <PlusCircle className="w-4 h-4 text-emerald-600" />
+                            Manage Staff Accounts
                           </span>
                         </button>
                       </div>
 
-                      <div className="py-1">
+                      <div className="py-1 max-h-48 overflow-y-auto no-scrollbar">
                         <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          Owner Account Switcher ({availableUsers.length}):
+                          Switch Portal ({availableUsers.length})
                         </p>
                         {availableUsers.map(user => {
                           const isSelected = user.id === currentUser?.id;
                           return (
                             <button
                               key={user.id}
+                              type="button"
                               onClick={() => {
                                 switchUser(user.id);
                                 setIsUserMenuOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between p-2 rounded-lg text-xs font-medium transition-colors ${
+                              className={`w-full min-h-[38px] flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-colors ${
                                 isSelected
-                                  ? 'bg-teal-50 text-teal-800 font-semibold'
+                                  ? 'bg-teal-50 text-teal-900 font-bold'
                                   : 'hover:bg-slate-50 text-slate-700'
                               }`}
                             >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span
-                                  className={`w-2 h-2 rounded-full shrink-0 ${
-                                    user.id === 'usr-owner-1' ? 'bg-indigo-600' : 'bg-teal-500'
-                                  }`}
-                                />
-                                <span className="truncate">{user.fullName}</span>
-                              </div>
+                              <span className="truncate">{user.fullName}</span>
                               <span className="text-[10px] uppercase text-slate-400 shrink-0 ml-2">
                                 {user.id === 'usr-owner-1' ? 'Owner' : user.role}
                               </span>
@@ -416,14 +398,14 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                     </>
                   )}
 
-                  <div className={`${isAdmin ? 'border-t border-slate-100 pt-1 mt-1' : 'pt-0.5'} space-y-1`}>
+                  <div className={`${isAdmin ? 'border-t border-slate-100 pt-1.5 mt-1.5' : 'pt-0.5'}`}>
                     <button
                       type="button"
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         logout();
                       }}
-                      className="w-full flex items-center gap-2 p-2 rounded-lg text-xs text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
+                      className="w-full min-h-[42px] flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-rose-700 hover:bg-rose-50 font-bold cursor-pointer"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       Sign Out to Login Screen
@@ -440,7 +422,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       {showIOSInstallGuide && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 border border-slate-200 shadow-2xl text-center">
-            <div className="w-12 h-12 bg-teal-100 text-teal-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <Share className="w-6 h-6" />
             </div>
             <h3 className="font-bold text-slate-900 text-base mb-1">
@@ -452,8 +434,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
               3. Tap <strong className="text-slate-900">Add</strong> in the top-right corner to launch full screen.
             </p>
             <button
+              type="button"
               onClick={() => setShowIOSInstallGuide(false)}
-              className="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs"
+              className="w-full py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs"
             >
               Got it
             </button>

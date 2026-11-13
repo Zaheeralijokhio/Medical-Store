@@ -194,30 +194,38 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   };
 
   return (
-    <div className="print-invoice-modal fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 print:static print:bg-white print:p-0">
+    <div className="print-invoice-modal fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4 print:static print:bg-white print:p-0">
       <div className={`relative w-full ${printFormat === '58mm' ? 'max-w-sm' : printFormat === '80mm' ? 'max-w-md' : 'max-w-3xl'} bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transition-all print:shadow-none print:border-none print:rounded-none`}>
         {/* Action Header bar (no-print) */}
-        <div className="no-print p-4 bg-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0" />
-            <div>
-              <h3 className="font-bold text-sm text-white">
-                Sale: {sale.invoiceNumber}
-              </h3>
-              <p className="text-[11px] text-slate-300">
-                FEFO Stock Deducted • Select Printer Format:
-              </p>
+        <div className="no-print p-3.5 sm:p-4 bg-[#0B191E] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div className="min-w-0">
+                <h3 className="font-bold text-sm text-white truncate">
+                  Sale: {sale.invoiceNumber}
+                </h3>
+                <p className="text-[11px] text-slate-300">
+                  FEFO Stock Deducted • Select Printer Format:
+                </p>
+              </div>
             </div>
+            <button
+              onClick={onClose}
+              className="sm:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           {/* Print Format Tabs */}
-          <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+          <div className="flex flex-wrap items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
             <button
               type="button"
               onClick={() => setPrintFormat('58mm')}
-              className={`px-2 py-1 rounded text-[11px] font-bold transition-all ${
+              className={`flex-1 sm:flex-initial min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
                 printFormat === '58mm'
-                  ? 'bg-teal-500 text-white'
+                  ? 'bg-emerald-500 text-[#0B191E]'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -226,9 +234,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             <button
               type="button"
               onClick={() => setPrintFormat('80mm')}
-              className={`px-2 py-1 rounded text-[11px] font-bold transition-all ${
+              className={`flex-1 sm:flex-initial min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
                 printFormat === '80mm'
-                  ? 'bg-teal-500 text-white'
+                  ? 'bg-emerald-500 text-[#0B191E]'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -237,9 +245,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             <button
               type="button"
               onClick={() => setPrintFormat('A4')}
-              className={`px-2 py-1 rounded text-[11px] font-bold transition-all ${
+              className={`flex-1 sm:flex-initial min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
                 printFormat === 'A4'
-                  ? 'bg-teal-500 text-white'
+                  ? 'bg-emerald-500 text-[#0B191E]'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
@@ -247,22 +255,22 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-600 text-slate-950 font-bold text-xs shadow-xs transition-colors"
+              className="min-h-[38px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0B191E] font-bold text-xs shadow-xs transition-colors"
             >
               <Printer className="w-4 h-4" /> Print
             </button>
             <button
               onClick={handleDownloadRealPDF}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-colors"
+              className="min-h-[38px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-100 font-semibold text-xs border border-white/15 transition-colors"
             >
               <Download className="w-4 h-4" /> Download PDF
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              className="hidden sm:inline-flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10"
             >
               <X className="w-5 h-5" />
             </button>
@@ -345,39 +353,41 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           </div>
 
           {/* Items Table */}
-          <table className="w-full text-[11px] text-left my-3 border-collapse">
-            <thead>
-              <tr className="border-b-2 border-slate-800 text-[10px] font-bold uppercase text-slate-700 bg-slate-100">
-                <th className="py-1.5 px-1.5">Item</th>
-                <th className="py-1.5 px-1">Batch</th>
-                <th className="py-1.5 px-1 text-center">Qty</th>
-                <th className="py-1.5 px-1 text-right">Rate</th>
-                <th className="py-1.5 px-1 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {(sale.items || []).map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/50">
-                  <td className="py-1.5 px-1.5">
-                    <span className="font-bold text-slate-900 block truncate max-w-[120px] sm:max-w-none">{item.medicineName || 'Medicine'}</span>
-                    <span className="text-[9px] text-slate-500 block truncate max-w-[120px] sm:max-w-none">{item.genericName || ''}</span>
-                  </td>
-                  <td className="py-1.5 px-1 font-mono text-[10px] text-slate-700">
-                    {item.batchNumber || '-'}
-                  </td>
-                  <td className="py-1.5 px-1 text-center font-bold text-slate-800">
-                    {Number(item.quantity || 0)}
-                  </td>
-                  <td className="py-1.5 px-1 text-right font-mono text-[10px]">
-                    {Number(item.unitPrice || 0).toFixed(0)}
-                  </td>
-                  <td className="py-1.5 px-1 text-right font-mono font-bold text-slate-900">
-                    {Number(item.totalAmount || 0).toFixed(0)}
-                  </td>
+          <div className="overflow-x-auto my-3">
+            <table className="w-full text-[11px] text-left border-collapse">
+              <thead>
+                <tr className="border-b-2 border-slate-800 text-[10px] font-bold uppercase text-slate-700 bg-slate-100">
+                  <th className="py-1.5 px-1.5">Item</th>
+                  <th className="py-1.5 px-1">Batch</th>
+                  <th className="py-1.5 px-1 text-center">Qty</th>
+                  <th className="py-1.5 px-1 text-right">Rate</th>
+                  <th className="py-1.5 px-1 text-right">Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-200 tabular-nums">
+                {(sale.items || []).map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/50">
+                    <td className="py-1.5 px-1.5">
+                      <span className="font-bold text-slate-900 block truncate max-w-[120px] sm:max-w-none">{item.medicineName || 'Medicine'}</span>
+                      <span className="text-[9px] text-slate-500 block truncate max-w-[120px] sm:max-w-none">{item.genericName || ''}</span>
+                    </td>
+                    <td className="py-1.5 px-1 font-mono text-[10px] text-slate-700">
+                      {item.batchNumber || '-'}
+                    </td>
+                    <td className="py-1.5 px-1 text-center font-bold text-slate-800">
+                      {Number(item.quantity || 0)}
+                    </td>
+                    <td className="py-1.5 px-1 text-right font-mono text-[10px]">
+                      {Number(item.unitPrice || 0).toFixed(0)}
+                    </td>
+                    <td className="py-1.5 px-1 text-right font-mono font-bold text-slate-900">
+                      {Number(item.totalAmount || 0).toFixed(0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {/* Totals & Calculations */}
           <div className="border-t-2 border-slate-800 pt-2 flex justify-end">
@@ -459,15 +469,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </div>
 
         {/* Modal Bottom Actions */}
-        <div className="no-print p-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
-          <span className="text-xs text-slate-500">
+        <div className="no-print p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-2">
+          <span className="text-xs text-slate-500 text-center sm:text-left">
             Print ready for 58mm / 80mm thermal or standard A4 printer
           </span>
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
+            className="w-full sm:w-auto min-h-[40px] px-5 py-2 rounded-xl bg-[#0B191E] hover:bg-[#112A32] text-white text-xs font-bold transition-colors"
           >
-            Done & Next Customer
+            Done &amp; Next Customer
           </button>
         </div>
       </div>

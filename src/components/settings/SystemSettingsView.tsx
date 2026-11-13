@@ -202,23 +202,23 @@ export const SystemSettingsView: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card p-4">
         <div>
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-            <Settings className="w-5 h-5 text-teal-600" />
-            Pharmacy Profile, Security & Disaster Recovery
+            <Settings className="w-5 h-5 text-[#0F766E]" />
+            Pharmacy Profile, Security &amp; Disaster Recovery
           </h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 mt-0.5">
             DRAP Drug Licensing, NTN tax registrations, staff PIN security, and Hostinger / Server database sync
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={handleForceDatabaseSync}
             disabled={syncingDb}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs transition-colors cursor-pointer"
+            className="min-h-[40px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncingDb ? 'animate-spin' : ''}`} />
             Sync Database Now
@@ -226,7 +226,7 @@ export const SystemSettingsView: React.FC = () => {
 
           <button
             onClick={handleExportBackup}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+            className="min-h-[40px] flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" /> Export JSON
           </button>
@@ -234,21 +234,21 @@ export const SystemSettingsView: React.FC = () => {
       </div>
 
       {/* Live Database Storage Architecture Status Card */}
-      <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 p-4 shadow-sm space-y-3 text-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+      <div className="bg-[#0B191E] text-white rounded-2xl border border-emerald-500/25 p-4 sm:p-5 shadow-md space-y-3 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
           <div className="flex items-center gap-2.5">
-            <Database className="w-5 h-5 text-teal-400 shrink-0" />
+            <Database className="w-5 h-5 text-emerald-400 shrink-0" />
             <div>
               <h4 className="font-black text-sm text-white">
                 Where Your Pharmacy Database Is Stored (Dual-Layer Persistence)
               </h4>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-slate-300">
                 Every staff account, medicine, invoice, and supplier is automatically saved in real time
               </p>
             </div>
           </div>
           <span
-            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 w-fit ${
               dbStatus?.sqliteConnected || dbStatus?.storageEngine === 'hostinger_sqlite' || dbStatus?.mongoConnected
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                 : 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
@@ -263,13 +263,13 @@ export const SystemSettingsView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="p-3 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400 block">
+          <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
               1. Primary Relational SQL Database
             </span>
             <p className="text-xs font-bold text-white">
               Engine:{' '}
-              <code className="text-teal-300">
+              <code className="text-emerald-300">
                 {dbStatus?.sqliteConnected || dbStatus?.storageEngine === 'hostinger_sqlite'
                   ? 'SQLite 3 (WAL Mode • 18 Relational Tables)'
                   : dbStatus?.mongoConnected
@@ -286,19 +286,19 @@ export const SystemSettingsView: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-3 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block">
+          <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300 block">
               2. Database Location &amp; Live Record Counts
             </span>
             <p className="text-xs font-bold text-white">
               Storage:{' '}
-              <code className="text-indigo-300">
+              <code className="text-emerald-300">
                 {dbStatus?.sqliteConnected || dbStatus?.storageEngine === 'hostinger_sqlite'
                   ? 'api/data/pharmacy.sqlite'
                   : dbStatus?.localFilePath || 'data/pharmacy_database.json'}
               </code>
             </p>
-            <p className="text-[11px] text-slate-300">
+            <p className="text-[11px] text-slate-300 tabular-nums">
               Saved records: <strong>{dbStatus?.counts?.staffAccounts ?? availableUsers.length}</strong> Staff Accounts •{' '}
               <strong>{dbStatus?.counts?.medicines ?? medicines.length}</strong> Medicines •{' '}
               <strong>{dbStatus?.counts?.sales ?? sales.length}</strong> Sales
@@ -324,9 +324,9 @@ export const SystemSettingsView: React.FC = () => {
       {/* Main Settings Form */}
       <form onSubmit={handleSave} className="space-y-4 text-xs">
         {/* Pharmacy Identity Card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
+        <div className="pro-card p-4 sm:p-5 space-y-4">
           <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-2">
-            <Building className="w-4 h-4 text-teal-600" /> 1. Store Legal Profile & Contact Details
+            <Building className="w-4 h-4 text-[#0F766E]" /> 1. Store Legal Profile &amp; Contact Details
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -337,7 +337,7 @@ export const SystemSettingsView: React.FC = () => {
                 required
                 value={form.storeName}
                 onChange={e => handleChange('storeName', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg font-bold text-sm"
+                className="w-full min-h-[40px] p-2.5 border border-slate-200 rounded-xl font-bold text-sm"
               />
             </div>
 
@@ -347,7 +347,7 @@ export const SystemSettingsView: React.FC = () => {
                 type="text"
                 value={form.storeTagline}
                 onChange={e => handleChange('storeTagline', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                className="w-full min-h-[40px] p-2.5 border border-slate-200 rounded-xl"
               />
             </div>
 
@@ -358,7 +358,7 @@ export const SystemSettingsView: React.FC = () => {
                 required
                 value={form.drugLicenseNumber}
                 onChange={e => handleChange('drugLicenseNumber', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold text-teal-800"
+                className="w-full min-h-[40px] p-2.5 border border-slate-200 rounded-xl font-mono font-bold text-teal-800"
               />
             </div>
 
@@ -369,7 +369,7 @@ export const SystemSettingsView: React.FC = () => {
                 required
                 value={form.taxRegistrationNumber}
                 onChange={e => handleChange('taxRegistrationNumber', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg font-mono"
+                className="w-full min-h-[40px] p-2.5 border border-slate-200 rounded-xl font-mono"
               />
             </div>
 
@@ -380,7 +380,7 @@ export const SystemSettingsView: React.FC = () => {
                 required
                 value={form.phone}
                 onChange={e => handleChange('phone', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                className="w-full min-h-[40px] p-2.5 border border-slate-200 rounded-xl"
               />
             </div>
 
@@ -390,7 +390,7 @@ export const SystemSettingsView: React.FC = () => {
                 type="email"
                 value={form.email}
                 onChange={e => handleChange('email', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                className="w-full min-h-[40px] p-2.5 border border-slate-200 rounded-xl"
               />
             </div>
 
@@ -401,16 +401,16 @@ export const SystemSettingsView: React.FC = () => {
                 required
                 value={form.storeAddress}
                 onChange={e => handleChange('storeAddress', e.target.value)}
-                className="w-full p-2 border border-slate-200 rounded-lg"
+                className="w-full min-h-[40px] p-2.5 border border-slate-200 rounded-xl"
               />
             </div>
           </div>
         </div>
 
         {/* Currency & Operating Regional Parameters */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
+        <div className="pro-card p-4 sm:p-5 space-y-4">
           <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2 border-b border-slate-100 pb-2">
-            <DollarSign className="w-4 h-4 text-emerald-600" /> 2. Currency, Timezone & Sales Tax (Pakistan Standard)
+            <DollarSign className="w-4 h-4 text-emerald-600" /> 2. Currency, Timezone &amp; Sales Tax (Pakistan Standard)
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -420,7 +420,7 @@ export const SystemSettingsView: React.FC = () => {
                 type="text"
                 disabled
                 value={`${form.currency} (${form.currencySymbol})`}
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-600"
+                className="w-full min-h-[40px] p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-600"
               />
               <span className="text-[10px] text-slate-400 mt-1 block">Default: Pakistani Rupee (PKR / Rs.)</span>
             </div>
@@ -431,7 +431,7 @@ export const SystemSettingsView: React.FC = () => {
                 type="text"
                 disabled
                 value={form.timezone}
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-600"
+                className="w-full min-h-[40px] p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-600"
               />
               <span className="text-[10px] text-slate-400 mt-1 block">Default: Asia/Karachi (PKT GMT+5)</span>
             </div>
@@ -439,7 +439,7 @@ export const SystemSettingsView: React.FC = () => {
             <div>
               <label className="font-semibold text-slate-700 block mb-1">Retail Sales Tax Rate (%)</label>
               <div className="relative">
-                <Percent className="w-4 h-4 text-slate-400 absolute right-3 top-2.5" />
+                <Percent className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
                 <input
                   type="number"
                   min="0"
@@ -447,7 +447,7 @@ export const SystemSettingsView: React.FC = () => {
                   step="0.5"
                   value={form.taxRatePercentage}
                   onChange={e => handleChange('taxRatePercentage', parseFloat(e.target.value) || 0)}
-                  className="w-full p-2 border border-slate-200 rounded-lg font-mono font-bold text-slate-900"
+                  className="w-full min-h-[40px] p-2.5 border border-slate-200 rounded-xl font-mono font-bold text-slate-900"
                 />
               </div>
               <span className="text-[10px] text-slate-400 mt-1 block">Essential medicines in Pakistan are zero-rated (0%).</span>
@@ -456,10 +456,10 @@ export const SystemSettingsView: React.FC = () => {
         </div>
 
         {/* Staff PIN & Role Access Control */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="pro-card p-4 sm:p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
             <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-indigo-600" /> 3. Employee 4-Digit Security PINs & Price Permissions
+              <KeyRound className="w-4 h-4 text-[#0F766E]" /> 3. Employee 4-Digit Security PINs &amp; Price Permissions
             </h4>
             <span className="text-[11px] text-slate-500">
               Used for touch keypad login and cashier price alteration locks
@@ -471,12 +471,12 @@ export const SystemSettingsView: React.FC = () => {
               <div key={user.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
+                    className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                       user.role === 'admin'
-                        ? 'bg-indigo-600'
+                        ? 'bg-[#0B191E] text-emerald-300 border border-emerald-500/30'
                         : user.role === 'pharmacist'
-                        ? 'bg-teal-600'
-                        : 'bg-amber-600'
+                        ? 'bg-[#0F766E] text-white'
+                        : 'bg-amber-600 text-white'
                     }`}
                   >
                     {(user.fullName || user.username || 'U').charAt(0)}
@@ -520,13 +520,13 @@ export const SystemSettingsView: React.FC = () => {
         </div>
 
         {/* Rolling Backups & Disaster Recovery */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <div className="pro-card p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
               <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-teal-600" /> 4. Local Disk Rolling Snapshots & Disaster Recovery
+                <HardDrive className="w-4 h-4 text-[#0F766E]" /> 4. Local Disk Rolling Snapshots &amp; Disaster Recovery
               </h4>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 mt-0.5">
                 Server snapshots stored in <code className="font-mono text-teal-700">data/backups/</code> with 1-click restore
               </p>
             </div>
@@ -535,7 +535,7 @@ export const SystemSettingsView: React.FC = () => {
               type="button"
               disabled={snapshotLoading}
               onClick={handleCreateSnapshot}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors"
+              className="min-h-[40px] w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${snapshotLoading ? 'animate-spin' : ''}`} />
               <span>Create Snapshot Now</span>
@@ -550,10 +550,10 @@ export const SystemSettingsView: React.FC = () => {
               </div>
             ) : (
               backupSnapshots.map(snap => (
-                <div key={snap.filename} className="p-3 flex items-center justify-between gap-3 hover:bg-slate-50">
+                <div key={snap.filename} className="p-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 hover:bg-slate-50">
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-xs text-slate-900 font-mono truncate">{snap.filename}</p>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[10px] text-slate-500 tabular-nums">
                       {new Date(snap.timestamp).toLocaleString()} • Size: {(snap.sizeBytes / 1024).toFixed(1)} KB
                       {snap.recordsCount && (
                         <span> • {snap.recordsCount.medicines} meds, {snap.recordsCount.sales} sales</span>
@@ -565,7 +565,7 @@ export const SystemSettingsView: React.FC = () => {
                     type="button"
                     disabled={snapshotLoading}
                     onClick={() => handleRestore(snap.filename)}
-                    className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition-colors"
+                    className="min-h-[36px] px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition-colors shrink-0"
                   >
                     Restore
                   </button>
@@ -579,9 +579,9 @@ export const SystemSettingsView: React.FC = () => {
         <div className="flex justify-end pt-2">
           <button
             type="submit"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm shadow-md shadow-teal-700/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
+            className="w-full sm:w-auto min-h-[44px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-sm shadow-md shadow-teal-900/15 transition-all"
           >
-            <Save className="w-4 h-4" /> Save System Settings & Security
+            <Save className="w-4 h-4" /> Save System Settings &amp; Security
           </button>
         </div>
       </form>

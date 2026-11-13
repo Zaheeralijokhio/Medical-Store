@@ -122,27 +122,27 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
       <div className="bg-white rounded-2xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <RotateCcw className="w-5 h-5 text-amber-400" />
-            <div>
-              <h3 className="font-bold text-sm text-white">
-                Process Sale Return & Restock
+        <div className="p-4 bg-[#0B191E] text-white flex items-center justify-between gap-2 border-b border-emerald-500/20">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <RotateCcw className="w-5 h-5 text-amber-400 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm text-white truncate">
+                Process Sale Return &amp; Restock
               </h3>
               <p className="text-[11px] text-slate-300">
                 Restores batch inventory and issues customer refund memo
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
+        <div className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto text-xs">
           {statusMessage && (
             <div
               className={`p-3 rounded-xl flex items-center gap-2 font-medium ${
@@ -161,7 +161,7 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
           )}
 
           {/* Search by Invoice # */}
-          <form onSubmit={handleSearchSale} className="flex gap-2">
+          <form onSubmit={handleSearchSale} className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
@@ -169,12 +169,12 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
                 value={searchInvoice}
                 onChange={e => setSearchInvoice(e.target.value)}
                 placeholder="Enter Invoice # (e.g. INV-2026-00101)"
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                className="w-full min-h-[40px] pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-600"
               />
             </div>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition-colors"
+              className="min-h-[40px] px-4 py-2 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold transition-colors shrink-0"
             >
               Find Invoice
             </button>
@@ -207,18 +207,18 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
                   {returnItems.map((item, idx) => (
                     <div
                       key={idx}
-                      className="p-2.5 bg-white rounded-lg border border-slate-200 flex items-center justify-between gap-3"
+                      className="p-2.5 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                     >
                       <div className="min-w-0 flex-1">
                         <span className="font-bold text-slate-800 block truncate">
                           {item.medicineName}
                         </span>
-                        <span className="text-[10px] text-slate-500 font-mono">
+                        <span className="text-[10px] text-slate-500 font-mono tabular-nums">
                           Batch: {item.batchNumber} • Original Qty: {item.maxQty} @ {formatPKR(item.unitPrice)}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
                         <span className="text-[11px] text-slate-500">Return Qty:</span>
                         <input
                           type="number"
@@ -226,9 +226,9 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
                           max={item.maxQty}
                           value={item.quantity}
                           onChange={e => handleQtyChange(idx, parseInt(e.target.value) || 0)}
-                          className="w-16 p-1 border border-slate-200 rounded text-center font-bold font-mono text-xs"
+                          className="w-16 min-h-[36px] p-1 border border-slate-200 rounded-lg text-center font-bold font-mono text-xs tabular-nums"
                         />
-                        <span className="font-mono font-bold text-slate-900 w-16 text-right">
+                        <span className="font-mono font-bold text-slate-900 min-w-[68px] text-right tabular-nums">
                           {formatPKR(item.quantity * item.unitPrice)}
                         </span>
                       </div>
@@ -261,11 +261,11 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700 transition-colors"
+              className="flex-1 min-h-[42px] py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700 transition-colors"
             >
               Cancel
             </button>
@@ -273,9 +273,9 @@ export const SaleReturnModal: React.FC<SaleReturnModalProps> = ({
               type="button"
               disabled={!matchedSale || totalRefundAmount === 0}
               onClick={handleSubmitReturn}
-              className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 text-white disabled:text-slate-400 font-bold rounded-xl transition-colors shadow-xs"
+              className="flex-1 min-h-[42px] py-2.5 px-3 bg-[#0F766E] hover:bg-[#0D655E] disabled:bg-slate-200 text-white disabled:text-slate-400 font-bold rounded-xl transition-colors shadow-xs"
             >
-              Confirm Refund & Restore Stock
+              Confirm Refund &amp; Restore Stock
             </button>
           </div>
         </div>

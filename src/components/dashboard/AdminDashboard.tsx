@@ -298,32 +298,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Quick Setup Guide Banner when no staff account or no medicines exist yet */}
       {(otherStaffCount === 0 || inventoryStats.totalMedicines === 0) && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-900 via-slate-900 to-indigo-950 text-white border border-teal-500/30 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#0B191E] via-[#0F2A2E] to-[#11423E] text-white border border-emerald-500/25 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5">
           <div>
-            <h4 className="text-sm font-black text-white">
+            <h4 className="text-sm sm:text-base font-extrabold text-white">
               Store Quick Setup — Start Your Operations
             </h4>
-            <p className="text-xs text-slate-300 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
               {otherStaffCount === 0
                 ? 'Step 1: Create a Staff / Seller account so your team can sign in and record medicines & sales.'
                 : 'Step 2: Add medicines to your inventory catalog and start counter billing.'}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto shrink-0">
             <button
               type="button"
               onClick={() => onNavigate('staff')}
-              className="px-3.5 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-black transition-colors cursor-pointer"
+              className="flex-1 sm:flex-initial min-h-[42px] px-4 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 text-xs font-extrabold transition-colors cursor-pointer whitespace-nowrap"
             >
-              {otherStaffCount === 0 ? '+ Create Staff Account' : 'Manage Staff Accounts'}
+              {otherStaffCount === 0 ? '+ Create Staff Account' : 'Manage Staff'}
             </button>
             <button
               type="button"
               onClick={() => onNavigate('inventory')}
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-colors cursor-pointer"
+              className="flex-1 sm:flex-initial min-h-[42px] px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
             >
               + Add Medicine
             </button>
@@ -333,32 +333,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
       {/* Top Banner Alert for Expired or Low Stock if any */}
       {(inventoryStats.expiredCount > 0 || inventoryStats.nearExpiryCount > 0) && (
-        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-amber-500 text-white shrink-0">
+        <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-950">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500 text-white shrink-0">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
               <h4 className="text-sm font-bold text-amber-950">
                 Action Required: Medicine Expiry Attention
               </h4>
-              <p className="text-xs text-amber-800">
+              <p className="text-xs text-amber-800 mt-0.5">
                 {inventoryStats.expiredCount > 0 && (
                   <span className="font-semibold text-rose-700 mr-2">
-                    • {inventoryStats.expiredCount} batch(es) expired (Locked from POS)
+                    {inventoryStats.expiredCount} batch(es) expired (Locked from POS)
                   </span>
                 )}
+                {inventoryStats.expiredCount > 0 && inventoryStats.nearExpiryCount > 0 && '· '}
                 {inventoryStats.nearExpiryCount > 0 && (
                   <span>
-                    • {inventoryStats.nearExpiryCount} batch(es) expiring within {settings.expiryAlertDays} days
+                    {inventoryStats.nearExpiryCount} batch(es) expiring within {settings.expiryAlertDays} days
                   </span>
                 )}
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={() => onNavigate('inventory')}
-            className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors shrink-0 shadow-xs"
+            className="w-full sm:w-auto min-h-[40px] px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-colors shrink-0 shadow-xs"
           >
             Review Batches
           </button>
@@ -366,285 +368,289 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       )}
 
       {/* Row 1: Primary Financial & Inventory KPI Cards (8 Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* 1. Today's Sales */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Today's Sales
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Today&apos;s Sales
             </span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+          <div className="mt-3">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
               {formatPKR(salesStats.todaySales)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Today Gross Profit: <span className="font-bold text-emerald-600">{formatPKR(salesStats.todayGrossProfit)}</span>
+            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+              Gross Profit · <span className="font-bold text-emerald-700">{formatPKR(salesStats.todayGrossProfit)}</span>
             </p>
           </div>
         </div>
 
         {/* 2. Monthly Sales */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Monthly Sales
             </span>
-            <div className="p-2 rounded-xl bg-teal-50 text-teal-600">
+            <div className="p-2 rounded-xl bg-teal-50 text-teal-700">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+          <div className="mt-3">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
               {formatPKR(salesStats.monthSales)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Monthly Net: <span className="font-bold text-teal-700">{formatPKR(salesStats.monthlyNetProfit)}</span>
+            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+              Monthly Net · <span className="font-bold text-teal-700">{formatPKR(salesStats.monthlyNetProfit)}</span>
             </p>
           </div>
         </div>
 
         {/* 3. Today's Purchases */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Today's Purchases
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Today&apos;s Purchases
             </span>
-            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+            <div className="p-2 rounded-xl bg-sky-50 text-sky-700">
               <ShoppingCart className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+          <div className="mt-3">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
               {formatPKR(salesStats.todayPurchases)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Monthly POs: <span className="font-bold text-slate-700">{formatPKR(salesStats.monthPurchases)}</span>
+            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+              Monthly POs · <span className="font-bold text-slate-700">{formatPKR(salesStats.monthPurchases)}</span>
             </p>
           </div>
         </div>
 
         {/* 4. Total Revenue */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Total Revenue
             </span>
-            <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+            <div className="p-2 rounded-xl bg-slate-100 text-slate-700">
               <BarChart3 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+          <div className="mt-3">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
               {formatPKR(salesStats.totalRevenue)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Completed Sales ({(sales || []).filter(s => s && s.status !== 'returned').length} invoices)
+            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+              {(sales || []).filter(s => s && s.status !== 'returned').length} completed invoices
             </p>
           </div>
         </div>
 
         {/* 5. Gross Profit */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Gross Profit
             </span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <h3 className="text-2xl font-black text-emerald-700 tracking-tight">
+          <div className="mt-3">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-emerald-700 tracking-tight tabular-nums">
               {formatPKR(salesStats.totalGrossProfit)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Net Sales minus COGS ({formatPKR(salesStats.totalCOGS)})
+            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+              COGS · {formatPKR(salesStats.totalCOGS)}
             </p>
           </div>
         </div>
 
         {/* 6. Net Profit */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Net Profit
             </span>
-            <div className="p-2 rounded-xl bg-teal-50 text-teal-600">
+            <div className="p-2 rounded-xl bg-teal-50 text-teal-700">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <h3 className={`text-2xl font-black tracking-tight ${salesStats.totalNetProfit >= 0 ? 'text-teal-700' : 'text-rose-600'}`}>
+          <div className="mt-3">
+            <h3
+              className={`text-xl sm:text-2xl font-extrabold tracking-tight tabular-nums ${
+                salesStats.totalNetProfit >= 0 ? 'text-teal-700' : 'text-rose-600'
+              }`}
+            >
               {formatPKR(salesStats.totalNetProfit)}
             </h3>
             <p className="mt-1 text-xs text-slate-500">
-              Gross Profit minus Total Expenses
+              Gross Profit minus Expenses
             </p>
           </div>
         </div>
 
         {/* 7. Total Expenses */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Total Expenses
             </span>
-            <div className="p-2 rounded-xl bg-rose-50 text-rose-600">
+            <div className="p-2 rounded-xl bg-rose-50 text-rose-700">
               <ArrowDownRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+          <div className="mt-3">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
               {formatPKR(salesStats.totalExpenses)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              {expenses.length} recorded store expense(s)
+            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+              {expenses.length} store expense(s)
             </p>
           </div>
         </div>
 
-        {/* 8. Total Stock Value (Cost Price Basis) */}
-        <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        {/* 8. Total Stock Value */}
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
               Total Stock Value
             </span>
-            <div className="p-2 rounded-xl bg-violet-50 text-violet-600">
+            <div className="p-2 rounded-xl bg-emerald-50 text-teal-700">
               <Package className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-2.5">
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+          <div className="mt-3">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
               {formatPKR(inventoryStats.purchaseVal)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Retail Value: <span className="font-semibold text-slate-700">{formatPKR(inventoryStats.saleVal)}</span>
+            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+              Retail · <span className="font-semibold text-slate-700">{formatPKR(inventoryStats.saleVal)}</span>
             </p>
           </div>
         </div>
       </div>
 
-      {/* Row 2: Complete Operational & Entity Validation Grid (Remaining 8 KPI Cards = All 16 Cards Verified) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-        {/* 9. Total Medicines */}
+      {/* Row 2: Operational Quick-Access Tiles */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
         <button
+          type="button"
           onClick={() => onNavigate('inventory')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-cyan-400 text-left transition-all group"
+          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
         >
-          <div className="flex items-center justify-between text-cyan-600 mb-1">
-            <span className="text-[11px] font-bold">Total Medicines</span>
+          <div className="flex items-center justify-between text-teal-700 mb-1.5">
+            <span className="text-[11px] font-bold">Medicines</span>
             <Pill className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-black text-slate-800">
+          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
             {inventoryStats.totalMedicines}
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">Formulations</p>
         </button>
 
-        {/* 10. Total Stock Quantity */}
         <button
+          type="button"
           onClick={() => onNavigate('inventory')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 text-left transition-all group"
+          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
         >
-          <div className="flex items-center justify-between text-emerald-600 mb-1">
-            <span className="text-[11px] font-bold">Total Stock Qty</span>
+          <div className="flex items-center justify-between text-emerald-700 mb-1.5">
+            <span className="text-[11px] font-bold">Stock Qty</span>
             <Layers className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-black text-slate-800">
+          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
             {inventoryStats.totalStockQty.toLocaleString()}
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">Available units</p>
         </button>
 
-        {/* 11. Low Stock */}
         <button
+          type="button"
           onClick={() => onNavigate('inventory')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-yellow-400 text-left transition-all group"
+          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
         >
-          <div className="flex items-center justify-between text-yellow-600 mb-1">
+          <div className="flex items-center justify-between text-amber-600 mb-1.5">
             <span className="text-[11px] font-bold">Low Stock</span>
             <AlertTriangle className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-black text-slate-800">
+          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
             {inventoryStats.lowStockCount}
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">Below alert level</p>
         </button>
 
-        {/* 12. Near Expiry Medicines */}
         <button
+          type="button"
           onClick={() => onNavigate('inventory')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-amber-400 text-left transition-all group"
+          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
         >
-          <div className="flex items-center justify-between text-amber-600 mb-1">
+          <div className="flex items-center justify-between text-orange-600 mb-1.5">
             <span className="text-[11px] font-bold">Near Expiry</span>
             <Clock className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-black text-slate-800">
+          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
             {inventoryStats.nearExpiryCount}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Expiring &lt;{settings.expiryAlertDays}d</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Within {settings.expiryAlertDays}d</p>
         </button>
 
-        {/* 13. Expired Medicines */}
         <button
+          type="button"
           onClick={() => onNavigate('inventory')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-rose-600 text-left transition-all group"
+          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
         >
-          <div className="flex items-center justify-between text-rose-700 mb-1">
+          <div className="flex items-center justify-between text-rose-700 mb-1.5">
             <span className="text-[11px] font-bold">Expired</span>
             <AlertOctagon className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-black text-rose-700">
+          <div className="text-xl font-extrabold text-rose-700 tabular-nums">
             {inventoryStats.expiredCount}
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">Locked batches</p>
         </button>
 
-        {/* 14. Total Customers */}
         <button
+          type="button"
           onClick={() => onNavigate('customers')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-teal-400 text-left transition-all group"
+          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
         >
-          <div className="flex items-center justify-between text-teal-600 mb-1">
-            <span className="text-[11px] font-bold">Total Customers</span>
+          <div className="flex items-center justify-between text-teal-700 mb-1.5">
+            <span className="text-[11px] font-bold">Customers</span>
             <Users className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-black text-slate-800">
+          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
             {customers.length}
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">Registered</p>
         </button>
 
-        {/* 15. Total Suppliers */}
         <button
+          type="button"
           onClick={() => onNavigate('suppliers')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 text-left transition-all group"
+          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
         >
-          <div className="flex items-center justify-between text-blue-600 mb-1">
-            <span className="text-[11px] font-bold">Total Suppliers</span>
+          <div className="flex items-center justify-between text-sky-700 mb-1.5">
+            <span className="text-[11px] font-bold">Suppliers</span>
             <Building2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-black text-slate-800">
+          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
             {suppliers.length}
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">Pharma vendors</p>
         </button>
 
-        {/* 16. Total Staff */}
         <button
+          type="button"
           onClick={() => onNavigate('staff')}
-          className="p-3.5 rounded-xl bg-white border border-slate-200 hover:border-indigo-400 text-left transition-all group"
+          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
         >
-          <div className="flex items-center justify-between text-indigo-600 mb-1">
-            <span className="text-[11px] font-bold">Total Staff</span>
+          <div className="flex items-center justify-between text-slate-700 mb-1.5">
+            <span className="text-[11px] font-bold">Staff</span>
             <Users className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </div>
-          <div className="text-xl font-black text-slate-800">
+          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
             {staffMembers.length}
           </div>
           <p className="text-[10px] text-slate-500 mt-0.5">Store accounts</p>
@@ -652,65 +658,62 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       </div>
 
       {/* Row 3: Interactive Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales & Purchases Weekly Trend Chart (2 columns) */}
-        <div className="lg:col-span-2 p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+        {/* Sales & Purchases Weekly Trend Chart */}
+        <div className="lg:col-span-2 pro-card p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <div>
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-teal-600" />
-                Sales & Purchases Trend (Last 7 Days)
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-teal-700" />
+                Sales &amp; Purchases Trend (Last 7 Days)
               </h3>
-              <p className="text-xs text-slate-500">
-                Daily turnover vs vendor stock purchases in PKR
+              <p className="text-xs text-slate-500 mt-0.5">
+                Daily turnover vs vendor stock purchases ({settings.currency})
               </p>
             </div>
-            <div className="flex items-center gap-3 text-xs">
-              <span className="flex items-center gap-1.5 text-slate-700">
-                <span className="w-3 h-3 rounded-xs bg-teal-500"></span> Sales
+            <div className="flex items-center gap-4 text-xs">
+              <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+                <span className="w-2.5 h-2.5 rounded-xs bg-teal-600" /> Sales
               </span>
-              <span className="flex items-center gap-1.5 text-slate-700">
-                <span className="w-3 h-3 rounded-xs bg-indigo-400"></span> Purchases
+              <span className="flex items-center gap-1.5 text-slate-700 font-medium">
+                <span className="w-2.5 h-2.5 rounded-xs bg-slate-300" /> Purchases
               </span>
             </div>
           </div>
 
-          {/* SVG Bar Chart with values */}
-          <div className="h-64 flex items-end gap-2 sm:gap-4 pt-6 pb-2 px-2 border-b border-slate-100">
+          <div className="h-56 sm:h-64 flex items-end gap-1.5 sm:gap-4 pt-6 pb-2 px-1 sm:px-2 border-b border-slate-100">
             {last7DaysTrend.map((d, index) => {
-              const salesHeight = maxTrendVal > 0 ? (d.sales / maxTrendVal) * 180 : 0;
-              const purchHeight = maxTrendVal > 0 ? (d.purchases / maxTrendVal) * 180 : 0;
+              const salesHeight = maxTrendVal > 0 ? (d.sales / maxTrendVal) * 165 : 0;
+              const purchHeight = maxTrendVal > 0 ? (d.purchases / maxTrendVal) * 165 : 0;
 
               return (
-                <div key={index} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+                <div key={index} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group min-w-0">
                   <div className="flex items-end gap-1 w-full justify-center">
-                    {/* Sales Bar */}
                     <div
                       style={{ height: `${Math.max(salesHeight, 6)}px` }}
-                      className="w-1/2 max-w-[20px] rounded-t-md bg-teal-500 group-hover:bg-teal-600 transition-all relative flex justify-center"
+                      className="w-1/2 max-w-[18px] rounded-t-md bg-teal-600 group-hover:bg-emerald-500 transition-all relative flex justify-center"
                       title={`Sales: Rs. ${d.sales.toLocaleString()}`}
                     >
                       {d.sales > 0 && (
-                        <div className="opacity-0 group-hover:opacity-100 absolute -top-8 px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap z-10 transition-opacity">
+                        <div className="opacity-0 group-hover:opacity-100 absolute -top-8 px-1.5 py-0.5 rounded bg-[#0B191E] text-white text-[10px] whitespace-nowrap z-10 transition-opacity font-mono">
                           Rs. {d.sales.toLocaleString()}
                         </div>
                       )}
                     </div>
 
-                    {/* Purchases Bar */}
                     <div
                       style={{ height: `${Math.max(purchHeight, 6)}px` }}
-                      className="w-1/2 max-w-[20px] rounded-t-md bg-indigo-300 group-hover:bg-indigo-400 transition-all relative flex justify-center"
+                      className="w-1/2 max-w-[18px] rounded-t-md bg-slate-300 group-hover:bg-slate-400 transition-all relative flex justify-center"
                       title={`Purchases: Rs. ${d.purchases.toLocaleString()}`}
                     >
                       {d.purchases > 0 && (
-                        <div className="opacity-0 group-hover:opacity-100 absolute -top-8 px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px] whitespace-nowrap z-10 transition-opacity">
+                        <div className="opacity-0 group-hover:opacity-100 absolute -top-8 px-1.5 py-0.5 rounded bg-[#0B191E] text-white text-[10px] whitespace-nowrap z-10 transition-opacity font-mono">
                           Rs. {d.purchases.toLocaleString()}
                         </div>
                       )}
                     </div>
                   </div>
-                  <span className="text-[11px] font-medium text-slate-500 mt-2 truncate">
+                  <span className="text-[10px] sm:text-[11px] font-medium text-slate-500 mt-1.5 truncate max-w-full">
                     {d.label}
                   </span>
                 </div>
@@ -718,52 +721,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
             })}
           </div>
 
-          <div className="mt-4 pt-3 flex items-center justify-between text-xs text-slate-500">
-            <span>Peak Day Volume: {formatPKR(maxTrendVal)}</span>
+          <div className="mt-3.5 pt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+            <span className="tabular-nums">Peak Volume · {formatPKR(maxTrendVal)}</span>
             <button
+              type="button"
               onClick={() => onNavigate('reports')}
-              className="text-teal-600 hover:text-teal-700 font-semibold flex items-center gap-1"
+              className="text-teal-700 hover:text-teal-800 font-bold flex items-center gap-1"
             >
-              Detailed Financial Report <ChevronRight className="w-3.5 h-3.5" />
+              Detailed Report <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Top 7 Best-Selling Formulations */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        {/* Best-Selling Medicines */}
+        <div className="pro-card p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-emerald-600" />
-                Best-Selling Medicines
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
+                Best-Selling Items
               </h3>
-              <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
-                Volume
-              </span>
+              <span className="text-[11px] text-slate-400 font-semibold">Volume</span>
             </div>
             <p className="text-xs text-slate-500 mb-4">
-              Highest turnover medicines dispensed at counter
+              Highest turnover formulations at counter
             </p>
 
             <div className="space-y-3">
               {topSellingMedicines.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">No sales recorded yet</p>
+                <p className="text-xs text-slate-400 text-center py-8">No sales recorded yet</p>
               ) : (
                 topSellingMedicines.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] flex items-center justify-center shrink-0">
-                        #{idx + 1}
+                  <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 font-bold text-[11px] flex items-center justify-center shrink-0 tabular-nums">
+                        {idx + 1}
                       </span>
                       <span className="font-semibold text-slate-800 truncate">
                         {item.name}
                       </span>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 tabular-nums">
                       <span className="font-bold text-slate-900 block">
                         {item.quantity} sold
                       </span>
-                      <span className="text-[10px] text-emerald-600">
+                      <span className="text-[10px] text-emerald-700 font-mono">
                         {formatPKR(item.revenue)}
                       </span>
                     </div>
@@ -775,34 +777,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
 
           <div className="mt-4 pt-3 border-t border-slate-100">
             <button
+              type="button"
               onClick={() => onNavigate('reports')}
-              className="w-full text-center text-xs font-semibold text-teal-600 hover:text-teal-700"
+              className="w-full py-1.5 text-center text-xs font-bold text-teal-700 hover:text-teal-800"
             >
-              Analyze All Formulation Sales →
+              Analyze All Formulations &rarr;
             </button>
           </div>
         </div>
       </div>
 
       {/* Row 4: Category Distribution & Staff Performance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Category-Wise Stock Breakdown */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <PieIcon className="w-5 h-5 text-indigo-600" />
-                Category-Wise Stock Distribution
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                <PieIcon className="w-4 h-4 sm:w-5 sm:h-5 text-teal-700" />
+                Category Stock Distribution
               </h3>
-              <p className="text-xs text-slate-500">
-                Inventory valuation by medical category
-              </p>
+              <p className="text-xs text-slate-500">Inventory valuation by category</p>
             </div>
             <button
+              type="button"
               onClick={() => onNavigate('inventory')}
-              className="text-xs text-teal-600 font-medium hover:underline"
+              className="text-xs text-teal-700 font-bold hover:underline shrink-0"
             >
-              Manage Catalog
+              Catalog
             </button>
           </div>
 
@@ -812,11 +813,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
               const percent = Math.min(100, Math.round((cat.value / totalVal) * 100));
 
               return (
-                <div key={idx} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-800">{cat.name}</span>
-                    <span className="text-slate-500">
-                      {cat.count} units ({formatPKR(cat.value)})
+                <div key={idx} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="font-semibold text-slate-800 truncate">{cat.name}</span>
+                    <span className="text-slate-500 shrink-0 tabular-nums font-mono text-[11px]">
+                      {cat.count} units · {formatPKR(cat.value)}
                     </span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden flex">
@@ -824,14 +825,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                       style={{ width: `${percent}%` }}
                       className={`h-full rounded-full ${
                         idx === 0
-                          ? 'bg-teal-500'
+                          ? 'bg-emerald-500'
                           : idx === 1
-                          ? 'bg-indigo-500'
+                          ? 'bg-teal-600'
                           : idx === 2
-                          ? 'bg-amber-500'
+                          ? 'bg-sky-500'
                           : idx === 3
-                          ? 'bg-cyan-500'
-                          : 'bg-emerald-500'
+                          ? 'bg-amber-500'
+                          : 'bg-slate-500'
                       }`}
                     />
                   </div>
@@ -841,46 +842,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
           </div>
         </div>
 
-        {/* Staff Sales Performance */}
-        <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <div className="pro-card p-4 sm:p-5 rounded-2xl">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <Users className="w-5 h-5 text-teal-600" />
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-teal-700" />
                 Staff Sales Performance
               </h3>
-              <p className="text-xs text-slate-500">
-                Revenue generated by dispensers & counter cashiers
-              </p>
+              <p className="text-xs text-slate-500">Revenue by dispensers &amp; cashiers</p>
             </div>
             <button
+              type="button"
               onClick={() => onNavigate('staff')}
-              className="text-xs text-teal-600 font-medium hover:underline"
+              className="text-xs text-teal-700 font-bold hover:underline shrink-0"
             >
               Staff Portal
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {staffPerformance.map((staff, idx) => (
               <div
                 key={idx}
-                className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between"
+                className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between gap-3"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-800 font-bold text-xs flex items-center justify-center">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-[#0B191E] text-emerald-300 font-bold text-xs flex items-center justify-center shrink-0">
                     {(staff.name || 'S').charAt(0)}
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800">{staff.name || 'Staff'}</h4>
-                    <p className="text-[11px] text-slate-500">{staff.count} transactions completed</p>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-slate-900 truncate">{staff.name || 'Staff'}</h4>
+                    <p className="text-[11px] text-slate-500">{staff.count} transactions</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-slate-900">
+                <div className="text-right shrink-0 tabular-nums">
+                  <div className="text-sm font-extrabold text-slate-900 font-mono">
                     {formatPKR(staff.totalSales)}
                   </div>
-                  <span className="text-[10px] text-emerald-600 font-medium">Recorded Volume</span>
+                  <span className="text-[10px] text-emerald-700 font-semibold">Recorded</span>
                 </div>
               </div>
             ))}
@@ -888,48 +887,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
         </div>
       </div>
 
-      {/* Row 5: Recent Store Activities Audit Trail */}
-      <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-        <div className="flex items-center justify-between mb-4">
+      {/* Row 5: Live Activity & Audit Trail */}
+      <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div>
-            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-              <Layers className="w-5 h-5 text-slate-700" />
-              Live Activity & Audit Log
+            <h3 className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+              <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-slate-700" />
+              Live Activity &amp; Audit Log
             </h3>
             <p className="text-xs text-slate-500">
-              Complete traceable record of sales, purchases, stock adjustments, and staff logins
+              Traceable record of sales, purchases, adjustments &amp; logins
             </p>
           </div>
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Real-time Sync
-          </span>
+          <span className="text-xs font-semibold text-emerald-700">Real-time Database Sync</span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile Audit Cards (<768px) */}
+        <div className="md:hidden space-y-2.5">
+          {(auditLogs || []).slice(0, 6).map(log => {
+            const actionStr = String(log?.action || 'ACTIVITY');
+            return (
+              <div
+                key={log.id}
+                className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/70 space-y-1.5 text-xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      actionStr.includes('SALE')
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : actionStr.includes('PURCHASE')
+                        ? 'bg-sky-100 text-sky-800'
+                        : actionStr.includes('ADJUST')
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-slate-200 text-slate-800'
+                    }`}
+                  >
+                    {actionStr}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">{log.timestamp || ''}</span>
+                </div>
+                <p className="text-slate-700 leading-snug">{log.description || ''}</p>
+                <p className="text-[11px] font-semibold text-slate-500">
+                  By {log.userName || 'System'}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop Table (>=768px) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 font-semibold">
+              <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
                 <th className="py-2.5 px-3">Timestamp</th>
                 <th className="py-2.5 px-3">Action Type</th>
                 <th className="py-2.5 px-3">User</th>
-                <th className="py-2.5 px-3">Description & Impact</th>
+                <th className="py-2.5 px-3">Description &amp; Impact</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {(auditLogs || []).slice(0, 6).map(log => {
                 const actionStr = String(log?.action || 'ACTIVITY');
                 return (
-                  <tr key={log.id} className="hover:bg-slate-50/50">
+                  <tr key={log.id} className="hover:bg-slate-50/60">
                     <td className="py-2.5 px-3 whitespace-nowrap text-slate-500 font-mono text-[11px]">
                       {log.timestamp || ''}
                     </td>
                     <td className="py-2.5 px-3 whitespace-nowrap">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                           actionStr.includes('SALE')
                             ? 'bg-emerald-100 text-emerald-800'
                             : actionStr.includes('PURCHASE')
-                            ? 'bg-blue-100 text-blue-800'
+                            ? 'bg-sky-100 text-sky-800'
                             : actionStr.includes('ADJUST')
                             ? 'bg-amber-100 text-amber-800'
                             : 'bg-slate-100 text-slate-800'
@@ -938,7 +970,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
                         {actionStr}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap font-medium text-slate-800">
+                    <td className="py-2.5 px-3 whitespace-nowrap font-semibold text-slate-800">
                       {log.userName || 'System'}
                     </td>
                     <td className="py-2.5 px-3 text-slate-700">

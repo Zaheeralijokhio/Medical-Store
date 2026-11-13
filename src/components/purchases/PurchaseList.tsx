@@ -84,28 +84,28 @@ export const PurchaseList: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card p-4">
         <div>
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-            <Truck className="w-5 h-5 text-teal-600" />
-            Supplier Purchases & Inventory Restocking
+            <Truck className="w-5 h-5 text-[#0F766E]" />
+            Supplier Purchases &amp; Inventory Restocking
           </h3>
           <p className="text-xs text-slate-500">
             Track vendor purchase bills, stock arrival, and outstanding supplier payments
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors min-h-[42px]"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
           </button>
 
           <button
             onClick={() => setShowNewModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shadow-xs transition-colors min-h-[42px]"
           >
             <Plus className="w-4 h-4" /> Record New Purchase
           </button>
@@ -114,48 +114,48 @@ export const PurchaseList: React.FC = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="p-4 pro-card">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Total Inflow Purchases
           </span>
-          <h4 className="text-xl font-black text-slate-900 mt-1">
+          <h4 className="text-xl font-black text-slate-900 mt-1 tabular-nums">
             {formatPKR(totalPurchased)}
           </h4>
-          <span className="text-[10px] text-slate-400">{purchases.length} supplier orders</span>
+          <span className="text-[11px] text-slate-400">{purchases.length} supplier orders</span>
         </div>
 
-        <div className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="p-4 pro-card">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Total Paid to Vendors
           </span>
-          <h4 className="text-xl font-black text-emerald-700 mt-1">
+          <h4 className="text-xl font-black text-emerald-700 mt-1 tabular-nums">
             {formatPKR(totalPaid)}
           </h4>
-          <span className="text-[10px] text-slate-400">Cleared through banking & cash</span>
+          <span className="text-[11px] text-slate-400">Cleared through banking &amp; cash</span>
         </div>
 
-        <div className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="p-4 pro-card">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Outstanding Vendor Payable
           </span>
-          <h4 className="text-xl font-black text-rose-700 mt-1">
+          <h4 className="text-xl font-black text-rose-700 mt-1 tabular-nums">
             {formatPKR(totalPending)}
           </h4>
-          <span className="text-[10px] text-slate-400">Due for credit purchases</span>
+          <span className="text-[11px] text-slate-400">Due for credit purchases</span>
         </div>
       </div>
 
       {/* Filters Bar */}
-      <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="p-4 pro-card space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search PO #, supplier, medicine..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 min-h-[40px]"
             />
           </div>
 
@@ -163,7 +163,7 @@ export const PurchaseList: React.FC = () => {
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white font-semibold"
+              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white font-semibold min-h-[40px]"
             >
               <option value="All">All Payment Statuses</option>
               <option value="Paid">Fully Paid</option>
@@ -174,8 +174,85 @@ export const PurchaseList: React.FC = () => {
         </div>
       </div>
 
-      {/* Purchases Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* MOBILE PURCHASE CARDS (<768px) */}
+      <div className="md:hidden space-y-3">
+        {filteredPurchases.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 pro-card">
+            <Truck className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-xs">No purchase orders found matching your search.</p>
+          </div>
+        ) : (
+          filteredPurchases.map(p => (
+            <div key={p.id} className="pro-card p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="font-mono font-bold text-xs text-[#0F766E] block">
+                    {p.purchaseNumber}
+                  </span>
+                  <h4 className="font-bold text-sm text-slate-900 truncate mt-0.5">
+                    {p.supplierName}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    {p.purchaseDate} · Bill #{p.invoiceNumber}
+                  </p>
+                </div>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                    p.paymentStatus === 'Paid'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : p.paymentStatus === 'Partial'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-rose-100 text-rose-800'
+                  }`}
+                >
+                  {p.paymentStatus}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 tabular-nums">
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Total</span>
+                  <strong className="font-mono text-slate-900">{formatPKR(p.totalAmount)}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Paid</span>
+                  <strong className="font-mono text-emerald-700">{formatPKR(p.paidAmount)}</strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">Balance</span>
+                  <strong className="font-mono text-rose-700">
+                    {p.balanceAmount > 0 ? formatPKR(p.balanceAmount) : 'Rs. 0'}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {p.balanceAmount > 0 && (
+                  <button
+                    onClick={() => {
+                      setPayingPurchaseId(p.id);
+                      setPaymentAmount(p.balanceAmount);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs min-h-[42px] transition-colors"
+                  >
+                    Pay Balance
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedPurchaseDetails(p)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs flex items-center justify-center gap-1.5 min-h-[42px] transition-colors"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>View Items ({p.items.length})</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* DESKTOP PURCHASES TABLE (>=768px) */}
+      <div className="hidden md:block pro-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
@@ -202,7 +279,7 @@ export const PurchaseList: React.FC = () => {
               ) : (
                 filteredPurchases.map(p => (
                   <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-3 font-mono font-bold text-teal-800">
+                    <td className="py-3 px-3 font-mono font-bold text-[#0F766E]">
                       {p.purchaseNumber}
                     </td>
                     <td className="py-3 px-3 font-mono text-[11px] text-slate-600">
@@ -217,13 +294,13 @@ export const PurchaseList: React.FC = () => {
                     <td className="py-3 px-3 text-center font-semibold">
                       {p.items.length} item{p.items.length !== 1 ? 's' : ''}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                    <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-slate-900">
                       {formatPKR(p.totalAmount)}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono text-emerald-700 font-semibold">
+                    <td className="py-3 px-3 text-right font-mono tabular-nums text-emerald-700 font-semibold">
                       {formatPKR(p.paidAmount)}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold text-rose-700">
+                    <td className="py-3 px-3 text-right font-mono tabular-nums font-bold text-rose-700">
                       {p.balanceAmount > 0 ? formatPKR(p.balanceAmount) : '-'}
                     </td>
                     <td className="py-3 px-3 text-center">
@@ -247,14 +324,14 @@ export const PurchaseList: React.FC = () => {
                               setPayingPurchaseId(p.id);
                               setPaymentAmount(p.balanceAmount);
                             }}
-                            className="px-2 py-1 rounded bg-teal-50 hover:bg-teal-100 text-teal-800 font-semibold text-[11px]"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#0F766E] font-semibold text-[11px]"
                           >
                             Pay Balance
                           </button>
                         )}
                         <button
                           onClick={() => setSelectedPurchaseDetails(p)}
-                          className="p-1 text-slate-400 hover:text-slate-700 rounded"
+                          className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />

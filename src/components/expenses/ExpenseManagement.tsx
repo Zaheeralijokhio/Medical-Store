@@ -168,10 +168,10 @@ export const ExpenseManagement: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card p-4">
         <div>
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-            <WalletCards className="w-5 h-5 text-teal-600" />
+            <WalletCards className="w-5 h-5 text-[#0F766E]" />
             Pharmacy Operational Expenses
           </h3>
           <p className="text-xs text-slate-500">
@@ -179,17 +179,17 @@ export const ExpenseManagement: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors min-h-[42px]"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
           </button>
 
           <button
             onClick={handleOpenAdd}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shadow-xs transition-colors min-h-[42px]"
           >
             <Plus className="w-4 h-4" /> Add New Expense
           </button>
@@ -198,47 +198,47 @@ export const ExpenseManagement: React.FC = () => {
 
       {/* KPI Cards: Daily, Monthly, Yearly Auto-Calculated */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="p-4 pro-card">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-            Today's Daily Expenses
+            Today&apos;s Daily Expenses
           </span>
-          <h4 className="text-xl font-black text-slate-900 mt-1">
+          <h4 className="text-xl font-black text-slate-900 mt-1 tabular-nums">
             {formatPKR(stats.daily)}
           </h4>
-          <span className="text-[10px] text-slate-400">Current working day outgo</span>
+          <span className="text-[11px] text-slate-400">Current working day outgo</span>
         </div>
 
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="p-4 pro-card">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Current Month Expenses
           </span>
-          <h4 className="text-xl font-black text-teal-800 mt-1">
+          <h4 className="text-xl font-black text-[#0F766E] mt-1 tabular-nums">
             {formatPKR(stats.monthly)}
           </h4>
-          <span className="text-[10px] text-slate-400">Rent, electricity, staff salaries, internet</span>
+          <span className="text-[11px] text-slate-400">Rent, electricity, staff salaries, internet</span>
         </div>
 
-        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs">
+        <div className="p-4 pro-card">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Year-to-Date (YTD) Total
           </span>
-          <h4 className="text-xl font-black text-slate-900 mt-1">
+          <h4 className="text-xl font-black text-slate-900 mt-1 tabular-nums">
             {formatPKR(stats.yearly)}
           </h4>
-          <span className="text-[10px] text-slate-400">Cumulative store operational overhead</span>
+          <span className="text-[11px] text-slate-400">Cumulative store operational overhead</span>
         </div>
       </div>
 
       {/* Search & Category Filter */}
-      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="p-3.5 pro-card grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search expense description, receipt voucher..."
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 min-h-[40px]"
           />
         </div>
 
@@ -246,23 +246,68 @@ export const ExpenseManagement: React.FC = () => {
           <select
             value={selectedCategory}
             onChange={e => setSelectedCategory(e.target.value)}
-            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white font-medium"
+            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white font-medium min-h-[40px]"
           >
             <option value="All">All Expense Categories</option>
             <option value="Shop Rent">Shop Rent</option>
             <option value="Electricity">Electricity (K-Electric / AC)</option>
             <option value="Employee Salaries">Employee Salaries</option>
             <option value="Internet">Internet / POS Backup</option>
-            <option value="Transportation">Transportation & Couriers</option>
-            <option value="Maintenance">Maintenance & Refrigeration</option>
-            <option value="Licensing & Taxes">Licensing & Taxes</option>
+            <option value="Transportation">Transportation &amp; Couriers</option>
+            <option value="Maintenance">Maintenance &amp; Refrigeration</option>
+            <option value="Licensing & Taxes">Licensing &amp; Taxes</option>
             <option value="Other Expenses">Other Expenses</option>
           </select>
         </div>
       </div>
 
-      {/* Expenses Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* MOBILE EXPENSE CARDS (<768px) */}
+      <div className="md:hidden space-y-3">
+        {filteredExpenses.length === 0 ? (
+          <div className="py-12 text-center text-slate-400 pro-card">
+            <WalletCards className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            <p className="text-xs">No expense records matching the selected filter.</p>
+          </div>
+        ) : (
+          filteredExpenses.map(exp => (
+            <div key={exp.id} className="pro-card p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    {getCategoryIcon(exp.category)}
+                    <span>{exp.category}</span>
+                  </div>
+                  <p className="text-xs text-slate-700 mt-1">{exp.description}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                    {exp.date} · {exp.paymentMethod} · {exp.addedByName}
+                  </p>
+                </div>
+                <span className="font-mono font-black text-base text-rose-700 tabular-nums shrink-0">
+                  {formatPKR(exp.amount)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  onClick={() => handleOpenEdit(exp)}
+                  className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 min-h-[40px]"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Edit
+                </button>
+                <button
+                  onClick={() => deleteExpense(exp.id)}
+                  className="flex-1 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center justify-center gap-1.5 min-h-[40px]"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* DESKTOP EXPENSES TABLE (>=768px) */}
+      <div className="hidden md:block pro-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
@@ -310,21 +355,21 @@ export const ExpenseManagement: React.FC = () => {
                     <td className="py-3 px-3 font-mono text-[10px] text-slate-400">
                       {exp.receiptRef || '-'}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-black text-rose-700 text-sm">
+                    <td className="py-3 px-3 text-right font-mono tabular-nums font-black text-rose-700 text-sm">
                       {formatPKR(exp.amount)}
                     </td>
                     <td className="py-3 px-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleOpenEdit(exp)}
-                          className="p-1 text-slate-400 hover:text-indigo-600 rounded"
+                          className="p-1.5 text-slate-400 hover:text-[#0F766E] rounded-lg"
                           title="Edit Expense"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => deleteExpense(exp.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
                           title="Delete Expense"
                         >
                           <Trash2 className="w-4 h-4" />

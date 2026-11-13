@@ -96,8 +96,8 @@ const MainAppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Dark Sidebar */}
+    <div className="min-h-screen bg-[#F2F6F8] flex overflow-x-hidden">
+      {/* Botanical Obsidian Sidebar */}
       <Sidebar
         currentTab={activeTab}
         onSelectTab={setCurrentTab}
@@ -106,21 +106,25 @@ const MainAppContent: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
+      <div className="flex-1 lg:pl-[264px] flex flex-col min-w-0">
         <TopNavbar
           currentTab={activeTab}
           onNavigate={setCurrentTab}
           onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
         />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-20 lg:pb-8">
+        <main
+          className={`flex-1 px-3.5 py-4 sm:p-6 lg:p-7 max-w-[1400px] w-full mx-auto ${
+            activeTab === 'pos' ? 'pb-36 lg:pb-8' : 'pb-24 lg:pb-8'
+          }`}
+        >
           <ErrorBoundary>
             {renderActiveView()}
           </ErrorBoundary>
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation Bar (<768px) */}
+      {/* Mobile Bottom Navigation Bar (<1024px) */}
       <MobileBottomBar
         currentTab={activeTab}
         onSelectTab={setCurrentTab}

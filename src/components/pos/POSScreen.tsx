@@ -500,7 +500,7 @@ export const POSScreen: React.FC = () => {
         {/* Left Column (7 Cols): Medicine Search & Multi-Select Inventory Catalog */}
         <div className="lg:col-span-7 space-y-4">
           {/* Barcode & Search Bar */}
-          <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <div className="p-4 pro-card space-y-3">
             <div className="flex flex-col sm:flex-row gap-2">
               {/* Name/Generic Search */}
               <div className="relative flex-1">
@@ -511,12 +511,12 @@ export const POSScreen: React.FC = () => {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search brand, generic (e.g. Paracetamol), strength or barcode..."
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-9 pr-8 py-2.5 bg-slate-50/90 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 min-h-[42px]"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -525,32 +525,32 @@ export const POSScreen: React.FC = () => {
 
               {/* Barcode Scanner Simulator Input */}
               <form onSubmit={handleBarcodeSubmit} className="relative sm:w-56">
-                <Barcode className="w-4 h-4 text-teal-600 absolute left-3 top-3" />
+                <Barcode className="w-4 h-4 text-[#0F766E] absolute left-3 top-3" />
                 <input
                   type="text"
                   value={barcodeInput}
                   onChange={e => setBarcodeInput(e.target.value)}
                   placeholder="Scan barcode [Enter]"
-                  className="w-full pl-9 pr-12 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+                  className="w-full pl-9 pr-14 py-2.5 bg-slate-50/90 border border-slate-200 rounded-xl text-xs font-mono focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 min-h-[42px]"
                 />
                 <button
                   type="submit"
-                  className="absolute right-1 top-1 px-2 py-1 rounded-lg bg-teal-600 text-white text-[10px] font-bold"
+                  className="absolute right-1.5 top-1.5 px-2.5 py-1.5 rounded-lg bg-[#0F766E] hover:bg-[#0D655E] text-white text-[10px] font-bold transition-colors"
                 >
                   Add
                 </button>
               </form>
             </div>
 
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            {/* Category Filter Tabs */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 text-xs">
               {categories.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors min-h-[34px] cursor-pointer ${
                     selectedCategory === cat
-                      ? 'bg-teal-600 text-white'
+                      ? 'bg-[#0B191E] text-emerald-300 shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -562,16 +562,16 @@ export const POSScreen: React.FC = () => {
 
           {/* Sticky Multi-Select Action Banner when multiple items are checked */}
           {selectedEntries.length > 0 && (
-            <div className="p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg border border-teal-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+            <div className="p-3.5 bg-[#0B191E] text-white rounded-2xl shadow-lg border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-teal-500 text-slate-950 font-black flex items-center justify-center text-sm">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-sm shrink-0">
                   {selectedEntries.length}
                 </div>
                 <div>
                   <p className="text-xs font-bold text-white">
                     {selectedEntries.length} Medicine{selectedEntries.length !== 1 ? 's' : ''} Selected for Sale
                   </p>
-                  <p className="text-[11px] text-teal-300 font-mono">
+                  <p className="text-[11px] text-emerald-300 font-mono tabular-nums">
                     Fixed Inventory Total: <strong>{formatPKR(multiSelectTotalAmount)}</strong>
                   </p>
                 </div>
@@ -581,46 +581,46 @@ export const POSScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setMultiSelected({})}
-                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                  className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-semibold transition-colors min-h-[38px]"
                 >
                   Clear
                 </button>
                 <button
                   type="button"
                   onClick={handleAddAllSelectedToCart}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs shadow-md transition-all"
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-md transition-all min-h-[38px]"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  <span>Add All {selectedEntries.length} Selected to Bill</span>
+                  <span>Add {selectedEntries.length} to Bill</span>
                 </button>
               </div>
             </div>
           )}
 
           {/* Medicines Grid / Catalog */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100 text-xs text-slate-500">
+          <div className="pro-card p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-100 text-xs text-slate-500">
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleSelectAllVisible}
-                  className="flex items-center gap-1.5 font-semibold text-slate-700 hover:text-teal-700"
+                  className="flex items-center gap-1.5 font-semibold text-slate-700 hover:text-[#0F766E] min-h-[34px]"
                 >
                   {selectableFilteredMedicines.length > 0 &&
                   selectableFilteredMedicines.every(m => !!multiSelected[m.id]) ? (
-                    <CheckSquare className="w-4 h-4 text-teal-600" />
+                    <CheckSquare className="w-4 h-4 text-[#0F766E]" />
                   ) : (
                     <Square className="w-4 h-4 text-slate-400" />
                   )}
-                  <span>Select Multiple to Sell ({filteredMedicines.length})</span>
+                  <span>Select Multiple ({filteredMedicines.length})</span>
                 </button>
               </div>
-              <span className="font-semibold text-teal-700 flex items-center gap-1">
-                <Lock className="w-3 h-3" /> Fixed Inventory Price • FEFO Active
+              <span className="font-semibold text-[#0F766E] flex items-center gap-1">
+                <Lock className="w-3 h-3" /> Fixed Price · FEFO Active
               </span>
             </div>
 
-            <div className="max-h-[540px] overflow-y-auto space-y-2 pr-1">
+            <div className="max-h-[540px] overflow-y-auto no-scrollbar space-y-2">
               {filteredMedicines.length === 0 ? (
                 <div className="py-16 text-center text-slate-400">
                   <Pill className="w-10 h-10 mx-auto mb-2 opacity-30" />
@@ -817,15 +817,15 @@ export const POSScreen: React.FC = () => {
 
         {/* Right Column (5 Cols): POS Cart, Customer Details & Cashier Checkout */}
         <div id="pos-cart-section" className="lg:col-span-5 space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="pro-card overflow-hidden">
             {/* Cart Header */}
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="p-4 bg-[#0B191E] text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-teal-400" />
+                <ShoppingCart className="w-5 h-5 text-emerald-400" />
                 <h3 className="font-bold text-sm text-white">
                   Active Billing Cart
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-teal-500 text-slate-950">
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500 text-slate-950 tabular-nums">
                   {cart.length} item{cart.length !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -833,7 +833,7 @@ export const POSScreen: React.FC = () => {
               {cart.length > 0 && (
                 <button
                   onClick={clearCart}
-                  className="text-xs text-rose-300 hover:text-rose-100 flex items-center gap-1 font-semibold"
+                  className="text-xs text-rose-300 hover:text-rose-100 flex items-center gap-1 font-semibold px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Clear Cart
                 </button>
@@ -893,78 +893,82 @@ export const POSScreen: React.FC = () => {
             </div>
 
             {/* Cart Items List */}
-            <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 p-2">
+            <div className="max-h-72 overflow-y-auto no-scrollbar divide-y divide-slate-100 p-2">
               {cart.length === 0 ? (
                 <div className="py-12 text-center text-slate-400">
                   <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs">
-                    Tick multiple medicines on the left and click &quot;Add All Selected to Bill&quot;, or tap + Add.
+                  <p className="text-xs px-4">
+                    Tick multiple medicines on the left and click &quot;Add to Bill&quot;, or tap + Add.
                   </p>
                 </div>
               ) : (
                 cart.map((item, index) => (
                   <div
                     key={`${item.medicine.id}-${item.selectedBatch.id}`}
-                    className="p-2.5 flex items-center justify-between gap-2 hover:bg-slate-50 rounded-lg"
+                    className="p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-slate-50 rounded-xl"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 truncate">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-bold text-xs text-slate-900 truncate">
                           {item.medicine.name}
                         </span>
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-slate-100 text-slate-600 shrink-0">
-                          {item.medicine.medicineType} ({item.medicine.packingSize})
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-100 text-slate-600 shrink-0">
+                          {item.medicine.medicineType}
                         </span>
                       </div>
-                      <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
-                        <span className="font-mono text-teal-700 font-semibold">
+                      <div className="text-[10px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                        <span className="font-mono text-[#0F766E] font-semibold">
                           Batch: {item.selectedBatch.batchNumber}
                         </span>
-                        <span>•</span>
+                        <span>·</span>
                         <span>Exp: {item.selectedBatch.expiryDate}</span>
                       </div>
-                      <div className="text-[11px] font-mono font-bold text-teal-800 mt-0.5 flex items-center gap-1">
-                        <Lock className="w-2.5 h-2.5 text-teal-600" />
-                        <span>Fixed Price: {formatPKR(item.unitPrice)} / unit</span>
+                      <div className="text-[11px] font-mono tabular-nums font-bold text-[#0F766E] mt-0.5 flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>{formatPKR(item.unitPrice)} / unit</span>
                       </div>
                     </div>
 
                     {/* Qty +/- & Delete */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => updateCartQty(index, item.quantity - 1)}
-                        className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
+                    <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => updateCartQty(index, item.quantity - 1)}
+                          className="w-8 h-8 sm:w-6 sm:h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs"
+                        >
+                          <Minus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                        </button>
 
-                      <input
-                        type="number"
-                        min="1"
-                        max={item.selectedBatch.quantity}
-                        value={item.quantity}
-                        onChange={e => updateCartQty(index, parseInt(e.target.value) || 1)}
-                        className="w-12 py-0.5 text-center font-bold text-xs bg-slate-50 border border-slate-200 rounded"
-                      />
+                        <input
+                          type="number"
+                          min="1"
+                          max={item.selectedBatch.quantity}
+                          value={item.quantity}
+                          onChange={e => updateCartQty(index, parseInt(e.target.value) || 1)}
+                          className="w-12 py-1 text-center font-bold text-xs bg-slate-50 border border-slate-200 rounded-lg tabular-nums"
+                        />
 
-                      <button
-                        onClick={() => updateCartQty(index, item.quantity + 1)}
-                        className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-
-                      <div className="w-16 text-right font-mono font-bold text-xs text-slate-900">
-                        {formatPKR(item.unitPrice * item.quantity)}
+                        <button
+                          onClick={() => updateCartQty(index, item.quantity + 1)}
+                          className="w-8 h-8 sm:w-6 sm:h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
+                        </button>
                       </div>
 
-                      <button
-                        onClick={() => removeFromCart(index)}
-                        className="text-slate-400 hover:text-rose-600 p-1"
-                        title="Remove"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-16 text-right font-mono tabular-nums font-bold text-xs text-slate-900">
+                          {formatPKR(item.unitPrice * item.quantity)}
+                        </div>
+
+                        <button
+                          onClick={() => removeFromCart(index)}
+                          className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50"
+                          title="Remove"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -1021,16 +1025,16 @@ export const POSScreen: React.FC = () => {
               )}
 
               {/* Grand Total Bar */}
-              <div className="p-3 rounded-xl bg-teal-800 text-white flex items-center justify-between shadow-xs">
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#0B191E] to-[#114842] text-white flex items-center justify-between shadow-sm">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-teal-200 block">
+                  <span className="text-[10px] uppercase font-bold text-emerald-300 block tracking-wider">
                     Total Payable
                   </span>
-                  <span className="text-xl font-black font-mono tracking-tight">
+                  <span className="text-xl font-black font-mono tabular-nums tracking-tight">
                     {formatPKR(grandTotal)}
                   </span>
                 </div>
-                <div className="text-right text-[11px] text-teal-200 font-mono">
+                <div className="text-right text-[11px] text-emerald-200 font-mono tabular-nums">
                   {cart.length} item(s)
                 </div>
               </div>
@@ -1040,7 +1044,7 @@ export const POSScreen: React.FC = () => {
                 <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1.5">
                   Select Payment Method:
                 </label>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 text-[11px]">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 text-[11px]">
                   {(
                     ['Cash', 'Card', 'Bank Transfer', 'EasyPaisa', 'JazzCash', 'Credit'] as PaymentMethod[]
                   ).map(method => (
@@ -1048,11 +1052,11 @@ export const POSScreen: React.FC = () => {
                       key={method}
                       type="button"
                       onClick={() => setPaymentMethod(method)}
-                      className={`py-1.5 px-1 rounded-lg font-bold text-center border transition-all ${
+                      className={`py-2 px-1 rounded-xl font-bold text-center border transition-all min-h-[38px] ${
                         paymentMethod === method
                           ? method === 'Credit'
                             ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
-                            : 'bg-teal-600 text-white border-teal-700 shadow-xs'
+                            : 'bg-[#0F766E] text-white border-[#0F766E] shadow-xs'
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
@@ -1214,18 +1218,18 @@ export const POSScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Mobile Floating Cart Summary Bar (<1024px) */}
+      {/* Mobile Floating Cart Summary Bar (<1024px) positioned above bottom nav */}
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-14 left-0 right-0 z-30 p-2.5 bg-slate-900/95 backdrop-blur-md border-t border-teal-500/50 shadow-2xl flex items-center justify-between gap-2 safe-area-pb animate-in slide-in-from-bottom-2">
-          <div className="flex items-center gap-2.5 pl-2">
-            <span className="w-8 h-8 rounded-lg bg-teal-500 text-slate-950 font-black text-xs flex items-center justify-center">
+        <div className="lg:hidden fixed bottom-[62px] left-2 right-2 z-30 p-2.5 bg-[#0B191E]/95 backdrop-blur-md border border-emerald-500/40 rounded-2xl shadow-2xl flex items-center justify-between gap-2 animate-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-2.5 pl-1.5">
+            <span className="w-8 h-8 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center tabular-nums">
               {cart.length}
             </span>
             <div>
-              <p className="text-white text-xs font-bold leading-tight font-mono">
+              <p className="text-white text-xs font-bold leading-tight font-mono tabular-nums">
                 {formatPKR(grandTotal)}
               </p>
-              <p className="text-[10px] text-teal-300">
+              <p className="text-[10px] text-emerald-300">
                 {cart.reduce((s, i) => s + i.quantity, 0)} units in cart
               </p>
             </div>
@@ -1235,7 +1239,7 @@ export const POSScreen: React.FC = () => {
             onClick={() => {
               document.getElementById('pos-cart-section')?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-md active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-4 py-2.5 min-h-[42px] bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl shadow-md active:scale-95 transition-all"
           >
             <ShoppingCart className="w-4 h-4" />
             <span>Checkout &rarr;</span>

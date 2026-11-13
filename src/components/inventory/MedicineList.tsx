@@ -94,19 +94,19 @@ const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in">
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+        <div className="p-4 bg-[#0B191E] text-white flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <PackagePlus className="w-5 h-5 text-teal-400" />
+            <PackagePlus className="w-5 h-5 text-emerald-400" />
             <div>
-              <h3 className="font-bold text-sm text-white">Add Inward Stock & Fixed Price</h3>
+              <h3 className="font-bold text-sm text-white">Add Inward Stock &amp; Fixed Price</h3>
               <p className="text-[11px] text-slate-300 truncate max-w-xs">
                 {medicine.name} ({medicine.strength})
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -486,14 +486,14 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-4">
       {/* Top Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pro-card p-4">
         <div>
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-            <Pill className="w-5 h-5 text-teal-600" />
-            Master Medicine Catalog & Fixed Price Inventory
+            <Pill className="w-5 h-5 text-[#0F766E]" />
+            Master Medicine Catalog &amp; Fixed Price Inventory
           </h3>
           <p className="text-xs text-slate-500">
-            Select multiple medicines at once to sell in POS • Fixed inventory prices auto-apply on sale
+            Select multiple medicines at once to sell in POS · Fixed inventory prices auto-apply on sale
           </p>
         </div>
 
@@ -509,7 +509,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             onClick={() => setShowImportModal(true)}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors min-h-[42px]"
           >
-            <Upload className="w-3.5 h-3.5 text-teal-600" /> Bulk Import
+            <Upload className="w-3.5 h-3.5 text-[#0F766E]" /> Bulk Import
           </button>
 
           <button
@@ -517,25 +517,25 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
               setMedicineToEdit(null);
               setShowAddEditModal(true);
             }}
-            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors min-h-[42px]"
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shadow-xs transition-colors min-h-[42px]"
           >
-            <Plus className="w-4 h-4" /> Add Medicine & Fixed Price
+            <Plus className="w-4 h-4" /> Add Medicine &amp; Fixed Price
           </button>
         </div>
       </div>
 
       {/* Multi-Select Floating / Sticky Bar when items are selected for sale */}
       {selectedList.length > 0 && (
-        <div className="sticky top-16 z-20 p-3.5 bg-slate-900 text-white rounded-2xl shadow-xl border border-teal-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+        <div className="sticky top-16 z-20 p-3.5 bg-[#0B191E] text-white rounded-2xl shadow-xl border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-teal-500 text-slate-950 font-black flex items-center justify-center text-sm">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-sm shrink-0">
               {selectedList.length}
             </div>
             <div>
               <p className="text-xs font-bold text-white">
                 {selectedList.length} Medicine{selectedList.length !== 1 ? 's' : ''} Selected for Sale
               </p>
-              <p className="text-[11px] text-teal-300 font-mono">
+              <p className="text-[11px] text-emerald-300 font-mono tabular-nums">
                 Total at Fixed Inventory Prices: <strong>{formatPKR(selectedTotalValue)}</strong>
               </p>
             </div>
@@ -545,14 +545,14 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             <button
               type="button"
               onClick={() => setSelectedForSale({})}
-              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-semibold transition-colors min-h-[40px]"
             >
               Clear Selection
             </button>
             <button
               type="button"
               onClick={handleSellSelectedNow}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs shadow-md transition-all"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-md transition-all min-h-[40px]"
             >
               <ShoppingCart className="w-4 h-4" />
               <span>Sell Selected ({selectedList.length}) in POS</span>
@@ -562,17 +562,17 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       )}
 
       {/* Search & Advanced Filters Bar */}
-      <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">
+      <div className="p-4 pro-card space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search Box */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search brand, generic, barcode..."
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 min-h-[40px]"
             />
           </div>
 
@@ -581,7 +581,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             <select
               value={selectedCategory}
               onChange={e => setSelectedCategory(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white"
+              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white min-h-[40px]"
             >
               <option value="All">All Categories</option>
               {categories
@@ -599,7 +599,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             <select
               value={selectedManufacturer}
               onChange={e => setSelectedManufacturer(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white"
+              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:bg-white min-h-[40px]"
             >
               <option value="All">All Manufacturers</option>
               {manufacturers
@@ -617,14 +617,14 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             <select
               value={selectedStatus}
               onChange={e => setSelectedStatus(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white"
+              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white min-h-[40px]"
             >
               <option value="All">All Stock Statuses</option>
-              <option value="available">🟢 Available in Stock</option>
-              <option value="low">🟡 Low Stock</option>
-              <option value="out_of_stock">🔴 Out of Stock</option>
-              <option value="near_expiry">🟠 Near Expiry (&lt;90 days)</option>
-              <option value="expired">🟣 Expired Batches</option>
+              <option value="available">Available in Stock</option>
+              <option value="low">Low Stock</option>
+              <option value="out_of_stock">Out of Stock</option>
+              <option value="near_expiry">Near Expiry (&lt;90 days)</option>
+              <option value="expired">Expired Batches</option>
             </select>
           </div>
         </div>
@@ -633,7 +633,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       {/* MOBILE TOUCH CARDS VIEW (<1024px) */}
       <div className="lg:hidden space-y-3">
         {filteredMedicines.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+          <div className="py-12 text-center text-slate-400 pro-card">
             <Pill className="w-8 h-8 mx-auto mb-2 opacity-30" />
             <p className="text-xs">No medicines matching the selected criteria.</p>
           </div>
@@ -649,8 +649,8 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
             return (
               <div
                 key={med.id}
-                className={`bg-white rounded-2xl border shadow-xs p-4 space-y-3 transition-all ${
-                  isChecked ? 'border-teal-500 bg-teal-50/20' : 'border-slate-200'
+                className={`pro-card p-4 space-y-3 transition-all ${
+                  isChecked ? '!border-emerald-500 bg-emerald-50/20' : ''
                 }`}
               >
                 {/* Header row */}
@@ -823,7 +823,7 @@ export const MedicineList: React.FC<MedicineListProps> = ({ onNavigate }) => {
       </div>
 
       {/* DESKTOP SORTABLE TABLE (>=1024px) */}
-      <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <div className="hidden lg:block pro-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>

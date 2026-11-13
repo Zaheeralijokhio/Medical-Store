@@ -236,57 +236,57 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-4xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <Truck className="w-5 h-5 text-teal-400" />
-            <div>
-              <h3 className="font-bold text-sm text-white">
-                Record Supplier Purchase & Stock Inflow
+        <div className="p-4 bg-[#0B191E] text-white flex items-center justify-between gap-2 shrink-0 border-b border-emerald-500/20">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Truck className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm text-white truncate">
+                Record Supplier Purchase &amp; Stock Inflow
               </h3>
               <p className="text-[11px] text-slate-300">
                 Increases inventory batch quantities, calculates profit margin %, and updates supplier balance
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Mode Selector Tabs */}
-        <div className="bg-slate-100 p-2 border-b border-slate-200 flex items-center gap-2">
+        <div className="bg-slate-100 p-2 border-b border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <button
             type="button"
             onClick={() => setInwardMode('existing')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 min-h-[40px] py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               inwardMode === 'existing'
-                ? 'bg-white text-teal-800 shadow-xs border border-teal-600/30'
+                ? 'bg-white text-[#0F766E] shadow-xs border border-[#0F766E]/30'
                 : 'text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <FileSpreadsheet className="w-4 h-4 text-teal-600" />
+            <FileSpreadsheet className="w-4 h-4 text-[#0F766E] shrink-0" />
             <span>Option 1: Inward Stock for Existing Medicines</span>
           </button>
 
           <button
             type="button"
             onClick={() => setInwardMode('new_formulation')}
-            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 min-h-[40px] py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               inwardMode === 'new_formulation'
-                ? 'bg-white text-teal-800 shadow-xs border border-teal-600/30'
+                ? 'bg-white text-[#0F766E] shadow-xs border border-[#0F766E]/30'
                 : 'text-slate-600 hover:bg-slate-200'
             }`}
           >
-            <PackagePlus className="w-4 h-4 text-emerald-600" />
+            <PackagePlus className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Option 2: Register New Medicine on the Fly</span>
           </button>
         </div>
 
         {/* Scrollable Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto text-xs flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto text-xs flex-1">
           {/* Supplier & Invoice Info */}
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
@@ -343,14 +343,14 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
           {/* Mode 1: Existing Medicines Table */}
           {inwardMode === 'existing' ? (
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                  Purchased Items & Batch Margin Analysis
+                  Purchased Items &amp; Batch Margin Analysis
                 </h4>
                 <button
                   type="button"
                   onClick={handleAddItem}
-                  className="flex items-center gap-1 px-3 py-1 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs"
+                  className="min-h-[36px] flex items-center gap-1 px-3 py-1.5 bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold rounded-lg text-xs"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Another Item
                 </button>
@@ -659,34 +659,34 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
           )}
 
           {/* Payment & Summary */}
-          <div className="p-4 bg-teal-50/50 border border-teal-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="text-xs text-slate-600 space-y-1">
               <div>
                 <span className="font-semibold text-slate-700">Total Purchase Amount:</span>{' '}
-                <strong className="text-base font-black text-slate-900 font-mono">
+                <strong className="text-base font-black text-slate-900 font-mono tabular-nums">
                   {formatPKR(totalPurchaseAmount)}
                 </strong>
               </div>
               {paymentStatus === 'Partial' && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span>Paid Now:</span>
                   <input
                     type="number"
                     value={paidAmount}
                     onChange={e => setPaidAmount(parseFloat(e.target.value) || 0)}
-                    className="w-28 p-1 bg-white border border-slate-300 rounded font-mono text-xs font-bold"
+                    className="w-28 p-1.5 bg-white border border-slate-300 rounded font-mono text-xs font-bold"
                   />
-                  <span>Remaining: <strong>{formatPKR(Math.max(0, totalPurchaseAmount - paidAmount))}</strong></span>
+                  <span>Remaining: <strong className="tabular-nums">{formatPKR(Math.max(0, totalPurchaseAmount - paidAmount))}</strong></span>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="font-semibold text-slate-700">Payment Mode:</label>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <label className="font-semibold text-slate-700 shrink-0">Payment Mode:</label>
               <select
                 value={paymentMethod}
                 onChange={e => setPaymentMethod(e.target.value as any)}
-                className="p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold"
+                className="flex-1 sm:flex-initial min-h-[38px] p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold"
               >
                 <option value="Bank Transfer">Bank Transfer</option>
                 <option value="Cash">Cash</option>
@@ -696,17 +696,17 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
             </div>
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700"
+              className="flex-1 min-h-[42px] py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-xs"
+              className="flex-1 min-h-[42px] py-2.5 px-3 bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold rounded-xl shadow-xs"
             >
               {inwardMode === 'existing'
                 ? 'Record Purchase & Increase Inventory Stock'

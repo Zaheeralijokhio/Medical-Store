@@ -178,28 +178,28 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-2.5 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <Pill className="w-5 h-5 text-teal-400" />
-            <div>
-              <h3 className="font-bold text-sm text-white">
+        <div className="p-4 bg-[#0B191E] text-white flex items-center justify-between gap-2 shrink-0 border-b border-emerald-500/20">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Pill className="w-5 h-5 text-emerald-400 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="font-bold text-sm text-white truncate">
                 {isEditing ? `Edit Medicine & Fixed Price: ${medicineToEdit?.name}` : 'Register New Medicine & Fixed Selling Price'}
               </h3>
               <p className="text-[11px] text-slate-300">
-                Selling price set here is fixed & automatically locked during POS counter billing
+                Selling price set here is fixed &amp; automatically locked during POS counter billing
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto text-xs">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto text-xs">
           {/* Basic Formulation Details */}
           <div>
             <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">
@@ -318,13 +318,13 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
           </div>
 
           {/* FIXED INVENTORY PRICING SECTION (Shown in BOTH Add & Edit modes) */}
-          <div className="p-4 bg-teal-50/70 border-2 border-teal-500/40 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between border-b border-teal-200/80 pb-2">
+          <div className="p-3.5 sm:p-4 bg-emerald-50/50 border-2 border-[#0F766E]/30 rounded-2xl space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/80 pb-2">
               <h4 className="font-bold text-teal-950 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-teal-700" />
+                <Lock className="w-3.5 h-3.5 text-[#0F766E]" />
                 <span>2. Fixed Inventory Price (Locked for POS Sales)</span>
               </h4>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-600 text-white">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#0F766E] text-white tabular-nums">
                 Margin: {profitMarginPct}% ({formatPKR(unitProfit)}/unit)
               </span>
             </div>
@@ -526,20 +526,20 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex gap-2 pt-3 border-t border-slate-200">
+          <div className="flex flex-col-reverse sm:flex-row gap-2 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700"
+              className="flex-1 min-h-[42px] py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5"
+              className="flex-1 min-h-[42px] py-2.5 px-3 bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{isEditing ? `Save Medicine & Fixed Price (${formatPKR(salePrice)})` : `Register Medicine at Fixed Price (${formatPKR(salePrice)})`}</span>
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span className="truncate">{isEditing ? `Save Medicine & Fixed Price (${formatPKR(salePrice)})` : `Register Medicine (${formatPKR(salePrice)})`}</span>
             </button>
           </div>
         </form>

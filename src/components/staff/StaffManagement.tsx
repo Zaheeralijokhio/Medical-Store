@@ -284,25 +284,25 @@ export const StaffManagement: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Owner Authority Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 rounded-2xl border border-indigo-500/30 shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-[#0B191E] via-[#0F2A30] to-[#0B191E] text-white p-4 sm:p-5 rounded-2xl border border-emerald-500/30 shadow-md flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center shrink-0 text-indigo-300 font-black text-lg">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0 text-emerald-300 font-black text-lg">
             AR
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
                 Sole Master Owner Account
               </span>
-              <span className="text-xs text-indigo-200 font-mono">
+              <span className="text-xs text-emerald-200/90 font-mono">
                 Username: admin • Password: admin • PIN: 1234
               </span>
             </div>
             <h2 className="text-base sm:text-lg font-black tracking-tight mt-1">
-              Dr. Abdul Rehman (Owner) — Staff & Role Access Control Center
+              Dr. Abdul Rehman (Owner) — Staff &amp; Role Access Control Center
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Create accounts for staff (Seller, Pharmacist, Cashier, Manager) so they can add medicines, stock, purchases, and sales according to their role. All accounts & data auto-save to your Hostinger database.
+              Create accounts for staff (Seller, Pharmacist, Cashier, Manager) so they can add medicines, stock, purchases, and sales according to their role. All accounts &amp; data auto-save to your Hostinger database.
             </p>
           </div>
         </div>
@@ -312,7 +312,7 @@ export const StaffManagement: React.FC = () => {
             <button
               type="button"
               onClick={() => setConfirmRemoveAll(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/40 font-bold text-xs transition-all"
+              className="min-h-[42px] flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/40 font-bold text-xs transition-all"
             >
               <Trash2 className="w-4 h-4" />
               Remove All Other Accounts ({otherStaffAccounts.length})
@@ -321,7 +321,7 @@ export const StaffManagement: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenAdd}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-teal-500/20 transition-all cursor-pointer"
+            className="min-h-[42px] flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#0B191E] font-black text-xs shadow-lg shadow-emerald-500/20 transition-all cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             + Create Staff / Seller Account
@@ -410,11 +410,11 @@ export const StaffManagement: React.FC = () => {
           setQuickPassword('seller123');
           setQuickPin('5678');
         }}
-        className="bg-white p-4 rounded-2xl border-2 border-teal-500/30 shadow-xs space-y-3 text-xs"
+        className="pro-card border-2 border-[#0F766E]/25 p-4 space-y-3 text-xs"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
           <div className="flex items-center gap-2">
-            <UserPlus className="w-4 h-4 text-teal-600" />
+            <UserPlus className="w-4 h-4 text-[#0F766E]" />
             <h3 className="font-black text-slate-900 text-sm">
               Quick Create Staff / Seller Account (Auto-Saves to Database)
             </h3>
@@ -446,7 +446,7 @@ export const StaffManagement: React.FC = () => {
                 }
               }}
               placeholder="e.g. Ali Raza"
-              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-semibold"
+              className="w-full min-h-[40px] px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl font-semibold"
             />
           </div>
 
@@ -458,7 +458,7 @@ export const StaffManagement: React.FC = () => {
               value={quickUsername}
               onChange={e => setQuickUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
               placeholder="e.g. aliraza"
-              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono font-bold text-teal-900"
+              className="w-full min-h-[40px] px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl font-mono font-bold text-teal-900"
             />
           </div>
 
@@ -470,7 +470,7 @@ export const StaffManagement: React.FC = () => {
               value={quickPassword}
               onChange={e => setQuickPassword(e.target.value)}
               placeholder="seller123"
-              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono font-bold"
+              className="w-full min-h-[40px] px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl font-mono font-bold"
             />
           </div>
 
@@ -482,7 +482,7 @@ export const StaffManagement: React.FC = () => {
               value={quickPin}
               onChange={e => setQuickPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="5678"
-              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-mono font-bold tracking-widest"
+              className="w-full min-h-[40px] px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl font-mono font-bold tracking-widest"
             />
           </div>
 
@@ -491,7 +491,7 @@ export const StaffManagement: React.FC = () => {
             <select
               value={quickRole}
               onChange={e => setQuickRole(e.target.value as UserRole)}
-              className="w-full p-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-lg font-bold"
+              className="w-full min-h-[40px] px-3 py-2 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl font-bold"
             >
               <option value="staff">Seller &amp; Inventory</option>
               <option value="pharmacist">Pharmacist</option>
@@ -503,7 +503,7 @@ export const StaffManagement: React.FC = () => {
           <div className="lg:col-span-1">
             <button
               type="submit"
-              className="w-full py-2 px-3 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-black shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full min-h-[40px] py-2 px-3 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-black shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Save Staff Account</span>
@@ -514,48 +514,215 @@ export const StaffManagement: React.FC = () => {
 
       {/* Summary & Search Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div className="pro-card p-3.5 flex items-center justify-between gap-2">
           <div>
             <span className="text-[11px] font-semibold text-slate-500 block">Master Owner Account</span>
             <span className="text-sm font-black text-slate-900">Dr. Abdul Rehman</span>
           </div>
-          <span className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold text-xs border border-indigo-200">
+          <span className="px-2.5 py-1 rounded-lg bg-[#0B191E] text-emerald-300 font-bold text-xs border border-emerald-500/30 shrink-0">
             Protected Owner
           </span>
         </div>
 
-        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div className="pro-card p-3.5 flex items-center justify-between gap-2">
           <div>
             <span className="text-[11px] font-semibold text-slate-500 block">Created Staff / Seller Accounts</span>
-            <span className="text-sm font-black text-teal-700">
+            <span className="text-sm font-black text-[#0F766E] tabular-nums">
               {otherStaffAccounts.length} {otherStaffAccounts.length === 1 ? 'Account' : 'Accounts'}
             </span>
           </div>
-          <Users className="w-5 h-5 text-teal-600" />
+          <Users className="w-5 h-5 text-[#0F766E]" />
         </div>
 
-        <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs flex items-center">
+        <div className="pro-card p-2.5 flex items-center">
           <div className="relative w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search staff or seller by name, @username, role..."
-              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500"
+              className="w-full min-h-[40px] pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-600"
             />
           </div>
         </div>
       </div>
 
-      {/* Staff Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* Mobile Staff Cards */}
+      <div className="lg:hidden space-y-2.5">
+        {filteredStaff.map(staff => {
+          const stats = staffStats[staff.id] || { totalSales: 0, transactions: 0, discounts: 0 };
+          const isMasterOwner = staff.id === OWNER_ACCOUNT.id;
+          const isCurrentActive = currentUser?.id === staff.id;
+
+          return (
+            <div
+              key={staff.id}
+              className={`pro-card p-3.5 space-y-3 text-xs ${
+                isMasterOwner ? 'border-emerald-500/30 bg-emerald-50/20' : ''
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shrink-0 ${
+                      isMasterOwner
+                        ? 'bg-[#0B191E] text-emerald-300 border border-emerald-500/30'
+                        : staff.role === 'pharmacist'
+                        ? 'bg-[#0F766E] text-white'
+                        : 'bg-emerald-600 text-white'
+                    }`}
+                  >
+                    {(staff.fullName || staff.username || 'S').charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-bold text-slate-900 text-sm truncate">
+                        {staff.fullName || staff.username}
+                      </span>
+                      {isCurrentActive && (
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-slate-500 block truncate">
+                      {staff.designation}
+                    </span>
+                  </div>
+                </div>
+
+                {isMasterOwner ? (
+                  <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-[#0B191E] text-emerald-300 border border-emerald-500/30 inline-flex items-center gap-1 shrink-0">
+                    <ShieldCheck className="w-3 h-3" /> Owner
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggleStaffStatus(staff.id)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 shrink-0 ${
+                      staff.status === 'active'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}
+                  >
+                    {staff.status === 'active' ? (
+                      <>
+                        <CheckCircle2 className="w-3 h-3" /> Active
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-3 h-3" /> Off
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[11px] tabular-nums">
+                <div className="min-w-0">
+                  <span className="text-[10px] text-slate-400 block">Credentials</span>
+                  <span className="font-mono font-bold text-slate-900 block truncate">@{staff.username}</span>
+                  <span className="font-mono text-slate-600 text-[10px] block truncate">
+                    Pass: {staff.password || (isMasterOwner ? 'admin' : 'seller123')}
+                  </span>
+                  <span className="font-mono font-semibold text-[#0F766E] text-[10px]">
+                    PIN: {staff.pin || '1234'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block">Invoices</span>
+                  <span className="font-mono font-bold text-slate-900 text-sm">{stats.transactions}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 block">Total Sales</span>
+                  <span className="font-mono font-black text-[#0F766E] text-sm">{formatPKR(stats.totalSales)}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                {!isMasterOwner && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        const encoded = window.btoa(
+                          unescape(encodeURIComponent(JSON.stringify(staff)))
+                        );
+                        const url = `${window.location.origin}${window.location.pathname}?staff_token=${encodeURIComponent(encoded)}`;
+                        navigator.clipboard.writeText(url);
+                        setStatusBanner({
+                          title: `Phone / WhatsApp Login Link Copied for ${staff.fullName} (@${staff.username})`,
+                          detail: `Send this copied link on WhatsApp to ${staff.fullName} — opening it on any phone or browser automatically registers and logs in their account!`,
+                        });
+                      } catch {}
+                    }}
+                    className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-[#0F766E] hover:text-white text-[#0F766E] border border-emerald-200 font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
+                  >
+                    Copy Phone Link
+                  </button>
+                )}
+                {!isCurrentActive && staff.status === 'active' && (
+                  <button
+                    type="button"
+                    onClick={() => switchUser(staff.id)}
+                    className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-[#0F766E] hover:text-white text-slate-700 font-bold text-[11px] inline-flex items-center gap-1 transition-colors"
+                  >
+                    <LogIn className="w-3.5 h-3.5" /> Switch
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedStaffPerf(staff)}
+                  className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-[11px]"
+                >
+                  Stats
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenEdit(staff)}
+                  className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-teal-50 text-slate-700 hover:text-[#0F766E] font-bold text-[11px] inline-flex items-center gap-1"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Edit
+                </button>
+                {!isMasterOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteUser(staff)}
+                    className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white font-bold text-[11px] inline-flex items-center gap-1 ml-auto"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {otherStaffAccounts.length === 0 && (
+          <div className="pro-card p-4 bg-slate-50/70 flex flex-col gap-3">
+            <div className="text-xs text-slate-600">
+              Currently only <strong>Dr. Abdul Rehman (Owner)</strong> account exists. Tap below to add a seller, dispenser, or cashier login.
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenAdd}
+              className="min-h-[40px] w-full px-3.5 py-2 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs inline-flex items-center justify-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" /> Create First Seller Account
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Staff Table */}
+      <div className="hidden lg:block pro-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
                 <th className="py-3 px-4">Account Holder</th>
-                <th className="py-3 px-3">Role & Designation</th>
+                <th className="py-3 px-3">Role &amp; Designation</th>
                 <th className="py-3 px-3">Login Credentials</th>
                 <th className="py-3 px-3">Last Active Login</th>
                 <th className="py-3 px-3 text-right">Invoices</th>
@@ -574,18 +741,18 @@ export const StaffManagement: React.FC = () => {
                   <tr
                     key={staff.id}
                     className={`transition-colors ${
-                      isMasterOwner ? 'bg-indigo-50/30 hover:bg-indigo-50/50' : 'hover:bg-slate-50/70'
+                      isMasterOwner ? 'bg-emerald-50/30 hover:bg-emerald-50/50' : 'hover:bg-slate-50/70'
                     }`}
                   >
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black text-white shrink-0 ${
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
                             isMasterOwner
-                              ? 'bg-indigo-600 shadow-xs shadow-indigo-500/30'
+                              ? 'bg-[#0B191E] text-emerald-300 border border-emerald-500/30 shadow-xs'
                               : staff.role === 'pharmacist'
-                              ? 'bg-teal-600'
-                              : 'bg-emerald-600'
+                              ? 'bg-[#0F766E] text-white'
+                              : 'bg-emerald-600 text-white'
                           }`}
                         >
                           {(staff.fullName || staff.username || 'S').charAt(0)}
@@ -607,11 +774,11 @@ export const StaffManagement: React.FC = () => {
                     <td className="py-3.5 px-3">
                       <div className="flex items-center gap-1.5 mb-0.5">
                         {isMasterOwner ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 inline-flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#0B191E] text-emerald-300 border border-emerald-500/30 inline-flex items-center gap-1">
                             <ShieldCheck className="w-3 h-3" /> Master Owner
                           </span>
                         ) : staff.role === 'admin' ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-[#0F766E] border border-emerald-200 inline-flex items-center gap-1">
                             <ShieldCheck className="w-3 h-3" /> Manager
                           </span>
                         ) : (
@@ -631,7 +798,7 @@ export const StaffManagement: React.FC = () => {
                         <span className="text-[11px] text-slate-600 font-mono">
                           Pass: <strong className="text-slate-800">{staff.password || (isMasterOwner ? 'admin' : 'seller123')}</strong>
                         </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] text-teal-700 font-mono font-semibold">
+                        <span className="inline-flex items-center gap-1 text-[11px] text-[#0F766E] font-mono font-semibold">
                           <KeyRound className="w-3 h-3" /> PIN: {staff.pin || '1234'}
                         </span>
                       </div>
@@ -641,17 +808,17 @@ export const StaffManagement: React.FC = () => {
                       {staff.lastLogin || 'Ready to Sign In'}
                     </td>
 
-                    <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-800">
+                    <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-800 tabular-nums">
                       {stats.transactions}
                     </td>
 
-                    <td className="py-3.5 px-3 text-right font-mono font-black text-slate-900 text-sm">
+                    <td className="py-3.5 px-3 text-right font-mono font-black text-slate-900 text-sm tabular-nums">
                       {formatPKR(stats.totalSales)}
                     </td>
 
                     <td className="py-3.5 px-3 text-center">
                       {isMasterOwner ? (
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 inline-flex items-center gap-1">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#0B191E] text-emerald-300 border border-emerald-500/30 inline-flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" /> Permanent Owner
                         </span>
                       ) : (
@@ -695,7 +862,7 @@ export const StaffManagement: React.FC = () => {
                                 });
                               } catch {}
                             }}
-                            className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-bold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-[#0F766E] hover:text-white text-[#0F766E] border border-emerald-200 font-bold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
                             title="Copy 1-Tap Phone / WhatsApp Login Link"
                           >
                             Copy Phone Link
@@ -705,7 +872,7 @@ export const StaffManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => switchUser(staff.id)}
-                            className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-teal-600 hover:text-white text-slate-700 font-bold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-[#0F766E] hover:text-white text-slate-700 font-bold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
                             title={`Switch portal to ${staff.fullName}`}
                           >
                             <LogIn className="w-3.5 h-3.5" />
@@ -722,7 +889,7 @@ export const StaffManagement: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(staff)}
-                          className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-500 hover:text-[#0F766E] hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
                           title="Edit Account & Permissions"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -751,12 +918,12 @@ export const StaffManagement: React.FC = () => {
           <div className="p-6 bg-slate-50/60 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="text-xs text-slate-600">
               Currently only <strong>Dr. Abdul Rehman (Owner)</strong> account exists. Click{' '}
-              <strong>"+ Create Staff / Seller Account"</strong> above to add a seller, dispenser, or cashier login.
+              <strong>&quot;+ Create Staff / Seller Account&quot;</strong> above to add a seller, dispenser, or cashier login.
             </div>
             <button
               type="button"
               onClick={handleOpenAdd}
-              className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold text-xs shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Create First Seller Account
             </button>
@@ -980,9 +1147,9 @@ export const StaffManagement: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => applyRolePreset('manager')}
-                    className={`py-1.5 px-2 rounded-lg font-bold border text-[11px] transition-colors ${
+                    className={`min-h-[38px] py-1.5 px-2 rounded-lg font-bold border text-[11px] transition-colors ${
                       role === 'admin'
-                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        ? 'bg-[#0B191E] text-emerald-300 border-[#0B191E]'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
@@ -1132,13 +1299,13 @@ export const StaffManagement: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddEditModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700"
+                  className="flex-1 min-h-[42px] py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-semibold text-slate-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold shadow-sm"
+                  className="flex-1 min-h-[42px] py-2.5 bg-[#0F766E] hover:bg-[#0D655E] text-white rounded-xl font-bold shadow-sm"
                 >
                   {editingStaff ? 'Save Account Changes' : 'Create Staff / Seller Account'}
                 </button>

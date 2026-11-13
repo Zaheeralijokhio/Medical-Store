@@ -142,50 +142,51 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const selectedUser = allUsers.find(u => u.id === selectedUserId) || allUsers[0];
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Subtle medical grid background accents */}
-      <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#0d9488_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
-      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#071317] flex flex-col justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Subtle botanical grid & ambient emerald glow */}
+      <div className="absolute inset-0 opacity-[0.12] bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
+      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-teal-600/15 blur-3xl pointer-events-none" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center">
         <div className="flex items-center justify-center gap-3 mb-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-teal-500/30">
-            <Pill className="w-7 h-7 transform -rotate-12" />
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 shadow-lg shadow-emerald-500/25">
+            <Pill className="w-7 h-7 transform -rotate-12 stroke-[2.2]" />
           </div>
           <div className="text-left">
-            <h1 className="text-2xl font-black text-white tracking-tight">
-              {String(settings?.storeName || 'PharmaCare').split(' ')[0]} <span className="text-teal-400">Pro</span>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">
+              {String(settings?.storeName || 'PharmaCare').split(' ')[0]}{' '}
+              <span className="text-emerald-400">Pro</span>
             </h1>
-            <p className="text-xs text-teal-200/80 font-medium">
-              Medical Store & Pharmacy ERP System
+            <p className="text-xs text-emerald-200/80 font-medium">
+              Medical Store &amp; Pharmacy ERP
             </p>
           </div>
         </div>
 
-        <h2 className="text-lg font-bold text-slate-100">
+        <h2 className="text-base sm:text-lg font-bold text-slate-100">
           System Login Portal
         </h2>
         <p className="text-xs text-slate-400 mt-0.5">
-          Sign in as Store Owner (`admin`) or Staff / Seller Account
+          Sign in as Store Owner or Staff / Seller Account
         </p>
 
-        {/* Auth Method Switcher (Username/Password vs 4-Digit PIN) */}
-        <div className="mt-4 bg-slate-900 p-1 rounded-xl flex items-center max-w-xs mx-auto border border-slate-800">
+        {/* Auth Method Switcher */}
+        <div className="mt-4 bg-[#0B191E] p-1 rounded-xl flex items-center max-w-xs mx-auto border border-white/10">
           <button
             type="button"
             onClick={() => {
               setAuthMode('password');
               setErrorMessage('');
             }}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 min-h-[40px] py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               authMode === 'password'
-                ? 'bg-teal-500 text-slate-950 shadow-xs'
+                ? 'bg-emerald-500 text-slate-950 shadow-xs'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <Lock className="w-3.5 h-3.5" />
-            <span>Username & Password</span>
+            <span>Password</span>
           </button>
           <button
             type="button"
@@ -193,20 +194,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               setAuthMode('pin');
               setErrorMessage('');
             }}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 min-h-[40px] py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               authMode === 'pin'
-                ? 'bg-teal-500 text-slate-950 shadow-xs'
+                ? 'bg-emerald-500 text-slate-950 shadow-xs'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
             <KeyRound className="w-3.5 h-3.5" />
-            <span>4-Digit PIN Pad</span>
+            <span>4-Digit PIN</span>
           </button>
         </div>
       </div>
 
       <div className="mt-5 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-slate-900/95 backdrop-blur-xl py-6 px-6 sm:px-8 shadow-2xl rounded-2xl border border-slate-800">
+        <div className="bg-[#0B191E]/95 backdrop-blur-xl py-6 px-5 sm:px-8 shadow-2xl rounded-2xl border border-white/10">
           {errorMessage && (
             <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
@@ -217,7 +218,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {authMode === 'password' ? (
             <div className="space-y-4">
               {/* Role Tabs: Owner/Admin vs Staff/Seller */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -226,18 +227,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     setPassword('');
                     setErrorMessage('');
                   }}
-                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                  className={`p-3 min-h-[54px] rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
                     portalType === 'admin'
-                      ? 'bg-indigo-500/20 border-indigo-500 text-white'
-                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                      ? 'bg-emerald-500/15 border-emerald-400/70 text-white'
+                      : 'bg-[#071114]/70 border-white/10 text-slate-400 hover:border-white/20'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-xs font-bold block text-white">Owner / Admin</span>
-                    <span className="text-[10px] text-indigo-300 block truncate">Full System Control</span>
+                    <span className="text-xs font-bold block text-white">Owner</span>
+                    <span className="text-[10px] text-emerald-300 block truncate">Full Control</span>
                   </div>
                 </button>
 
@@ -249,19 +250,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     setPassword('');
                     setErrorMessage('');
                   }}
-                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                  className={`p-3 min-h-[54px] rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
                     portalType === 'staff'
-                      ? 'bg-teal-500/20 border-teal-500 text-white'
-                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                      ? 'bg-teal-500/20 border-teal-400/70 text-white'
+                      : 'bg-[#071114]/70 border-white/10 text-slate-400 hover:border-white/20'
                   }`}
                 >
                   <div className="w-8 h-8 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
                     <Users className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <span className="text-xs font-bold block text-white">Staff / Seller</span>
+                    <span className="text-xs font-bold block text-white">Staff</span>
                     <span className="text-[10px] text-teal-300 block truncate">
-                      {staffAccounts.length} Staff Account{staffAccounts.length === 1 ? '' : 's'}
+                      {staffAccounts.length} Account{staffAccounts.length === 1 ? '' : 's'}
                     </span>
                   </div>
                 </button>
