@@ -331,8 +331,22 @@ function getInitialDatabase(): array {
     ];
 }
 
+function isTestOrDummyRecordId(string $id): bool {
+    if ($id === '') return true;
+    $legacy = [
+        'med-1', 'med-2', 'med-3', 'med-4', 'med-5',
+        'sup-1', 'sup-2', 'sup-3', 'cust-1', 'cust-2',
+        'sal-1001', 'sal-1002', 'pur-501', 'exp-1', 'sal-test-dup',
+    ];
+    if (in_array($id, $legacy, true)) return true;
+    if (strpos($id, '-e2e-') !== false || strpos($id, '-test-') !== false || strpos($id, 'e2estaff') !== false) {
+        return true;
+    }
+    return false;
+}
+
 function sanitizeDatabaseState(array $data): array {
-    if (($data['cleanVersion'] ?? '') !== DATA_CLEAN_VERSION) {
+    if (!in_array(($data['cleanVersion'] ?? ''), [DATA_CLEAN_VERSION, 'pharmacare_clean_v3', 'pharmacare_clean_v4'], true)) {
         $clean = getInitialDatabase();
         $staff = sanitizeStaffAccounts($data['staffMembers'] ?? null);
         $clean['staffMembers'] = $staff;
@@ -346,7 +360,9 @@ function sanitizeDatabaseState(array $data): array {
 
     $cleanMedicines = [];
     foreach (($data['medicines'] ?? []) as $m) {
-        if (!is_array($m) || empty($m['id']) || isset($deletedSet[(string)$m['id']])) continue;
+        if (!is_array($m) || empty($m['id'])) continue;
+        $mid = (string)$m['id'];
+        if (isset($deletedSet[$mid]) || isTestOrDummyRecordId($mid)) continue;
         $batches = is_array($m['batches'] ?? null) ? $m['batches'] : [];
         $totalQty = 0;
         foreach ($batches as $b) {
@@ -362,14 +378,16 @@ function sanitizeDatabaseState(array $data): array {
 
     $cleanStaff = array_values(array_filter(
         sanitizeStaffAccounts($data['staffMembers'] ?? null),
-        fn($u) => !isset($deletedSet[(string)$u['id']])
+        fn($u) => !isset($deletedSet[(string)$u['id']]) && !isTestOrDummyRecordId((string)$u['id']) && strpos((string)($u['username'] ?? ''), 'e2e') === false
     ));
 
     $filterByDeleted = function ($arr, string $defaultCreator = 'usr-owner-1') use ($deletedSet): array {
         if (!is_array($arr)) return [];
         $out = [];
         foreach ($arr as $row) {
-            if (!is_array($row) || empty($row['id']) || isset($deletedSet[(string)$row['id']])) continue;
+            if (!is_array($row) || empty($row['id'])) continue;
+            $rid = (string)$row['id'];
+            if (isset($deletedSet[$rid]) || isTestOrDummyRecordId($rid)) continue;
             $out[] = array_merge($row, [
                 'storeId' => $row['storeId'] ?? DEFAULT_STORE_ID,
                 'createdBy' => $row['createdBy'] ?? $defaultCreator,
@@ -383,7 +401,10 @@ function sanitizeDatabaseState(array $data): array {
     $cleanSales = $filterByDeleted($data['sales'] ?? []);
     $cleanPurchases = $filterByDeleted($data['purchases'] ?? []);
     $cleanExpenses = $filterByDeleted($data['expenses'] ?? []);
-    $cleanAdjustments = is_array($data['adjustments'] ?? null) ? array_values($data['adjustments']) : [];
+    $cleanAdjustments = array_values(array_filter(
+        is_array($data['adjustments'] ?? null) ? $data['adjustments'] : [],
+        fn($a) => is_array($a) && !empty($a['id']) && !isTestOrDummyRecordId((string)$a['id'])
+    ));
 
     $catNames = [];
     foreach (defaultCategories() as $c) $catNames[$c] = true;
@@ -1351,18 +1372,19 @@ try {
 
         $existing = readDatabase($sqliteFile);
         $deletedIds = !empty($incoming['resetDeletedIds']) ? [] : ($existing['deletedIds'] ?? []);
-        if (is_array($incoming['deletedIds'] ?? null)) {
-            $deletedIds = array_values(array_unique(array_merge($deletedIds, array_map('strval', $incoming['deletedIds']))));
-        }
-        $deletedSet = array_flip($deletedIds);
 
         if (!empty($incoming['forceReplaceAll'])) {
+            if (is_array($incoming['deletedIds'] ?? null) && empty($incoming['resetDeletedIds'])) {
+                $deletedIds = array_values(array_unique(array_merge($deletedIds, array_map('strval', $incoming['deletedIds']))));
+            }
             $replaced = writeDatabase($sqliteFile, array_merge($existing, $incoming, [
                 'cleanVersion' => DATA_CLEAN_VERSION,
                 'deletedIds' => $deletedIds,
             ]));
             sendJson(['success' => true, 'storageEngine' => 'hostinger_sqlite', 'data' => $replaced]);
         }
+
+        $deletedSet = array_flip($deletedIds);
 
         $mergedStaff = !empty($incoming['forceStaffReplace'])
             ? ($incoming['staffMembers'] ?? [])

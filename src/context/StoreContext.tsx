@@ -193,13 +193,12 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// Ensure any legacy dummy data in localStorage is wiped once for DATA_CLEAN_VERSION
+// Ensure any legacy dummy or stale cache data in localStorage is wiped once for DATA_CLEAN_VERSION
 function ensureCleanStorageVersion(): void {
   try {
     const ver = localStorage.getItem('pharmacare_clean_version');
     if (ver !== DATA_CLEAN_VERSION) {
       const keysToClear = [
-        'pharmacare_medicines',
         'pharmacare_suppliers',
         'pharmacare_customers',
         'pharmacare_sales',
@@ -209,6 +208,7 @@ function ensureCleanStorageVersion(): void {
         'pharmacare_adjustments',
         'pharmacare_audit_logs',
         'pharmacare_notifications',
+        'pharmacare_deleted_ids',
       ];
       keysToClear.forEach(k => localStorage.removeItem(k));
       localStorage.setItem('pharmacare_clean_version', DATA_CLEAN_VERSION);
@@ -216,12 +216,26 @@ function ensureCleanStorageVersion(): void {
   } catch {}
 }
 
+function isTestOrDummyId(id: unknown): boolean {
+  const s = String(id || '');
+  if (!s) return true;
+  if (s.includes('-e2e-') || s.includes('-test-') || s === 'sal-test-dup' || s.includes('e2estaff')) {
+    return true;
+  }
+  return false;
+}
+
 // Storage helper with fallback
 function loadFromStorage<T>(key: string, fallback: T): T {
   ensureCleanStorageVersion();
   try {
     const item = localStorage.getItem(`pharmacare_${key}`);
-    return item ? JSON.parse(item) : fallback;
+    if (!item) return fallback;
+    const parsed = JSON.parse(item);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((row: any) => row && !isTestOrDummyId(row.id)) as unknown as T;
+    }
+    return parsed;
   } catch {
     return fallback;
   }
@@ -236,32 +250,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [medicines, setMedicines] = useState<Medicine[]>(() =>
     (loadFromStorage<any[]>('medicines', INITIAL_MEDICINES) || [])
       .map(normalizeMedicine)
-      .filter((m): m is Medicine => m !== null)
+      .filter((m): m is Medicine => m !== null && !isTestOrDummyId(m.id))
   );
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => loadFromStorage('suppliers', INITIAL_SUPPLIERS));
   const [customers, setCustomers] = useState<Customer[]>(() => loadFromStorage('customers', INITIAL_CUSTOMERS));
   const [sales, setSales] = useState<Sale[]>(() =>
     (loadFromStorage<any[]>('sales', INITIAL_SALES) || [])
       .map(normalizeSale)
-      .filter((s): s is Sale => s !== null)
+      .filter((s): s is Sale => s !== null && !isTestOrDummyId(s.id))
   );
   const [saleReturns, setSaleReturns] = useState<SaleReturn[]>(() => loadFromStorage('returns', []));
   const [purchases, setPurchases] = useState<Purchase[]>(() =>
     (loadFromStorage<any[]>('purchases', INITIAL_PURCHASES) || [])
       .map(normalizePurchase)
-      .filter((p): p is Purchase => p !== null)
+      .filter((p): p is Purchase => p !== null && !isTestOrDummyId(p.id))
   );
   const [expenses, setExpenses] = useState<Expense[]>(() => loadFromStorage('expenses', INITIAL_EXPENSES));
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>(() => loadFromStorage('adjustments', INITIAL_ADJUSTMENTS));
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() =>
     (loadFromStorage<any[]>('audit_logs', INITIAL_AUDIT_LOGS) || [])
       .map(normalizeAuditLog)
-      .filter((l): l is AuditLog => l !== null)
+      .filter((l): l is AuditLog => l !== null && !isTestOrDummyId(l.id))
   );
   const [notifications, setNotifications] = useState<PharmacyNotification[]>(() =>
     (loadFromStorage<any[]>('notifications', INITIAL_NOTIFICATIONS) || [])
       .map(normalizeNotification)
-      .filter((n): n is PharmacyNotification => n !== null)
+      .filter((n): n is PharmacyNotification => n !== null && !isTestOrDummyId(n.id))
   );
   const [staffMembers, setStaffMembers] = useState<User[]>(() =>
     normalizeStaffList(loadFromStorage('staff', INITIAL_USERS))
@@ -308,6 +322,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const hasHydratedFromServer = useRef(false);
+  const hasCheckedUnsyncedLocalMeds = useRef(false);
   const staffForceReplaceRef = useRef(false);
   const localDirtyVersionRef = useRef(0);
   const lastSyncedVersionRef = useRef(0);
@@ -384,7 +399,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     refreshPendingQueueCount();
   }, [sales]);
 
-  // Helper to merge arrays by ID so neither server nor local unsynced items are ever lost
+  // Helper to merge arrays by ID when local unsynced mutations are still in flight
   const mergeById = <T extends { id: string }>(
     olderArr: T[] = [],
     newerArr: T[] = [],
@@ -392,10 +407,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   ): T[] => {
     const map = new Map<string, T>();
     olderArr.forEach(item => {
-      if (item && item.id && !deletedSet.has(item.id)) map.set(item.id, item);
+      if (item && item.id && !deletedSet.has(item.id) && !isTestOrDummyId(item.id)) map.set(item.id, item);
     });
     newerArr.forEach(item => {
-      if (item && item.id && !deletedSet.has(item.id)) map.set(item.id, item);
+      if (item && item.id && !deletedSet.has(item.id) && !isTestOrDummyId(item.id)) map.set(item.id, item);
     });
     return Array.from(map.values());
   };
@@ -409,17 +424,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const initialDeletedIds: string[] = (() => {
-    try {
-      const raw = localStorage.getItem('pharmacare_deleted_ids');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch {}
-    return [];
-  })();
-  const deletedRecordIdsRef = useRef<Set<string>>(new Set(initialDeletedIds));
+  const deletedRecordIdsRef = useRef<Set<string>>(new Set());
 
   const recordDeletedId = (id: string) => {
     deletedRecordIdsRef.current.add(id);
@@ -439,15 +444,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const applyIncomingState = (d: any) => {
       if (!d) return;
-      if (Array.isArray(d.deletedIds)) {
-        d.deletedIds.forEach((id: string) => recordDeletedId(id));
-      }
-      const delSet = deletedRecordIdsRef.current;
       const mutatedDuringFetch =
         localDirtyVersionRef.current !== fetchStartedDirtyVersion ||
         Date.now() - lastLocalMutationAtRef.current < 5000;
       const hasUnsyncedLocalEdits =
         localDirtyVersionRef.current > lastSyncedVersionRef.current || mutatedDuringFetch;
+
+      // Trust server's authoritative deletedIds list so old browser cache never hides active server medicines
+      if (Array.isArray(d.deletedIds)) {
+        const serverDelSet = new Set<string>(d.deletedIds.map(String));
+        if (!hasUnsyncedLocalEdits) {
+          deletedRecordIdsRef.current = serverDelSet;
+        } else {
+          serverDelSet.forEach(id => deletedRecordIdsRef.current.add(id));
+        }
+        try {
+          localStorage.setItem('pharmacare_deleted_ids', JSON.stringify(Array.from(deletedRecordIdsRef.current)));
+        } catch {}
+      }
+      const delSet = deletedRecordIdsRef.current;
 
       if (d.settings) {
         const cleanSettings = normalizeSettings(d.settings);
@@ -463,44 +478,64 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.medicines)) {
         const cleanIncomingMeds = d.medicines
           .map(normalizeMedicine)
-          .filter((m: Medicine | null): m is Medicine => m !== null && !delSet.has(m.id));
+          .filter((m: Medicine | null): m is Medicine => m !== null && !delSet.has(m.id) && !isTestOrDummyId(m.id));
+
+        // On first boot, if this device (e.g. staff mobile) had a real medicine saved in localStorage
+        // while offline or cached that is not on the server yet and not deleted, upload it automatically
+        if (!hasCheckedUnsyncedLocalMeds.current) {
+          hasCheckedUnsyncedLocalMeds.current = true;
+          const serverMedIds = new Set(cleanIncomingMeds.map((m: Medicine) => m.id));
+          const localOnlyRealMeds = medicinesRef.current.filter(
+            m => m && m.id && !serverMedIds.has(m.id) && !delSet.has(m.id) && !isTestOrDummyId(m.id)
+          );
+          if (localOnlyRealMeds.length > 0) {
+            localOnlyRealMeds.forEach(med => {
+              fetch('/api/medicine', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(med),
+              }).catch(() => {});
+            });
+          }
+        }
+
         setMedicines(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanIncomingMeds, prev, delSet)
-            : mergeById(prev, cleanIncomingMeds, delSet);
+            : cleanIncomingMeds;
           medicinesRef.current = next;
-          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
 
       if (Array.isArray(d.suppliers)) {
-        const cleanIncoming = d.suppliers.filter((s: any) => s && s.id && !delSet.has(s.id));
+        const cleanIncoming = d.suppliers.filter((s: any) => s && s.id && !delSet.has(s.id) && !isTestOrDummyId(s.id));
         setSuppliers(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanIncoming, prev, delSet)
-            : mergeById(prev, cleanIncoming, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanIncoming;
           try {
             localStorage.setItem('pharmacare_suppliers', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
 
       if (Array.isArray(d.customers)) {
-        const cleanIncoming = d.customers.filter((c: any) => c && c.id && !delSet.has(c.id));
+        const cleanIncoming = d.customers.filter((c: any) => c && c.id && !delSet.has(c.id) && !isTestOrDummyId(c.id));
         setCustomers(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanIncoming, prev, delSet)
-            : mergeById(prev, cleanIncoming, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanIncoming;
           try {
             localStorage.setItem('pharmacare_customers', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
@@ -508,29 +543,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.sales)) {
         const cleanSales = d.sales
           .map(normalizeSale)
-          .filter((s: Sale | null): s is Sale => s !== null && !delSet.has(s.id));
+          .filter((s: Sale | null): s is Sale => s !== null && !delSet.has(s.id) && !isTestOrDummyId(s.id));
         setSales(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanSales, prev, delSet)
-            : mergeById(prev, cleanSales, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanSales;
           try {
             localStorage.setItem('pharmacare_sales', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
 
       if (Array.isArray(d.saleReturns)) {
-        const cleanReturns = d.saleReturns.filter((r: any) => r && r.id && !delSet.has(r.id));
+        const cleanReturns = d.saleReturns.filter((r: any) => r && r.id && !delSet.has(r.id) && !isTestOrDummyId(r.id));
         setSaleReturns(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanReturns, prev, delSet)
-            : mergeById(prev, cleanReturns, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanReturns;
           try {
             localStorage.setItem('pharmacare_returns', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
@@ -538,43 +573,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.purchases)) {
         const cleanPurchases = d.purchases
           .map(normalizePurchase)
-          .filter((p: Purchase | null): p is Purchase => p !== null && !delSet.has(p.id));
+          .filter((p: Purchase | null): p is Purchase => p !== null && !delSet.has(p.id) && !isTestOrDummyId(p.id));
         setPurchases(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanPurchases, prev, delSet)
-            : mergeById(prev, cleanPurchases, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanPurchases;
           try {
             localStorage.setItem('pharmacare_purchases', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
 
       if (Array.isArray(d.expenses)) {
-        const cleanExpenses = d.expenses.filter((e: any) => e && e.id && !delSet.has(e.id));
+        const cleanExpenses = d.expenses.filter((e: any) => e && e.id && !delSet.has(e.id) && !isTestOrDummyId(e.id));
         setExpenses(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanExpenses, prev, delSet)
-            : mergeById(prev, cleanExpenses, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanExpenses;
           try {
             localStorage.setItem('pharmacare_expenses', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
 
       if (Array.isArray(d.adjustments)) {
-        const cleanAdjustments = d.adjustments.filter((a: any) => a && a.id && !delSet.has(a.id));
+        const cleanAdjustments = d.adjustments.filter((a: any) => a && a.id && !delSet.has(a.id) && !isTestOrDummyId(a.id));
         setAdjustments(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanAdjustments, prev, delSet)
-            : mergeById(prev, cleanAdjustments, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanAdjustments;
           try {
             localStorage.setItem('pharmacare_adjustments', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
@@ -582,15 +617,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.auditLogs)) {
         const cleanLogs = d.auditLogs
           .map(normalizeAuditLog)
-          .filter((l: AuditLog | null): l is AuditLog => l !== null && !delSet.has(l.id));
+          .filter((l: AuditLog | null): l is AuditLog => l !== null && !delSet.has(l.id) && !isTestOrDummyId(l.id));
         setAuditLogs(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanLogs, prev, delSet)
-            : mergeById(prev, cleanLogs, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanLogs;
           try {
             localStorage.setItem('pharmacare_audit_logs', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
@@ -598,35 +633,35 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.notifications)) {
         const cleanNotifs = d.notifications
           .map(normalizeNotification)
-          .filter((n: PharmacyNotification | null): n is PharmacyNotification => n !== null && !delSet.has(n.id));
+          .filter((n: PharmacyNotification | null): n is PharmacyNotification => n !== null && !delSet.has(n.id) && !isTestOrDummyId(n.id));
         setNotifications(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanNotifs, prev, delSet)
-            : mergeById(prev, cleanNotifs, delSet);
-          if (isSameJson(prev, next)) return prev;
+            : cleanNotifs;
           try {
             localStorage.setItem('pharmacare_notifications', JSON.stringify(next));
           } catch {}
+          if (isSameJson(prev, next)) return prev;
           return next;
         });
       }
 
       if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
         const incomingStaff = normalizeStaffList(
-          d.staffMembers.filter((u: any) => u && u.id && !delSet.has(u.id))
+          d.staffMembers.filter((u: any) => u && u.id && !delSet.has(u.id) && !isTestOrDummyId(u.id))
         );
         staffForceReplaceRef.current = !hasUnsyncedLocalEdits;
         setStaffMembers(prevLocal => {
           const nextStaff = normalizeStaffList(
             hasUnsyncedLocalEdits
               ? mergeById<User>(incomingStaff, prevLocal, delSet)
-              : mergeById<User>(prevLocal, incomingStaff, delSet)
+              : incomingStaff
           );
           staffMembersRef.current = nextStaff;
-          if (isSameJson(prevLocal, nextStaff)) return prevLocal;
           try {
             localStorage.setItem('pharmacare_staff', JSON.stringify(nextStaff));
           } catch {}
+          if (isSameJson(prevLocal, nextStaff)) return prevLocal;
           return nextStaff;
         });
       }
@@ -974,64 +1009,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => { localStorage.setItem('pharmacare_audit_logs', JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem('pharmacare_notifications', JSON.stringify(notifications)); }, [notifications]);
 
-  // Sync full store state to backend ONLY after local mutations (prevents echo writes from periodic polling)
-  useEffect(() => {
-    if (!hasHydratedFromServer.current) {
-      return;
-    }
-    if (localDirtyVersionRef.current <= lastSyncedVersionRef.current) {
-      return;
-    }
-    const targetVersion = localDirtyVersionRef.current;
-
-    const timer = setTimeout(() => {
-      if (isOnline) {
-        const statePayload = {
-          cleanVersion: DATA_CLEAN_VERSION,
-          settings,
-          medicines,
-          suppliers,
-          customers,
-          sales,
-          saleReturns,
-          purchases,
-          expenses,
-          adjustments,
-          auditLogs,
-          notifications,
-          staffMembers,
-          deletedIds: Array.from(deletedRecordIdsRef.current),
-        };
-        fetch('/api/sync', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(statePayload),
-        })
-          .then(res => {
-            if (res.ok) {
-              lastSyncedVersionRef.current = Math.max(lastSyncedVersionRef.current, targetVersion);
-            }
-          })
-          .catch(() => {});
-      }
-    }, 250);
-
-    return () => clearTimeout(timer);
-  }, [
-    settings,
-    medicines,
-    suppliers,
-    customers,
-    sales,
-    saleReturns,
-    purchases,
-    expenses,
-    adjustments,
-    auditLogs,
-    notifications,
-    staffMembers,
-    isOnline,
-  ]);
+  // Dedicated atomic endpoints (/api/medicine, /api/sale, /api/purchase, /api/staff, etc.)
+  // handle all database mutations directly so stale client localStorage never overwrites server state.
 
   // Helper to append audit log
   const logActivity = (action: string, description: string, details?: Record<string, any>) => {
@@ -1602,13 +1581,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: 'active',
         };
 
-        markLocalDirty();
+        const ver = markLocalDirty();
         const nextMeds = [newMed, ...medicinesRef.current];
         medicinesRef.current = nextMeds;
         setMedicines(nextMeds);
         try {
           localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMeds));
         } catch {}
+        fetch('/api/medicine', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(newMed),
+        })
+          .then(res => {
+            if (res.ok) ackDedicatedMutation(ver);
+          })
+          .catch(() => {});
         imported++;
       } catch (err: any) {
         errors.push(`Row ${index + 1}: ${err.message || 'Unknown error'}`);

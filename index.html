@@ -63,13 +63,52 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(err => {
-            console.log('SW registration error:', err);
+      (function () {
+        try {
+          var BUILD_VER = 'pharmacare_build_v25';
+          if (localStorage.getItem('pharmacare_active_build') !== BUILD_VER) {
+            [
+              'pharmacare_deleted_ids',
+              'pharmacare_sales',
+              'pharmacare_returns',
+              'pharmacare_purchases',
+              'pharmacare_suppliers',
+              'pharmacare_customers',
+              'pharmacare_expenses',
+              'pharmacare_adjustments',
+              'pharmacare_audit_logs',
+              'pharmacare_notifications'
+            ].forEach(function (k) {
+              localStorage.removeItem(k);
+            });
+            localStorage.setItem('pharmacare_active_build', BUILD_VER);
+            if ('caches' in window) {
+              caches.keys().then(function (keys) {
+                keys.forEach(function (k) {
+                  caches.delete(k);
+                });
+              });
+            }
+          }
+        } catch (e) {}
+
+        if ('serviceWorker' in navigator) {
+          var refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (refreshing) return;
+            refreshing = true;
+            window.location.reload();
           });
-        });
-      }
+          window.addEventListener('load', function () {
+            navigator.serviceWorker
+              .register('/sw.js?v=25', { updateViaCache: 'none' })
+              .then(function (reg) {
+                reg.update();
+              })
+              .catch(function () {});
+          });
+        }
+      })();
     </script>
   </body>
 </html>
