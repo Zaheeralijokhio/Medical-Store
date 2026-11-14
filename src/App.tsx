@@ -105,7 +105,7 @@ const MainAppContent: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-[264px] flex flex-col min-w-0">
+      <div className="flex-1 lg:pl-[264px] flex flex-col min-w-0 max-w-full">
         <TopNavbar
           currentTab={activeTab}
           onNavigate={setCurrentTab}
@@ -113,7 +113,7 @@ const MainAppContent: React.FC = () => {
         />
 
         <main
-          className={`flex-1 px-3.5 py-4 sm:p-6 lg:p-7 max-w-[1400px] w-full mx-auto ${
+          className={`flex-1 px-2.5 py-3.5 sm:p-5 lg:p-5 xl:p-7 max-w-[1440px] w-full mx-auto overflow-x-hidden ${
             activeTab === 'pos' ? 'pb-36 lg:pb-8' : 'pb-24 lg:pb-8'
           }`}
         >

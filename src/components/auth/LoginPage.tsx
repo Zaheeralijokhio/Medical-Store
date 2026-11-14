@@ -79,7 +79,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const storeLicense = settings?.drugLicenseNumber || 'DRAP-LIC-0001';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#071519] via-[#0B2228] to-[#0E3532] flex items-center justify-center p-4 sm:p-6 lg:p-10 relative overflow-hidden">
+    <div className="login-screen-lock h-dvh max-h-dvh w-full bg-gradient-to-br from-[#071519] via-[#0B2228] to-[#0E3532] flex items-center justify-center p-3 sm:p-5 relative overflow-hidden no-scrollbar select-none">
       {/* Subtle architectural background lines */}
       <div
         className="absolute inset-0 opacity-[0.06] pointer-events-none"
@@ -90,9 +90,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         }}
       />
 
-      <div className="w-full max-w-[960px] bg-white rounded-3xl shadow-2xl shadow-black/40 border border-white/15 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative z-10">
+      <div className="w-full max-w-[920px] max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-40px)] bg-white rounded-2xl sm:rounded-3xl shadow-2xl shadow-black/40 border border-white/15 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative z-10">
         {/* Left Showcase Panel */}
-        <div className="md:col-span-6 bg-gradient-to-br from-[#081A1F] via-[#0C2930] to-[#0F6B63] text-white p-7 sm:p-9 lg:p-11 flex flex-col justify-between relative overflow-hidden">
+        <div className="md:col-span-6 bg-gradient-to-br from-[#081A1F] via-[#0C2930] to-[#0F6B63] text-white px-5 py-4 sm:p-7 lg:p-9 flex flex-col justify-between relative overflow-hidden">
           {/* Subtle decorative radial highlight */}
           <div
             className="absolute inset-0 opacity-20 pointer-events-none"
@@ -105,32 +105,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           <div className="relative z-10">
             {/* Brand Lockup */}
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 shadow-md shadow-teal-950/40 shrink-0">
-                <Pill className="w-5 h-5 stroke-[2.4]" />
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 shadow-md shadow-teal-950/40 shrink-0">
+                <Pill className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.4]" />
               </div>
               <div>
-                <span className="text-base font-extrabold tracking-tight text-white block leading-none">
+                <span className="text-sm sm:text-base font-extrabold tracking-tight text-white block leading-none">
                   PharmaCare Pro
                 </span>
-                <span className="text-[11px] text-teal-200/80 font-medium block mt-1">
+                <span className="text-[10px] sm:text-[11px] text-teal-200/80 font-medium block mt-0.5 sm:mt-1">
                   Pharmacy Management Suite
                 </span>
               </div>
             </div>
 
             {/* Store Title & Description */}
-            <div className="mt-8 sm:mt-10">
-              <h1 className="text-2xl sm:text-[26px] font-extrabold text-white leading-tight tracking-tight text-balance">
+            <div className="mt-3 sm:mt-6 lg:mt-7">
+              <h1 className="text-lg sm:text-2xl lg:text-[25px] font-extrabold text-white leading-tight tracking-tight text-balance">
                 {storeTitle}
               </h1>
-              <p className="mt-2.5 text-xs sm:text-sm text-teal-100/80 leading-relaxed">
+              <p className="mt-1 sm:mt-2 text-[11px] sm:text-xs lg:text-sm text-teal-100/80 leading-relaxed">
                 Complete point-of-sale counter billing, FEFO batch inventory tracking, and real-time financial accounts.
               </p>
             </div>
 
-            {/* 3 Structured Capability Highlights */}
-            <div className="mt-7 space-y-2.5 hidden sm:block">
-              <div className="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.06] border border-white/10">
+            {/* Capability Highlights (Tablet/Desktop) */}
+            <div className="mt-5 space-y-2 hidden md:block">
+              <div className="flex items-start gap-3 p-2.5 lg:p-3 rounded-2xl bg-white/[0.06] border border-white/10">
                 <div className="w-8 h-8 rounded-xl bg-teal-400/15 text-teal-300 flex items-center justify-center shrink-0 mt-0.5">
                   <Receipt className="w-4 h-4" />
                 </div>
@@ -142,7 +142,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.06] border border-white/10">
+              <div className="flex items-start gap-3 p-2.5 lg:p-3 rounded-2xl bg-white/[0.06] border border-white/10">
                 <div className="w-8 h-8 rounded-xl bg-emerald-400/15 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
                   <PackageCheck className="w-4 h-4" />
                 </div>
@@ -157,44 +157,44 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
 
           {/* Store Location & License Footer */}
-          <div className="mt-8 pt-5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-teal-100/75 relative z-10">
+          <div className="mt-3 sm:mt-6 pt-2.5 sm:pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-teal-100/75 relative z-10">
             <div className="flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-teal-300 shrink-0" />
               <span className="font-medium text-white/90">{storeAddress}</span>
             </div>
-            <span className="font-mono text-[11px] text-teal-200/80">
+            <span className="font-mono text-[10px] sm:text-[11px] text-teal-200/80">
               Lic: {storeLicense}
             </span>
           </div>
         </div>
 
         {/* Right Sign-In Form Panel */}
-        <div className="md:col-span-6 p-7 sm:p-10 lg:p-12 flex flex-col justify-center bg-white">
+        <div className="md:col-span-6 px-5 py-5 sm:p-8 lg:p-10 flex flex-col justify-center bg-white">
           <div className="max-w-sm mx-auto w-full">
             {/* Form Header */}
-            <div className="mb-7">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0F766E] mb-2">
+            <div className="mb-4 sm:mb-6">
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0F766E] mb-1 sm:mb-1.5">
                 <ShieldCheck className="w-4 h-4" />
                 <span>Authorized Store Access</span>
               </div>
-              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                 Sign in to your account
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1.5">
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
                 Enter your username and password to open the pharmacy workspace.
               </p>
             </div>
 
             {errorMessage && (
-              <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-start gap-2.5">
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
                 <span>{errorMessage}</span>
               </div>
             )}
 
-            <form onSubmit={handlePasswordSubmit} className="space-y-5">
+            <form onSubmit={handlePasswordSubmit} className="space-y-3.5 sm:space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Username
                 </label>
                 <div className="relative">
@@ -207,7 +207,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     autoComplete="username"
                     value={username}
                     onChange={e => setUsername(e.target.value)}
-                    className="block w-full pl-10 pr-4 py-3 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/12 focus:border-[#0F766E] transition-all"
+                    className="block w-full pl-10 pr-4 py-2.5 sm:py-3 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/12 focus:border-[#0F766E] transition-all"
                     placeholder="Enter your username"
                     autoFocus
                   />
@@ -215,7 +215,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Password
                 </label>
                 <div className="relative">
@@ -228,7 +228,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     autoComplete="current-password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="block w-full pl-10 pr-11 py-3 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/12 focus:border-[#0F766E] transition-all"
+                    className="block w-full pl-10 pr-11 py-2.5 sm:py-3 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/12 focus:border-[#0F766E] transition-all"
                     placeholder="Enter your password"
                   />
                   <button
@@ -246,7 +246,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full min-h-[46px] flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-[#0F766E] via-teal-600 to-emerald-600 hover:from-[#0D655E] hover:to-emerald-500 text-white text-sm font-bold shadow-md shadow-teal-700/20 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/25 transition-all disabled:opacity-60 cursor-pointer"
+                  className="w-full min-h-[44px] sm:min-h-[46px] flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 rounded-xl bg-gradient-to-r from-[#0F766E] via-teal-600 to-emerald-600 hover:from-[#0D655E] hover:to-emerald-500 text-white text-sm font-bold shadow-md shadow-teal-700/20 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/25 transition-all disabled:opacity-60 cursor-pointer"
                 >
                   {isLoading ? (
                     <span>Signing in...</span>
@@ -260,7 +260,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </div>
             </form>
 
-            <div className="mt-8 pt-5 border-t border-slate-100 text-center">
+            <div className="mt-5 sm:mt-6 pt-3.5 sm:pt-4 border-t border-slate-100 text-center">
               <p className="text-[11px] text-slate-400">
                 Protected pharmacy terminal · Owner &amp; Staff accounts supported
               </p>

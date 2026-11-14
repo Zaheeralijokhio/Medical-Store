@@ -305,7 +305,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-[264px] bg-[#0B191E] text-slate-200 flex flex-col transition-transform duration-300 ease-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-[264px] max-w-[85vw] bg-[#0B191E] text-slate-200 flex flex-col transition-transform duration-300 ease-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } border-r border-white/[0.08] shadow-2xl`}
       >

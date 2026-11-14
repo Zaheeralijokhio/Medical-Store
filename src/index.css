@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@theme {
+  --breakpoint-xs: 380px;
+}
+
 @layer base {
   :root {
     --bg-canvas: #f2f6f8;
@@ -12,8 +16,16 @@
   html,
   body {
     overflow-x: hidden;
+    max-width: 100vw;
     background-color: var(--bg-canvas);
     -webkit-tap-highlight-color: transparent;
+  }
+
+  html:has(.login-screen-lock),
+  body:has(.login-screen-lock) {
+    overflow: hidden !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
   }
 
   body {
