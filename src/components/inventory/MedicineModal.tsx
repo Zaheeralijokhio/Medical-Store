@@ -49,7 +49,14 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
   const [expiryDate, setExpiryDate] = useState('2027-12-31');
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id || '');
 
+  const [formError, setFormError] = useState('');
+
+  // Reset form fields ONLY when the modal opens or when switching which medicine is being edited.
+  // Never depend on `suppliers` array reference here so background polling never clears typed inputs!
   useEffect(() => {
+    if (!isOpen) return;
+    setFormError('');
+
     if (medicineToEdit) {
       setName(medicineToEdit.name);
       setGenericName(medicineToEdit.genericName);
@@ -79,7 +86,7 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
       setPurchasePrice(currentFixedCost);
       setWholesalePrice(primaryBatch?.wholesalePrice || Number((currentFixedSale * 0.92).toFixed(2)));
     } else {
-      // Default reset
+      // Default reset only when modal first opens for a new medicine
       setName('');
       setGenericName('');
       setBrandName('');
@@ -103,10 +110,19 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
       setMfgDate('2025-01-10');
       setExpiryDate('2027-12-31');
       if (suppliers.length > 0) {
-        setSupplierId(prev => (prev && suppliers.some(s => s.id === prev) ? prev : suppliers[0].id));
+        setSupplierId(suppliers[0].id);
       }
     }
-  }, [medicineToEdit, isOpen, suppliers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, medicineToEdit?.id]);
+
+  // Separate effect to populate default supplierId if suppliers finish loading after modal open
+  useEffect(() => {
+    if (!isOpen) return;
+    if (suppliers.length > 0 && (!supplierId || !suppliers.some(s => s.id === supplierId))) {
+      setSupplierId(suppliers[0].id);
+    }
+  }, [isOpen, suppliers, supplierId]);
 
   if (!isOpen) return null;
 
@@ -115,16 +131,19 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !genericName.trim()) {
-      alert('Medicine name and generic formula are required.');
+    setFormError('');
+    const cleanName = name.trim();
+    const cleanGeneric = genericName.trim() || cleanName;
+    if (!cleanName) {
+      setFormError('Please enter the Commercial Medicine Name.');
       return;
     }
 
     if (isEditing && medicineToEdit) {
       updateMedicine(medicineToEdit.id, {
-        name: name.trim(),
-        genericName: genericName.trim(),
-        brandName: brandName.trim() || name.trim().split(' ')[0],
+        name: cleanName,
+        genericName: cleanGeneric,
+        brandName: brandName.trim() || cleanName.split(' ')[0],
         category,
         manufacturer,
         medicineType,
@@ -143,9 +162,9 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
       addMedicine(
         {
           code: `MED-${Math.floor(100 + Math.random() * 900)}`,
-          name: name.trim(),
-          genericName: genericName.trim(),
-          brandName: brandName.trim() || name.trim().split(' ')[0],
+          name: cleanName,
+          genericName: cleanGeneric,
+          brandName: brandName.trim() || cleanName.split(' ')[0],
           category,
           manufacturer,
           medicineType,
@@ -203,6 +222,11 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto text-xs">
+          {formError && (
+            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-semibold text-xs">
+              {formError}
+            </div>
+          )}
           {/* Basic Formulation Details */}
           <div>
             <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">
@@ -222,13 +246,12 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Generic Chemical Formula *</label>
+                <label className="font-semibold text-slate-700 block mb-1">Generic Chemical Formula</label>
                 <input
                   type="text"
-                  required
                   value={genericName}
                   onChange={e => setGenericName(e.target.value)}
-                  placeholder="e.g. Paracetamol, Omeprazole"
+                  placeholder="e.g. Paracetamol, Omeprazole (optional)"
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs"
                 />
               </div>

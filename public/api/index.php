@@ -20,16 +20,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 const DATA_CLEAN_VERSION = 'pharmacare_clean_v3';
 const DEFAULT_STORE_ID = 'store-1';
 
-$dataDir = __DIR__ . '/data';
+$localDataDir = __DIR__ . '/data';
+if (!is_dir($localDataDir)) {
+    @mkdir($localDataDir, 0755, true);
+}
+if (!is_dir($localDataDir . '/backups')) {
+    @mkdir($localDataDir . '/backups', 0755, true);
+}
+
+/**
+ * Resolve a persistent storage directory outside `public_html` and `hbuilds`
+ * so Hostinger automated deployments (`hbuilds`) never overwrite live store data.
+ */
+function resolvePersistentDataDir(string $localDataDir): string {
+    $candidates = [];
+    if (strpos(__DIR__, '/hbuilds/') !== false) {
+        $domainRoot = explode('/hbuilds/', __DIR__)[0];
+        if ($domainRoot !== '') {
+            $candidates[] = $domainRoot . '/pharmacare_storage';
+        }
+    }
+    if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+        $docRoot = rtrim((string)$_SERVER['DOCUMENT_ROOT'], '/');
+        if (strpos($docRoot, '/hbuilds/') !== false) {
+            $domainRoot = explode('/hbuilds/', $docRoot)[0];
+            if ($domainRoot !== '') {
+                $candidates[] = $domainRoot . '/pharmacare_storage';
+            }
+        } else {
+            $docParent = dirname($docRoot);
+            if ($docParent !== '' && $docParent !== '/') {
+                $candidates[] = $docParent . '/pharmacare_storage';
+            }
+        }
+    }
+    $parent2 = dirname(__DIR__, 2);
+    if ($parent2 !== '' && $parent2 !== '/' && basename($parent2) !== 'versions') {
+        $candidates[] = $parent2 . '/pharmacare_storage';
+    }
+
+    foreach (array_unique($candidates) as $dir) {
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+        }
+        if (is_dir($dir) && is_writable($dir)) {
+            if (!is_dir($dir . '/backups')) {
+                @mkdir($dir . '/backups', 0755, true);
+            }
+            if (!file_exists($dir . '/pharmacy.sqlite') && file_exists($localDataDir . '/pharmacy.sqlite')) {
+                @copy($localDataDir . '/pharmacy.sqlite', $dir . '/pharmacy.sqlite');
+            }
+            if (!file_exists($dir . '/backups/auto_latest.json') && file_exists($localDataDir . '/backups/auto_latest.json')) {
+                @copy($localDataDir . '/backups/auto_latest.json', $dir . '/backups/auto_latest.json');
+            }
+            return $dir;
+        }
+    }
+    return $localDataDir;
+}
+
+$dataDir = resolvePersistentDataDir($localDataDir);
 $backupsDir = $dataDir . '/backups';
 $sqliteFile = $dataDir . '/pharmacy.sqlite';
-
-if (!is_dir($dataDir)) {
-    @mkdir($dataDir, 0755, true);
-}
-if (!is_dir($backupsDir)) {
-    @mkdir($backupsDir, 0755, true);
-}
 
 function sendJson(array $payload, int $status = 200): void {
     http_response_code($status);
@@ -1049,15 +1101,18 @@ function reconstructFromRelationalTables(PDO $pdo): ?array {
 }
 
 function readLatestAutoBackup(string $sqliteFile): ?array {
-    $backupsDir = dirname($sqliteFile) . '/backups';
+    $primaryBackups = dirname($sqliteFile) . '/backups';
+    $localBackups = __DIR__ . '/data/backups';
     $candidates = [];
-    if (file_exists($backupsDir . '/auto_latest.json')) {
-        $candidates[] = $backupsDir . '/auto_latest.json';
-    }
-    $snaps = glob($backupsDir . '/backup_*.json') ?: [];
-    rsort($snaps);
-    foreach ($snaps as $s) {
-        $candidates[] = $s;
+    foreach (array_unique([$primaryBackups, $localBackups]) as $bDir) {
+        if (file_exists($bDir . '/auto_latest.json')) {
+            $candidates[] = $bDir . '/auto_latest.json';
+        }
+        $snaps = glob($bDir . '/backup_*.json') ?: [];
+        rsort($snaps);
+        foreach ($snaps as $s) {
+            $candidates[] = $s;
+        }
     }
     foreach ($candidates as $path) {
         $raw = @file_get_contents($path);
@@ -1080,7 +1135,25 @@ function readDatabase(string $sqliteFile): array {
     if ($row && !empty($row['state_snapshot'])) {
         $decoded = json_decode((string)$row['state_snapshot'], true);
         if (is_array($decoded) && ($decoded['cleanVersion'] ?? '') === DATA_CLEAN_VERSION) {
-            return sanitizeDatabaseState($decoded);
+            $clean = sanitizeDatabaseState($decoded);
+            $hasData =
+                count($clean['staffMembers'] ?? []) > 1 ||
+                count($clean['medicines'] ?? []) > 0 ||
+                count($clean['sales'] ?? []) > 0 ||
+                count($clean['purchases'] ?? []) > 0;
+            if (!$hasData) {
+                $backup = readLatestAutoBackup($sqliteFile);
+                if (
+                    $backup !== null &&
+                    (count($backup['staffMembers'] ?? []) > 1 ||
+                        count($backup['medicines'] ?? []) > 0 ||
+                        count($backup['sales'] ?? []) > 0 ||
+                        count($backup['purchases'] ?? []) > 0)
+                ) {
+                    return writeDatabase($sqliteFile, $backup);
+                }
+            }
+            return $clean;
         }
     }
 
@@ -1112,6 +1185,12 @@ function writeDatabase(string $sqliteFile, array $data): array {
         throw $e;
     }
 
+    // Mirror SQLite file to local data directory if primary is in persistent domain-root directory
+    $localSqlite = __DIR__ . '/data/pharmacy.sqlite';
+    if ($sqliteFile !== $localSqlite && is_dir(__DIR__ . '/data')) {
+        @copy($sqliteFile, $localSqlite);
+    }
+
     // Atomically save rolling safety snapshot whenever real store data exists
     $hasRealData =
         count($clean['staffMembers'] ?? []) > 1 ||
@@ -1119,13 +1198,18 @@ function writeDatabase(string $sqliteFile, array $data): array {
         count($clean['sales'] ?? []) > 0 ||
         count($clean['purchases'] ?? []) > 0;
     if ($hasRealData) {
-        $autoFile = dirname($sqliteFile) . '/backups/auto_latest.json';
-        $tmpFile = $autoFile . '.tmp.' . getmypid();
         $json = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
-        if (is_string($json) && $json !== '' && @file_put_contents($tmpFile, $json) !== false) {
-            @rename($tmpFile, $autoFile);
-        } else {
-            @unlink($tmpFile);
+        if (is_string($json) && $json !== '') {
+            foreach (array_unique([dirname($sqliteFile) . '/backups', __DIR__ . '/data/backups']) as $bDir) {
+                if (!is_dir($bDir)) @mkdir($bDir, 0755, true);
+                $autoFile = $bDir . '/auto_latest.json';
+                $tmpFile = $autoFile . '.tmp.' . getmypid();
+                if (@file_put_contents($tmpFile, $json) !== false) {
+                    @rename($tmpFile, $autoFile);
+                } else {
+                    @unlink($tmpFile);
+                }
+            }
         }
     }
 

@@ -163,18 +163,16 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const sup = suppliers.find(s => s.id === supplierId) || suppliers[0];
-    if (!sup) {
-      alert('Please select or register a supplier first.');
-      return;
-    }
+    const sup = suppliers.find(s => s.id === supplierId) || suppliers[0] || {
+      id: 'sup-direct',
+      companyName: 'Direct Wholesale Supplier',
+    };
 
     const actualPaid = paymentStatus === 'Paid' ? totalPurchaseAmount : paymentStatus === 'Pending' ? 0 : paidAmount;
     const invNumber = supplierInvoiceNumber.trim() || `BILL-${Date.now().toString().slice(-5)}`;
 
     if (inwardMode === 'existing') {
       if (items.length === 0) {
-        alert('Add at least one medicine item to the purchase.');
         return;
       }
 
@@ -194,8 +192,9 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
       });
     } else {
       // Option 2: Register New Medicine + Purchase
-      if (!newMedName.trim() || !newGenericName.trim()) {
-        alert('Medicine name and generic formula are required.');
+      const cleanName = newMedName.trim();
+      const cleanGeneric = newGenericName.trim() || cleanName;
+      if (!cleanName) {
         return;
       }
 
@@ -204,9 +203,9 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
       const createdMed = addMedicine(
         {
           code: generatedCode,
-          name: newMedName.trim(),
-          genericName: newGenericName.trim(),
-          brandName: newBrandName.trim() || newMedName.trim(),
+          name: cleanName,
+          genericName: cleanGeneric,
+          brandName: newBrandName.trim() || cleanName,
           category: newCategory,
           manufacturer: newManufacturer,
           medicineType: newMedType,
@@ -529,13 +528,12 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Generic Formula *</label>
+                  <label className="font-semibold text-slate-700 block mb-1">Generic Formula</label>
                   <input
                     type="text"
-                    required
                     value={newGenericName}
                     onChange={e => setNewGenericName(e.target.value)}
-                    placeholder="e.g. Co-Amoxiclav"
+                    placeholder="e.g. Co-Amoxiclav (optional)"
                     className="w-full p-2 border border-slate-200 rounded-lg"
                   />
                 </div>

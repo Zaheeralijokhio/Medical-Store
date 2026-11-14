@@ -1,6 +1,41 @@
 {
   "sales": [
     {
+      "id": "sal-e2e-1794630434998",
+      "date": "2026-11-13",
+      "time": "16:00:00",
+      "items": [
+        {
+          "batchId": "bat-e2e-1794630434998",
+          "quantity": 20,
+          "unitPrice": 30,
+          "expiryDate": "2028-12-31",
+          "medicineId": "med-e2e-1794630434998",
+          "batchNumber": "BAT-E2E-1",
+          "genericName": "Amoxicillin Trihydrate",
+          "totalAmount": 600,
+          "medicineName": "E2E Test Amoxicillin",
+          "purchaseCost": 20,
+          "discountAmount": 0
+        }
+      ],
+      "status": "returned",
+      "staffId": "usr-staff-e2e-1794630434998",
+      "storeId": "store-1",
+      "subtotal": 600,
+      "taxTotal": 0,
+      "createdBy": "usr-staff-e2e-1794630434998",
+      "staffName": "E2E Verification Staff",
+      "amountPaid": 400,
+      "customerId": "cust-e2e-1794630434998",
+      "grandTotal": 600,
+      "changeGiven": 0,
+      "customerName": "E2E Walk-in Patient",
+      "discountTotal": 0,
+      "invoiceNumber": "INV-E2E-4998",
+      "paymentMethod": "Credit"
+    },
+    {
       "id": "sal-test-dup",
       "date": "2026-11-13",
       "time": "12:00 PM",
@@ -61,8 +96,8 @@
       },
       "storeId": "store-1",
       "createdBy": "usr-owner-1",
-      "lastLogin": "2026-11-13T04:06:57.338Z",
-      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+      "lastLogin": "2026-11-13T04:06:57.338Z"
     },
     {
       "id": "usr-staff-1794402296131",
@@ -76,6 +111,7 @@
       "password": "1234",
       "username": "shafique",
       "createdBy": "usr-owner-1",
+      "lastLogin": "2026-11-14T05:00:45.448Z",
       "designation": "Medicine Seller & Inventory Staff",
       "joiningDate": "2026-11-11",
       "permissions": {
@@ -106,6 +142,75 @@
   ],
   "expenses": [],
   "payments": [
+    {
+      "id": "pay-1794630435093-7n5",
+      "date": "2026-11-13",
+      "type": "expense_payment",
+      "notes": "E2E Test Expense",
+      "amount": 500,
+      "storeId": "store-1",
+      "createdBy": "usr-owner-1",
+      "partyName": "Utilities & Electricity",
+      "referenceId": "exp-e2e-1794630434998",
+      "createdByName": "Dr. Abdul Rehman (Owner)",
+      "paymentMethod": "Cash"
+    },
+    {
+      "id": "pay-1794630435067",
+      "date": "2026-11-14",
+      "type": "customer_payment",
+      "notes": "Customer credit recovery from E2E Walk-in Patient",
+      "amount": 200,
+      "partyId": "cust-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-owner-1",
+      "partyName": "E2E Walk-in Patient",
+      "referenceId": "cust-e2e-1794630434998",
+      "createdByName": "Store User",
+      "paymentMethod": "Cash"
+    },
+    {
+      "id": "pay-1794630435062-vmk",
+      "date": "2026-11-13",
+      "type": "customer_payment",
+      "notes": "Payment for Invoice INV-E2E-4998",
+      "amount": 400,
+      "partyId": "cust-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-staff-e2e-1794630434998",
+      "partyName": "E2E Walk-in Patient",
+      "referenceId": "sal-e2e-1794630434998",
+      "createdByName": "E2E Verification Staff",
+      "paymentMethod": "Credit"
+    },
+    {
+      "id": "pay-1794630435047",
+      "date": "2026-11-14",
+      "type": "purchase_payment",
+      "notes": "Installment payment for PO PO-E2E-4998",
+      "amount": 400,
+      "partyId": "sup-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-owner-1",
+      "partyName": "E2E Pharma Distributors",
+      "referenceId": "pur-e2e-1794630434998",
+      "createdByName": "Store Owner",
+      "paymentMethod": "Cash"
+    },
+    {
+      "id": "pay-1794630435040-s7j",
+      "date": "2026-11-13",
+      "type": "purchase_payment",
+      "notes": "Payment on PO PO-E2E-4998",
+      "amount": 600,
+      "partyId": "sup-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-owner-1",
+      "partyName": "E2E Pharma Distributors",
+      "referenceId": "pur-e2e-1794630434998",
+      "createdByName": "E2E Verification Staff",
+      "paymentMethod": "Cash"
+    },
     {
       "id": "pay-1794455922487-w9k",
       "date": "2026-11-12",
@@ -214,13 +319,94 @@
   },
   "auditLogs": [
     {
-      "id": "log-1794630308328",
-      "action": "STAFF_CREATED",
-      "description": "Owner saved staff account for E2E Verification Staff (@e2estaff_8312)",
+      "id": "log-1794634028487",
+      "action": "MEDICINE_CREATED",
+      "description": "Saved medicine Augmentin 625mg (Qty: 50)",
+      "userId": "usr-staff-1794402296131",
+      "userName": "shafique",
+      "userRole": "staff",
+      "timestamp": "2026-11-14T05:27:08+00:00"
+    },
+    {
+      "id": "log-1794630435119",
+      "action": "MEDICINE_DELETED",
       "userId": "usr-owner-1",
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
-      "timestamp": "2026-11-14T04:25:08.328Z"
+      "timestamp": "2026-11-14T04:27:15.119Z",
+      "description": "Removed medicine formulation E2E Test Amoxicillin"
+    },
+    {
+      "id": "log-1794630435081",
+      "action": "STOCK_ADJUSTED",
+      "userId": "usr-owner-1",
+      "userName": "Dr. Abdul Rehman (Owner)",
+      "userRole": "admin",
+      "timestamp": "2026-11-14T04:27:15.081Z",
+      "description": "Adjusted E2E Test Amoxicillin (BAT-E2E-1): 185 -> 180 (damage)"
+    },
+    {
+      "id": "log-1794630435074",
+      "action": "SALE_RETURN",
+      "userId": "usr-staff-e2e-1794630434998",
+      "userName": "E2E Verification Staff",
+      "userRole": "staff",
+      "timestamp": "2026-11-14T04:27:15.074Z",
+      "description": "Processed return for Invoice INV-E2E-4998 (Refund Rs. 150)"
+    },
+    {
+      "id": "log-1794630435062",
+      "action": "SALE_COMPLETED",
+      "userId": "usr-staff-e2e-1794630434998",
+      "userName": "E2E Verification Staff",
+      "userRole": "staff",
+      "timestamp": "2026-11-14T04:27:15.062Z",
+      "description": "Dispensed invoice INV-E2E-4998 for Rs. 600 via Credit"
+    },
+    {
+      "id": "log-1794630435041",
+      "action": "PURCHASE_RECORDED",
+      "userId": "usr-owner-1",
+      "userName": "E2E Verification Staff",
+      "userRole": "admin",
+      "timestamp": "2026-11-14T04:27:15.041Z",
+      "description": "Received PO PO-E2E-4998 from E2E Pharma Distributors (Rs. 1000)"
+    },
+    {
+      "id": "log-1794630435025",
+      "action": "MEDICINE_UPDATED",
+      "userId": "usr-staff-e2e-1794630434998",
+      "userName": "E2E Verification Staff",
+      "userRole": "staff",
+      "timestamp": "2026-11-14T04:27:15.025Z",
+      "description": "Updated medicine E2E Test Amoxicillin (Stock: 150)"
+    },
+    {
+      "id": "log-1794630435018",
+      "action": "MEDICINE_CREATED",
+      "userId": "usr-staff-e2e-1794630434998",
+      "userName": "E2E Verification Staff",
+      "userRole": "staff",
+      "timestamp": "2026-11-14T04:27:15.018Z",
+      "description": "Registered formulation E2E Test Amoxicillin (500mg) with 100 units"
+    },
+    {
+      "id": "log-1794630434999",
+      "action": "STAFF_CREATED",
+      "userId": "usr-owner-1",
+      "userName": "Dr. Abdul Rehman (Owner)",
+      "userRole": "admin",
+      "timestamp": "2026-11-14T04:27:14.999Z",
+      "description": "Owner saved staff account for E2E Verification Staff (@e2estaff_4998)"
+    },
+    {
+      "id": "log-1794630308328",
+      "action": "STAFF_CREATED",
+      "userId": "usr-owner-1",
+      "userName": "Dr. Abdul Rehman (Owner)",
+      "userRole": "admin",
+      "timestamp": "2026-11-14T04:25:08.328Z",
+      "description": "Owner saved staff account for E2E Verification Staff (@e2estaff_8312)"
     },
     {
       "id": "log-1794571555497",
@@ -282,6 +468,27 @@
   ],
   "cashMemos": [
     {
+      "id": "memo-sal-e2e-1794630434998",
+      "storeId": "store-1",
+      "saleId": "sal-e2e-1794630434998",
+      "invoiceNumber": "INV-E2E-4998",
+      "date": "2026-11-13",
+      "time": "16:00:00",
+      "createdBy": "usr-staff-e2e-1794630434998",
+      "createdByName": "E2E Verification Staff",
+      "customerId": "cust-e2e-1794630434998",
+      "customerName": "E2E Walk-in Patient",
+      "subtotal": 600,
+      "discountTotal": 0,
+      "taxTotal": 0,
+      "grandTotal": 600,
+      "amountPaid": 400,
+      "changeGiven": 0,
+      "paymentMethod": "Credit",
+      "itemsCount": 1,
+      "status": "returned"
+    },
+    {
       "id": "memo-sal-test-dup",
       "storeId": "store-1",
       "saleId": "sal-test-dup",
@@ -341,33 +548,56 @@
       "storageLocation": "Shelf A-1",
       "fixedPurchasePrice": 15,
       "requiresPrescription": false
-    },
-    {
-      "id": "med-test",
-      "code": "med-test",
-      "name": "Panadol 500mg",
-      "status": "active",
-      "barcode": "med-test",
-      "batches": [],
-      "storeId": "store-1",
-      "category": "General",
-      "strength": "",
-      "brandName": "Panadol",
-      "createdBy": "usr-owner-1",
-      "genericName": "Panadol 500mg",
-      "packingSize": "Pack",
-      "manufacturer": "Standard Pharma",
-      "medicineType": "Tablet",
-      "minStockLevel": 15,
-      "totalQuantity": 0,
-      "fixedSalePrice": 0,
-      "storageLocation": "General Shelf",
-      "fixedPurchasePrice": 0,
-      "requiresPrescription": false
     }
   ],
-  "purchases": [],
+  "purchases": [
+    {
+      "id": "pur-e2e-1794630434998",
+      "items": [
+        {
+          "total": 1000,
+          "mfgDate": "2025-01-01",
+          "quantity": 50,
+          "salePrice": 30,
+          "expiryDate": "2028-12-31",
+          "medicineId": "med-e2e-1794630434998",
+          "batchNumber": "BAT-E2E-1",
+          "medicineName": "E2E Test Amoxicillin",
+          "purchasePrice": 20
+        }
+      ],
+      "storeId": "store-1",
+      "createdBy": "usr-owner-1",
+      "paidAmount": 1000,
+      "receivedBy": "E2E Verification Staff",
+      "supplierId": "sup-e2e-1794630434998",
+      "totalAmount": 1000,
+      "purchaseDate": "2026-11-13",
+      "supplierName": "E2E Pharma Distributors",
+      "balanceAmount": 0,
+      "invoiceNumber": "BILL-4998",
+      "paymentMethod": "Cash",
+      "paymentStatus": "Paid",
+      "purchaseNumber": "PO-E2E-4998"
+    }
+  ],
   "saleItems": [
+    {
+      "batchId": "bat-e2e-1794630434998",
+      "quantity": 20,
+      "unitPrice": 30,
+      "expiryDate": "2028-12-31",
+      "medicineId": "med-e2e-1794630434998",
+      "batchNumber": "BAT-E2E-1",
+      "genericName": "Amoxicillin Trihydrate",
+      "totalAmount": 600,
+      "medicineName": "E2E Test Amoxicillin",
+      "purchaseCost": 20,
+      "discountAmount": 0,
+      "id": "sal-e2e-1794630434998-item-1",
+      "saleId": "sal-e2e-1794630434998",
+      "storeId": "store-1"
+    },
     {
       "batchId": "bat-test-1",
       "quantity": 1,
@@ -392,91 +622,112 @@
       "storeId": "store-1",
       "name": "Analgesics & Antipyretics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     },
     {
       "id": "cat-2",
       "storeId": "store-1",
       "name": "Antibiotics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     },
     {
       "id": "cat-3",
       "storeId": "store-1",
       "name": "Gastrointestinal",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     },
     {
       "id": "cat-4",
       "storeId": "store-1",
       "name": "Antihistamines & Respiratory",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     },
     {
       "id": "cat-5",
       "storeId": "store-1",
       "name": "Cardiovascular & Hypertension",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     },
     {
       "id": "cat-6",
       "storeId": "store-1",
       "name": "Antidiabetics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     },
     {
       "id": "cat-7",
       "storeId": "store-1",
       "name": "Vitamins & Supplements",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     },
     {
       "id": "cat-8",
       "storeId": "store-1",
       "name": "Dermatological",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     },
     {
       "id": "cat-9",
       "storeId": "store-1",
       "name": "Surgical & First Aid",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
-    },
-    {
-      "id": "cat-10",
-      "storeId": "store-1",
-      "name": "General",
-      "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-14T04:27:15.143Z"
+      "createdAt": "2026-11-14T05:37:31.631Z"
     }
   ],
-  "deletedIds": [
-    "test-med-verify",
-    "po-test-1",
-    "sal-test-1",
-    "adj-test-1",
-    "med-test-1",
-    "sup-test-1",
-    "cust-test-1",
-    "exp-test-1",
-    "med-1794403198569",
-    "med-e2e-check",
-    "usr-staff-e2e-check",
-    "med-local-e2e-1794571555",
-    "usr-staff-local-e2e-1794571555",
-    "usr-staff-e2e-1794630308312"
+  "deletedIds": [],
+  "adjustments": [
+    {
+      "id": "adj-e2e-1794630434998",
+      "reason": "Damaged blister pack during audit",
+      "batchId": "bat-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-owner-1",
+      "timestamp": "2026-11-14T04:27:15.081Z",
+      "medicineId": "med-e2e-1794630434998",
+      "batchNumber": "BAT-E2E-1",
+      "newQuantity": 180,
+      "performedBy": "usr-owner-1",
+      "medicineName": "E2E Test Amoxicillin",
+      "adjustmentType": "damage",
+      "performedByName": "Dr. Abdul Rehman (Owner)",
+      "adjustedQuantity": -5,
+      "previousQuantity": 185
+    }
   ],
-  "adjustments": [],
-  "lastUpdated": "2026-11-14T04:27:15.143Z",
-  "saleReturns": [],
+  "lastUpdated": "2026-11-14T05:37:31.631Z",
+  "saleReturns": [
+    {
+      "id": "ret-e2e-1794630434998",
+      "items": [
+        {
+          "reason": "Customer returned unopened strip",
+          "batchId": "bat-e2e-1794630434998",
+          "quantity": 5,
+          "unitPrice": 30,
+          "medicineId": "med-e2e-1794630434998",
+          "batchNumber": "BAT-E2E-1",
+          "medicineName": "E2E Test Amoxicillin",
+          "refundAmount": 150
+        }
+      ],
+      "saleId": "sal-e2e-1794630434998",
+      "staffId": "usr-staff-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-staff-e2e-1794630434998",
+      "staffName": "E2E Verification Staff",
+      "returnDate": "2026-11-13",
+      "returnTime": "16:05:00",
+      "totalRefund": 150,
+      "invoiceNumber": "INV-E2E-4998"
+    }
+  ],
   "cleanVersion": "pharmacare_clean_v3",
   "staffMembers": [
     {
@@ -502,8 +753,8 @@
       },
       "storeId": "store-1",
       "createdBy": "usr-owner-1",
-      "lastLogin": "2026-11-13T04:06:57.338Z",
-      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+      "passwordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+      "lastLogin": "2026-11-13T04:06:57.338Z"
     },
     {
       "id": "usr-staff-1794402296131",
@@ -517,6 +768,7 @@
       "password": "1234",
       "username": "shafique",
       "createdBy": "usr-owner-1",
+      "lastLogin": "2026-11-14T05:00:45.448Z",
       "designation": "Medicine Seller & Inventory Staff",
       "joiningDate": "2026-11-11",
       "permissions": {
@@ -554,7 +806,22 @@
       "referenceId": "med-1794403881382"
     }
   ],
-  "purchaseItems": [],
+  "purchaseItems": [
+    {
+      "total": 1000,
+      "mfgDate": "2025-01-01",
+      "quantity": 50,
+      "salePrice": 30,
+      "expiryDate": "2028-12-31",
+      "medicineId": "med-e2e-1794630434998",
+      "batchNumber": "BAT-E2E-1",
+      "medicineName": "E2E Test Amoxicillin",
+      "purchasePrice": 20,
+      "id": "pur-e2e-1794630434998-pitem-1",
+      "purchaseId": "pur-e2e-1794630434998",
+      "storeId": "store-1"
+    }
+  ],
   "forceReplaceAll": true,
   "resetDeletedIds": true,
   "staffPermissions": [
@@ -589,6 +856,86 @@
   ],
   "forceStaffReplace": false,
   "stockTransactions": [
+    {
+      "id": "stx-1794630435081-lxd5",
+      "type": "adjustment",
+      "batchId": "bat-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-owner-1",
+      "timestamp": "2026-11-14T04:27:15.081Z",
+      "medicineId": "med-e2e-1794630434998",
+      "batchNumber": "BAT-E2E-1",
+      "newQuantity": 180,
+      "referenceId": "adj-e2e-1794630434998",
+      "medicineName": "E2E Test Amoxicillin",
+      "createdByName": "Dr. Abdul Rehman (Owner)",
+      "quantityChange": -5,
+      "previousQuantity": 185
+    },
+    {
+      "id": "stx-1794630435074-nkrk",
+      "type": "return",
+      "batchId": "bat-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-staff-e2e-1794630434998",
+      "timestamp": "2026-11-14T04:27:15.074Z",
+      "medicineId": "med-e2e-1794630434998",
+      "batchNumber": "BAT-E2E-1",
+      "newQuantity": 185,
+      "referenceId": "ret-e2e-1794630434998",
+      "medicineName": "E2E Test Amoxicillin",
+      "createdByName": "E2E Verification Staff",
+      "quantityChange": 5,
+      "previousQuantity": 180
+    },
+    {
+      "id": "stx-1794630435062-xl1l",
+      "type": "sale",
+      "batchId": "bat-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-staff-e2e-1794630434998",
+      "timestamp": "2026-11-14T04:27:15.062Z",
+      "medicineId": "med-e2e-1794630434998",
+      "batchNumber": "BAT-E2E-1",
+      "newQuantity": 180,
+      "referenceId": "sal-e2e-1794630434998",
+      "medicineName": "E2E Test Amoxicillin",
+      "createdByName": "E2E Verification Staff",
+      "quantityChange": -20,
+      "previousQuantity": 200
+    },
+    {
+      "id": "stx-1794630435040-obx6",
+      "type": "purchase",
+      "batchId": "bat-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-owner-1",
+      "timestamp": "2026-11-14T04:27:15.040Z",
+      "medicineId": "med-e2e-1794630434998",
+      "batchNumber": "BAT-E2E-1",
+      "newQuantity": 200,
+      "referenceId": "pur-e2e-1794630434998",
+      "medicineName": "E2E Test Amoxicillin",
+      "createdByName": "E2E Verification Staff",
+      "quantityChange": 50,
+      "previousQuantity": 150
+    },
+    {
+      "id": "stx-1794630435018-v7wg",
+      "type": "opening",
+      "batchId": "bat-e2e-1794630434998",
+      "storeId": "store-1",
+      "createdBy": "usr-staff-e2e-1794630434998",
+      "timestamp": "2026-11-14T04:27:15.018Z",
+      "medicineId": "med-e2e-1794630434998",
+      "batchNumber": "BAT-E2E-1",
+      "newQuantity": 100,
+      "referenceId": "med-e2e-1794630434998",
+      "medicineName": "E2E Test Amoxicillin",
+      "createdByName": "E2E Verification Staff",
+      "quantityChange": 100,
+      "previousQuantity": 0
+    },
     {
       "id": "stx-1794571555484-5whq",
       "type": "opening",
@@ -766,6 +1113,5 @@
       "previousQuantity": 0
     }
   ],
-  "forceMedicineReplace": true,
-  "forceReplace": true
+  "forceMedicineReplace": true
 }

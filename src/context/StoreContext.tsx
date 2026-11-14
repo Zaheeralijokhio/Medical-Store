@@ -400,6 +400,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return Array.from(map.values());
   };
 
+  const isSameJson = (a: unknown, b: unknown): boolean => {
+    if (a === b) return true;
+    try {
+      return JSON.stringify(a) === JSON.stringify(b);
+    } catch {
+      return false;
+    }
+  };
+
   const initialDeletedIds: string[] = (() => {
     try {
       const raw = localStorage.getItem('pharmacare_deleted_ids');
@@ -421,7 +430,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Pull and sync latest state from same-origin SQL Backend API (/api/state)
   const pullLatestDatabaseState = async (force = false): Promise<boolean> => {
-    if (!force && Date.now() - lastLocalMutationAtRef.current < 2500) {
+    if (!force && Date.now() - lastLocalMutationAtRef.current < 4500) {
       return false;
     }
 
@@ -436,16 +445,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const delSet = deletedRecordIdsRef.current;
       const mutatedDuringFetch =
         localDirtyVersionRef.current !== fetchStartedDirtyVersion ||
-        Date.now() - lastLocalMutationAtRef.current < 3000;
+        Date.now() - lastLocalMutationAtRef.current < 5000;
       const hasUnsyncedLocalEdits =
         localDirtyVersionRef.current > lastSyncedVersionRef.current || mutatedDuringFetch;
 
       if (d.settings) {
         const cleanSettings = normalizeSettings(d.settings);
-        setSettings(cleanSettings);
-        try {
-          localStorage.setItem('pharmacare_settings', JSON.stringify(cleanSettings));
-        } catch {}
+        setSettings(prev => {
+          if (isSameJson(prev, cleanSettings)) return prev;
+          try {
+            localStorage.setItem('pharmacare_settings', JSON.stringify(cleanSettings));
+          } catch {}
+          return cleanSettings;
+        });
       }
 
       if (Array.isArray(d.medicines)) {
@@ -455,8 +467,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setMedicines(prev => {
           const next = hasUnsyncedLocalEdits
             ? mergeById(cleanIncomingMeds, prev, delSet)
-            : cleanIncomingMeds;
+            : mergeById(prev, cleanIncomingMeds, delSet);
           medicinesRef.current = next;
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_medicines', JSON.stringify(next));
           } catch {}
@@ -467,7 +480,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.suppliers)) {
         const cleanIncoming = d.suppliers.filter((s: any) => s && s.id && !delSet.has(s.id));
         setSuppliers(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanIncoming, prev, delSet) : cleanIncoming;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanIncoming, prev, delSet)
+            : mergeById(prev, cleanIncoming, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_suppliers', JSON.stringify(next));
           } catch {}
@@ -478,7 +494,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.customers)) {
         const cleanIncoming = d.customers.filter((c: any) => c && c.id && !delSet.has(c.id));
         setCustomers(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanIncoming, prev, delSet) : cleanIncoming;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanIncoming, prev, delSet)
+            : mergeById(prev, cleanIncoming, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_customers', JSON.stringify(next));
           } catch {}
@@ -491,7 +510,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(normalizeSale)
           .filter((s: Sale | null): s is Sale => s !== null && !delSet.has(s.id));
         setSales(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanSales, prev, delSet) : cleanSales;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanSales, prev, delSet)
+            : mergeById(prev, cleanSales, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_sales', JSON.stringify(next));
           } catch {}
@@ -502,7 +524,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.saleReturns)) {
         const cleanReturns = d.saleReturns.filter((r: any) => r && r.id && !delSet.has(r.id));
         setSaleReturns(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanReturns, prev, delSet) : cleanReturns;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanReturns, prev, delSet)
+            : mergeById(prev, cleanReturns, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_returns', JSON.stringify(next));
           } catch {}
@@ -515,7 +540,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(normalizePurchase)
           .filter((p: Purchase | null): p is Purchase => p !== null && !delSet.has(p.id));
         setPurchases(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanPurchases, prev, delSet) : cleanPurchases;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanPurchases, prev, delSet)
+            : mergeById(prev, cleanPurchases, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_purchases', JSON.stringify(next));
           } catch {}
@@ -526,7 +554,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.expenses)) {
         const cleanExpenses = d.expenses.filter((e: any) => e && e.id && !delSet.has(e.id));
         setExpenses(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanExpenses, prev, delSet) : cleanExpenses;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanExpenses, prev, delSet)
+            : mergeById(prev, cleanExpenses, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_expenses', JSON.stringify(next));
           } catch {}
@@ -537,7 +568,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(d.adjustments)) {
         const cleanAdjustments = d.adjustments.filter((a: any) => a && a.id && !delSet.has(a.id));
         setAdjustments(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanAdjustments, prev, delSet) : cleanAdjustments;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanAdjustments, prev, delSet)
+            : mergeById(prev, cleanAdjustments, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_adjustments', JSON.stringify(next));
           } catch {}
@@ -550,7 +584,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(normalizeAuditLog)
           .filter((l: AuditLog | null): l is AuditLog => l !== null && !delSet.has(l.id));
         setAuditLogs(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanLogs, prev, delSet) : cleanLogs;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanLogs, prev, delSet)
+            : mergeById(prev, cleanLogs, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_audit_logs', JSON.stringify(next));
           } catch {}
@@ -563,7 +600,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .map(normalizeNotification)
           .filter((n: PharmacyNotification | null): n is PharmacyNotification => n !== null && !delSet.has(n.id));
         setNotifications(prev => {
-          const next = hasUnsyncedLocalEdits ? mergeById(cleanNotifs, prev, delSet) : cleanNotifs;
+          const next = hasUnsyncedLocalEdits
+            ? mergeById(cleanNotifs, prev, delSet)
+            : mergeById(prev, cleanNotifs, delSet);
+          if (isSameJson(prev, next)) return prev;
           try {
             localStorage.setItem('pharmacare_notifications', JSON.stringify(next));
           } catch {}
@@ -576,22 +616,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           d.staffMembers.filter((u: any) => u && u.id && !delSet.has(u.id))
         );
         staffForceReplaceRef.current = !hasUnsyncedLocalEdits;
-        if (!hasUnsyncedLocalEdits) {
-          staffMembersRef.current = incomingStaff;
+        setStaffMembers(prevLocal => {
+          const nextStaff = normalizeStaffList(
+            hasUnsyncedLocalEdits
+              ? mergeById<User>(incomingStaff, prevLocal, delSet)
+              : mergeById<User>(prevLocal, incomingStaff, delSet)
+          );
+          staffMembersRef.current = nextStaff;
+          if (isSameJson(prevLocal, nextStaff)) return prevLocal;
           try {
-            localStorage.setItem('pharmacare_staff', JSON.stringify(incomingStaff));
+            localStorage.setItem('pharmacare_staff', JSON.stringify(nextStaff));
           } catch {}
-          setStaffMembers(incomingStaff);
-        } else {
-          setStaffMembers(prevLocal => {
-            const nextStaff = normalizeStaffList(mergeById<User>(incomingStaff, prevLocal, delSet));
-            staffMembersRef.current = nextStaff;
-            try {
-              localStorage.setItem('pharmacare_staff', JSON.stringify(nextStaff));
-            } catch {}
-            return nextStaff;
-          });
-        }
+          return nextStaff;
+        });
       }
     };
 
@@ -608,9 +645,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (json?.success && json?.data) {
           // If a local mutation occurred while this poll was in flight, do NOT overwrite with stale server data
           if (
-            !force &&
-            (localDirtyVersionRef.current !== fetchStartedDirtyVersion ||
-              lastLocalMutationAtRef.current >= fetchStartedAt - 500)
+            localDirtyVersionRef.current !== fetchStartedDirtyVersion ||
+            lastLocalMutationAtRef.current >= fetchStartedAt - 1000
           ) {
             return false;
           }
@@ -722,68 +758,116 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               const d = msg.data;
               const hasUnsyncedLocalEdits =
                 localDirtyVersionRef.current > lastSyncedVersionRef.current ||
-                Date.now() - lastLocalMutationAtRef.current < 3000;
+                Date.now() - lastLocalMutationAtRef.current < 5000;
               if (Array.isArray(d.deletedIds)) {
                 d.deletedIds.forEach((id: string) => recordDeletedId(id));
               }
               const delSet = deletedRecordIdsRef.current;
-              if (d.settings) setSettings(normalizeSettings(d.settings));
+              if (d.settings) {
+                const cleanSettings = normalizeSettings(d.settings);
+                setSettings(prev => (isSameJson(prev, cleanSettings) ? prev : cleanSettings));
+              }
               if (Array.isArray(d.medicines)) {
                 const incomingMeds = d.medicines
                   .filter((m: any) => m && !delSet.has(m.id))
                   .map(normalizeMedicine)
                   .filter((m: Medicine | null): m is Medicine => m !== null);
                 setMedicines(prev => {
-                  const next = hasUnsyncedLocalEdits ? mergeById(incomingMeds, prev, delSet) : incomingMeds;
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(incomingMeds, prev, delSet)
+                    : mergeById(prev, incomingMeds, delSet);
                   medicinesRef.current = next;
-                  return next;
+                  return isSameJson(prev, next) ? prev : next;
                 });
               }
               if (Array.isArray(d.suppliers)) {
                 const incoming = d.suppliers.filter((s: any) => s && !delSet.has(s.id));
-                setSuppliers(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
+                setSuppliers(prev => {
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(incoming, prev, delSet)
+                    : mergeById(prev, incoming, delSet);
+                  return isSameJson(prev, next) ? prev : next;
+                });
               }
               if (Array.isArray(d.customers)) {
                 const incoming = d.customers.filter((c: any) => c && !delSet.has(c.id));
-                setCustomers(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
+                setCustomers(prev => {
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(incoming, prev, delSet)
+                    : mergeById(prev, incoming, delSet);
+                  return isSameJson(prev, next) ? prev : next;
+                });
               }
               if (Array.isArray(d.sales)) {
                 const incoming = d.sales
                   .filter((s: any) => s && !delSet.has(s.id))
                   .map(normalizeSale)
                   .filter((s: Sale | null): s is Sale => s !== null);
-                setSales(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
+                setSales(prev => {
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(incoming, prev, delSet)
+                    : mergeById(prev, incoming, delSet);
+                  return isSameJson(prev, next) ? prev : next;
+                });
               }
               if (Array.isArray(d.saleReturns)) {
-                setSaleReturns(prev => (hasUnsyncedLocalEdits ? mergeById(d.saleReturns, prev, delSet) : d.saleReturns));
+                setSaleReturns(prev => {
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(d.saleReturns, prev, delSet)
+                    : mergeById(prev, d.saleReturns, delSet);
+                  return isSameJson(prev, next) ? prev : next;
+                });
               }
               if (Array.isArray(d.purchases)) {
                 const incoming = d.purchases
                   .map(normalizePurchase)
                   .filter((p: Purchase | null): p is Purchase => p !== null);
-                setPurchases(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
+                setPurchases(prev => {
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(incoming, prev, delSet)
+                    : mergeById(prev, incoming, delSet);
+                  return isSameJson(prev, next) ? prev : next;
+                });
               }
               if (Array.isArray(d.expenses)) {
                 const incoming = d.expenses.filter((e: any) => e && !delSet.has(e.id));
-                setExpenses(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
+                setExpenses(prev => {
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(incoming, prev, delSet)
+                    : mergeById(prev, incoming, delSet);
+                  return isSameJson(prev, next) ? prev : next;
+                });
               }
               if (Array.isArray(d.adjustments)) {
-                setAdjustments(prev => (hasUnsyncedLocalEdits ? mergeById(d.adjustments, prev, delSet) : d.adjustments));
+                setAdjustments(prev => {
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(d.adjustments, prev, delSet)
+                    : mergeById(prev, d.adjustments, delSet);
+                  return isSameJson(prev, next) ? prev : next;
+                });
               }
               if (Array.isArray(d.auditLogs)) {
                 const incoming = d.auditLogs
                   .map(normalizeAuditLog)
                   .filter((l: AuditLog | null): l is AuditLog => l !== null);
-                setAuditLogs(prev => (hasUnsyncedLocalEdits ? mergeById(incoming, prev, delSet) : incoming));
+                setAuditLogs(prev => {
+                  const next = hasUnsyncedLocalEdits
+                    ? mergeById(incoming, prev, delSet)
+                    : mergeById(prev, incoming, delSet);
+                  return isSameJson(prev, next) ? prev : next;
+                });
               }
               if (Array.isArray(d.staffMembers) && d.staffMembers.length > 0) {
                 const incomingStaff = normalizeStaffList(d.staffMembers.filter((u: any) => u && !delSet.has(u.id)));
                 staffForceReplaceRef.current = !hasUnsyncedLocalEdits;
                 setStaffMembers(prev => {
-                  const nextStaff = hasUnsyncedLocalEdits
-                    ? normalizeStaffList(mergeById<User>(incomingStaff, prev, delSet))
-                    : incomingStaff;
+                  const nextStaff = normalizeStaffList(
+                    hasUnsyncedLocalEdits
+                      ? mergeById<User>(incomingStaff, prev, delSet)
+                      : mergeById<User>(prev, incomingStaff, delSet)
+                  );
                   staffMembersRef.current = nextStaff;
+                  if (isSameJson(prev, nextStaff)) return prev;
                   try {
                     localStorage.setItem('pharmacare_staff', JSON.stringify(nextStaff));
                   } catch {}
