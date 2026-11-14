@@ -102,8 +102,11 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
       setInitialQuantity(100);
       setMfgDate('2025-01-10');
       setExpiryDate('2027-12-31');
+      if (suppliers.length > 0) {
+        setSupplierId(prev => (prev && suppliers.some(s => s.id === prev) ? prev : suppliers[0].id));
+      }
     }
-  }, [medicineToEdit, isOpen]);
+  }, [medicineToEdit, isOpen, suppliers]);
 
   if (!isOpen) return null;
 

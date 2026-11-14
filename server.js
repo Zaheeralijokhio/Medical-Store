@@ -2037,28 +2037,36 @@ async function startServer() {
           const existingBatch = med.batches.find((b) => b.batchNumber === pItem.batchNumber);
           let batchId = existingBatch?.id || `bat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
           const prevQty = existingBatch ? Number(existingBatch.quantity || 0) : 0;
-          if (existingBatch) {
-            existingBatch.quantity += Number(pItem.quantity);
-            existingBatch.purchasePrice = Number(pItem.purchasePrice);
-            existingBatch.salePrice = Number(pItem.salePrice);
-            if (pItem.expiryDate) existingBatch.expiryDate = pItem.expiryDate;
-          } else {
-            med.batches.push({
-              id: batchId,
-              medicineId: med.id,
-              batchNumber: pItem.batchNumber,
-              purchasePrice: Number(pItem.purchasePrice),
-              salePrice: Number(pItem.salePrice),
-              quantity: Number(pItem.quantity),
-              initialQuantity: Number(pItem.quantity),
-              mfgDate: pItem.mfgDate || (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
-              expiryDate: pItem.expiryDate,
-              supplierId: poRecord.supplierId,
-              supplierName: poRecord.supplierName,
-              receivedDate: poRecord.purchaseDate
-            });
+          if (!pItem.skipStockAddition) {
+            if (existingBatch) {
+              existingBatch.quantity += Number(pItem.quantity);
+              existingBatch.purchasePrice = Number(pItem.purchasePrice);
+              existingBatch.salePrice = Number(pItem.salePrice);
+              if (pItem.expiryDate) existingBatch.expiryDate = pItem.expiryDate;
+            } else {
+              med.batches.push({
+                id: batchId,
+                medicineId: med.id,
+                batchNumber: pItem.batchNumber,
+                purchasePrice: Number(pItem.purchasePrice),
+                salePrice: Number(pItem.salePrice),
+                quantity: Number(pItem.quantity),
+                initialQuantity: Number(pItem.quantity),
+                mfgDate: pItem.mfgDate || (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+                expiryDate: pItem.expiryDate,
+                supplierId: poRecord.supplierId,
+                supplierName: poRecord.supplierName,
+                receivedDate: poRecord.purchaseDate
+              });
+            }
+            if (pItem.salePrice && Number(pItem.salePrice) > 0) {
+              med.fixedSalePrice = Number(pItem.salePrice);
+            }
+            if (pItem.purchasePrice !== void 0) {
+              med.fixedPurchasePrice = Number(pItem.purchasePrice);
+            }
+            med.totalQuantity = med.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
           }
-          med.totalQuantity = med.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
           db2.stockTransactions.unshift({
             id: `stx-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             storeId: DEFAULT_STORE_ID2,
@@ -2069,7 +2077,7 @@ async function startServer() {
             type: "purchase",
             quantityChange: Number(pItem.quantity),
             previousQuantity: prevQty,
-            newQuantity: prevQty + Number(pItem.quantity),
+            newQuantity: pItem.skipStockAddition ? prevQty : prevQty + Number(pItem.quantity),
             referenceId: poRecord.id,
             createdBy: poRecord.createdBy,
             createdByName: poRecord.receivedBy || actor?.fullName || "Store Owner",

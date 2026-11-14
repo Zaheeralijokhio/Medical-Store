@@ -80,10 +80,10 @@ export const StockAdjustmentView: React.FC = () => {
     if (!searchLog) return true;
     const q = searchLog.toLowerCase();
     return (
-      adj.medicineName.toLowerCase().includes(q) ||
-      adj.batchNumber.toLowerCase().includes(q) ||
-      adj.reason.toLowerCase().includes(q) ||
-      adj.performedByName.toLowerCase().includes(q)
+      String(adj.medicineName || '').toLowerCase().includes(q) ||
+      String(adj.batchNumber || '').toLowerCase().includes(q) ||
+      String(adj.reason || '').toLowerCase().includes(q) ||
+      String(adj.performedByName || '').toLowerCase().includes(q)
     );
   });
 

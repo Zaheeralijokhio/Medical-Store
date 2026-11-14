@@ -3,41 +3,31 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Pill,
   Lock,
   User as UserIcon,
   Eye,
   EyeOff,
-  ShieldCheck,
   AlertCircle,
   ArrowRight,
-  KeyRound,
-  Delete,
-  RotateCcw,
-  Users,
+  Receipt,
+  PackageCheck,
+  ShieldCheck,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
 import { sanitizeStaffAccounts } from '../../data/initialData';
-import { User } from '../../types/pharmacy';
 
 interface LoginPageProps {
   onLoginSuccess?: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
-  const { login, loginWithPin, availableUsers, syncStaffList } = useAuth();
-  const { settings, staffMembers } = useStore();
-
-  const [authMode, setAuthMode] = useState<'password' | 'pin'>('password');
-  const [portalType, setPortalType] = useState<'admin' | 'staff'>('admin');
-
-  // Always merge AuthContext availableUsers + StoreContext staffMembers so newly created staff show up immediately
-  const allUsers = useMemo(() => {
-    return sanitizeStaffAccounts([...availableUsers, ...staffMembers]);
-  }, [availableUsers, staffMembers]);
+  const { login, syncStaffList } = useAuth();
+  const { settings } = useStore();
 
   // Fetch latest staff list from backend database whenever LoginPage mounts
   useEffect(() => {
@@ -59,66 +49,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     };
   }, []);
 
-  const staffAccounts: User[] = useMemo(
-    () => allUsers.filter(u => u.id !== 'usr-owner-1'),
-    [allUsers]
-  );
-
-  // PIN mode state (strictly for Staff accounts — never defaults to Owner account)
-  const [selectedUserId, setSelectedUserId] = useState<string>(
-    () => staffAccounts[0]?.id || ''
-  );
-  const [pinDigits, setPinDigits] = useState<string>('');
-  const [pinLoading, setPinLoading] = useState(false);
-
-  useEffect(() => {
-    if (staffAccounts.length > 0 && (!selectedUserId || selectedUserId === 'usr-owner-1')) {
-      setSelectedUserId(staffAccounts[0].id);
-    }
-  }, [staffAccounts, selectedUserId]);
-
-  // Password mode state
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  // Handle PIN input
-  const handlePinDigit = async (digit: string) => {
-    if (pinDigits.length >= 4) return;
-    const nextPin = pinDigits + digit;
-    setPinDigits(nextPin);
-    setErrorMessage('');
-
-    if (nextPin.length === 4) {
-      setPinLoading(true);
-      try {
-        const result = await loginWithPin(nextPin, selectedUserId);
-        if (result.success) {
-          onLoginSuccess?.();
-        } else {
-          setErrorMessage(result.error || 'Invalid 4-digit PIN. Please try again.');
-          setPinDigits('');
-        }
-      } catch {
-        setErrorMessage('Authentication error. Please try again.');
-        setPinDigits('');
-      } finally {
-        setPinLoading(false);
-      }
-    }
-  };
-
-  const handlePinBackspace = () => {
-    setPinDigits(prev => prev.slice(0, -1));
-  };
-
-  const handlePinClear = () => {
-    setPinDigits('');
-    setErrorMessage('');
-  };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +65,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       if (result.success) {
         onLoginSuccess?.();
       } else {
-        setErrorMessage(result.error || 'Authentication failed. Please verify username and password.');
+        setErrorMessage(result.error || 'Invalid username or password.');
       }
     } catch {
       setErrorMessage('Unexpected login error. Please retry.');
@@ -139,360 +74,198 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const selectedUser = allUsers.find(u => u.id === selectedUserId) || allUsers[0];
+  const storeTitle = settings?.storeName || 'PharmaCare Medical & General Store';
+  const storeAddress = settings?.storeAddress || 'Main Commercial Market, Pakistan';
+  const storeLicense = settings?.drugLicenseNumber || 'DRAP-LIC-0001';
 
   return (
-    <div className="min-h-screen bg-[#071317] flex flex-col justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Subtle botanical grid & ambient emerald glow */}
-      <div className="absolute inset-0 opacity-[0.12] bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
-      <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-teal-600/15 blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-gradient-to-br from-[#071519] via-[#0B2228] to-[#0E3532] flex items-center justify-center p-4 sm:p-6 lg:p-10 relative overflow-hidden">
+      {/* Subtle architectural background lines */}
+      <div
+        className="absolute inset-0 opacity-[0.06] pointer-events-none"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+        }}
+      />
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 text-center">
-        <div className="flex items-center justify-center gap-3 mb-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 shadow-lg shadow-emerald-500/25">
-            <Pill className="w-7 h-7 transform -rotate-12 stroke-[2.2]" />
-          </div>
-          <div className="text-left">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
-              {String(settings?.storeName || 'PharmaCare').split(' ')[0]}{' '}
-              <span className="text-emerald-400">Pro</span>
-            </h1>
-            <p className="text-xs text-emerald-200/80 font-medium">
-              Medical Store &amp; Pharmacy ERP
-            </p>
-          </div>
-        </div>
-
-        <h2 className="text-base sm:text-lg font-bold text-slate-100">
-          System Login Portal
-        </h2>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Sign in as Store Owner or Staff / Seller Account
-        </p>
-
-        {/* Auth Method Switcher */}
-        <div className="mt-4 bg-[#0B191E] p-1 rounded-xl flex items-center max-w-xs mx-auto border border-white/10">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode('password');
-              setErrorMessage('');
+      <div className="w-full max-w-[960px] bg-white rounded-3xl shadow-2xl shadow-black/40 border border-white/15 overflow-hidden grid grid-cols-1 md:grid-cols-12 relative z-10">
+        {/* Left Showcase Panel */}
+        <div className="md:col-span-6 bg-gradient-to-br from-[#081A1F] via-[#0C2930] to-[#0F6B63] text-white p-7 sm:p-9 lg:p-11 flex flex-col justify-between relative overflow-hidden">
+          {/* Subtle decorative radial highlight */}
+          <div
+            className="absolute inset-0 opacity-20 pointer-events-none"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 85% 15%, rgba(45, 212, 191, 0.35), transparent 55%)',
             }}
-            className={`flex-1 min-h-[40px] py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === 'password'
-                ? 'bg-emerald-500 text-slate-950 shadow-xs'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Password</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMode('pin');
-              setErrorMessage('');
-            }}
-            className={`flex-1 min-h-[40px] py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              authMode === 'pin'
-                ? 'bg-emerald-500 text-slate-950 shadow-xs'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span>4-Digit PIN</span>
-          </button>
-        </div>
-      </div>
+          />
 
-      <div className="mt-5 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-[#0B191E]/95 backdrop-blur-xl py-6 px-5 sm:px-8 shadow-2xl rounded-2xl border border-white/10">
-          {errorMessage && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-200 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{errorMessage}</span>
+          <div className="relative z-10">
+            {/* Brand Lockup */}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 shadow-md shadow-teal-950/40 shrink-0">
+                <Pill className="w-5 h-5 stroke-[2.4]" />
+              </div>
+              <div>
+                <span className="text-base font-extrabold tracking-tight text-white block leading-none">
+                  PharmaCare Pro
+                </span>
+                <span className="text-[11px] text-teal-200/80 font-medium block mt-1">
+                  Pharmacy Management Suite
+                </span>
+              </div>
             </div>
-          )}
 
-          {authMode === 'password' ? (
-            <div className="space-y-4">
-              {/* Role Tabs: Owner/Admin vs Staff/Seller */}
-              <div className="grid grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPortalType('admin');
-                    setUsername('admin');
-                    setPassword('');
-                    setErrorMessage('');
-                  }}
-                  className={`p-3 min-h-[54px] rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
-                    portalType === 'admin'
-                      ? 'bg-emerald-500/15 border-emerald-400/70 text-white'
-                      : 'bg-[#071114]/70 border-white/10 text-slate-400 hover:border-white/20'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold block text-white">Owner</span>
-                    <span className="text-[10px] text-emerald-300 block truncate">Full Control</span>
-                  </div>
-                </button>
+            {/* Store Title & Description */}
+            <div className="mt-8 sm:mt-10">
+              <h1 className="text-2xl sm:text-[26px] font-extrabold text-white leading-tight tracking-tight text-balance">
+                {storeTitle}
+              </h1>
+              <p className="mt-2.5 text-xs sm:text-sm text-teal-100/80 leading-relaxed">
+                Complete point-of-sale counter billing, FEFO batch inventory tracking, and real-time financial accounts.
+              </p>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPortalType('staff');
-                    setUsername(staffAccounts[0]?.username || '');
-                    setPassword('');
-                    setErrorMessage('');
-                  }}
-                  className={`p-3 min-h-[54px] rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
-                    portalType === 'staff'
-                      ? 'bg-teal-500/20 border-teal-400/70 text-white'
-                      : 'bg-[#071114]/70 border-white/10 text-slate-400 hover:border-white/20'
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
-                    <Users className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold block text-white">Staff</span>
-                    <span className="text-[10px] text-teal-300 block truncate">
-                      {staffAccounts.length} Account{staffAccounts.length === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                </button>
+            {/* 3 Structured Capability Highlights */}
+            <div className="mt-7 space-y-2.5 hidden sm:block">
+              <div className="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.06] border border-white/10">
+                <div className="w-8 h-8 rounded-xl bg-teal-400/15 text-teal-300 flex items-center justify-center shrink-0 mt-0.5">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-white">Fast POS &amp; Cash Memo Billing</h3>
+                  <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                    Instant barcode lookup, fixed retail pricing, and thermal / A4 invoice printing.
+                  </p>
+                </div>
               </div>
 
-              {portalType === 'staff' && staffAccounts.length > 0 && (
+              <div className="flex items-start gap-3 p-3 rounded-2xl bg-white/[0.06] border border-white/10">
+                <div className="w-8 h-8 rounded-xl bg-emerald-400/15 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
+                  <PackageCheck className="w-4 h-4" />
+                </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Available Staff Accounts (Click to select):
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {staffAccounts.map(staff => (
-                      <button
-                        key={staff.id}
-                        type="button"
-                        onClick={() => {
-                          setPortalType('staff');
-                          setUsername(staff.username);
-                          setErrorMessage('');
-                        }}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                          username.toLowerCase() === staff.username.toLowerCase()
-                            ? 'bg-teal-500/25 border-teal-400 text-teal-200'
-                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {staff.fullName} (@{staff.username})
-                      </button>
-                    ))}
+                  <h3 className="text-xs font-bold text-white">FEFO Batch &amp; Expiry Control</h3>
+                  <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                    Automatic first-expiry stock deduction with low-stock and near-expiry alerts.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Store Location & License Footer */}
+          <div className="mt-8 pt-5 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs text-teal-100/75 relative z-10">
+            <div className="flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-teal-300 shrink-0" />
+              <span className="font-medium text-white/90">{storeAddress}</span>
+            </div>
+            <span className="font-mono text-[11px] text-teal-200/80">
+              Lic: {storeLicense}
+            </span>
+          </div>
+        </div>
+
+        {/* Right Sign-In Form Panel */}
+        <div className="md:col-span-6 p-7 sm:p-10 lg:p-12 flex flex-col justify-center bg-white">
+          <div className="max-w-sm mx-auto w-full">
+            {/* Form Header */}
+            <div className="mb-7">
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0F766E] mb-2">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Authorized Store Access</span>
+              </div>
+              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                Sign in to your account
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1.5">
+                Enter your username and password to open the pharmacy workspace.
+              </p>
+            </div>
+
+            {errorMessage && (
+              <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordSubmit} className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Username
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <UserIcon className="w-4 h-4" />
                   </div>
+                  <input
+                    type="text"
+                    required
+                    autoComplete="username"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    className="block w-full pl-10 pr-4 py-3 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/12 focus:border-[#0F766E] transition-all"
+                    placeholder="Enter your username"
+                    autoFocus
+                  />
                 </div>
-              )}
+              </div>
 
-              {portalType === 'staff' && staffAccounts.length === 0 && (
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
-                  No staff accounts have been registered yet. Please contact the Store Owner to create your staff login credentials.
-                </div>
-              )}
-
-              {/* Username & Password Form */}
-              <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Username
-                  </label>
-                  <div className="relative rounded-xl shadow-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <UserIcon className="w-4 h-4" />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={username}
-                      onChange={e => setUsername(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono"
-                      placeholder={portalType === 'admin' ? 'Enter Owner username' : 'Enter staff username'}
-                    />
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4" />
                   </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="block w-full pl-10 pr-11 py-3 bg-slate-50/80 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/12 focus:border-[#0F766E] transition-all"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Password
-                  </label>
-                  <div className="relative rounded-xl shadow-xs">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      className="block w-full pl-10 pr-10 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono"
-                      placeholder={portalType === 'admin' ? 'Enter Owner password' : 'Enter staff password'}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={e => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 bg-slate-950 border-slate-700"
-                    />
-                    <span>Keep me signed in on this tab</span>
-                  </label>
-                </div>
-
+              <div className="pt-1">
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 text-sm font-black shadow-lg shadow-teal-500/20 focus:outline-hidden focus:ring-2 focus:ring-teal-400 transition-all active:scale-[0.99] disabled:opacity-70 cursor-pointer"
+                  className="w-full min-h-[46px] flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-[#0F766E] via-teal-600 to-emerald-600 hover:from-[#0D655E] hover:to-emerald-500 text-white text-sm font-bold shadow-md shadow-teal-700/20 focus:outline-hidden focus:ring-4 focus:ring-[#0F766E]/25 transition-all disabled:opacity-60 cursor-pointer"
                 >
                   {isLoading ? (
-                    <span>Signing In...</span>
+                    <span>Signing in...</span>
                   ) : (
                     <>
-                      <span>
-                        {portalType === 'admin' ? 'Sign In as Owner / Admin' : 'Sign In as Staff'}
-                      </span>
+                      <span>Sign In to Workspace</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </button>
-              </form>
+              </div>
+            </form>
+
+            <div className="mt-8 pt-5 border-t border-slate-100 text-center">
+              <p className="text-[11px] text-slate-400">
+                Protected pharmacy terminal · Owner &amp; Staff accounts supported
+              </p>
             </div>
-          ) : (
-            /* 4-Digit Fast PIN Keypad Mode */
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2 text-center">
-                  Select Staff Account for PIN Sign-In:
-                </label>
-                {staffAccounts.length === 0 ? (
-                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 text-xs text-center">
-                    No staff PIN accounts created yet. Please use Username &amp; Password to sign in.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {staffAccounts.map(user => {
-                      const isSelected = user.id === selectedUserId;
-                      return (
-                        <button
-                          key={user.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedUserId(user.id);
-                            setPinDigits('');
-                            setErrorMessage('');
-                          }}
-                          className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-teal-500/20 border-teal-500 text-white shadow-xs shadow-teal-500/20'
-                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0 bg-teal-600">
-                              {(user.fullName || user.username || 'S').charAt(0)}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-white truncate">
-                                {user.fullName || user.username}
-                              </p>
-                              <p className="text-[10px] text-slate-400 truncate">
-                                @{user.username} • {user.designation}
-                              </p>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* 4 PIN Dots */}
-              <div className="py-2 text-center">
-                <p className="text-xs text-slate-400 mb-2">
-                  Enter 4-digit security PIN{selectedUser && selectedUser.id !== 'usr-owner-1' ? ` for ${selectedUser.fullName}` : ''}:
-                </p>
-                <div className="flex items-center justify-center gap-3">
-                  {[0, 1, 2, 3].map(idx => (
-                    <div
-                      key={idx}
-                      className={`w-4 h-4 rounded-full border-2 transition-all ${
-                        pinDigits.length > idx
-                          ? 'bg-teal-400 border-teal-400 scale-110 shadow-xs shadow-teal-400/50'
-                          : 'bg-slate-950 border-slate-700'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Touch Numeric Keypad */}
-              <div className="grid grid-cols-3 gap-2.5 max-w-xs mx-auto">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
-                  <button
-                    key={num}
-                    type="button"
-                    disabled={pinLoading}
-                    onClick={() => handlePinDigit(num)}
-                    className="h-12 rounded-xl bg-slate-950 hover:bg-slate-800 active:bg-teal-600 active:text-white border border-slate-800 text-white font-bold text-lg transition-colors flex items-center justify-center focus:outline-hidden cursor-pointer"
-                  >
-                    {num}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={handlePinClear}
-                  className="h-12 rounded-xl bg-slate-950/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white font-semibold text-xs transition-colors flex items-center justify-center cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  disabled={pinLoading}
-                  onClick={() => handlePinDigit('0')}
-                  className="h-12 rounded-xl bg-slate-950 hover:bg-slate-800 active:bg-teal-600 active:text-white border border-slate-800 text-white font-bold text-lg transition-colors flex items-center justify-center focus:outline-hidden cursor-pointer"
-                >
-                  0
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePinBackspace}
-                  className="h-12 rounded-xl bg-slate-950/60 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white font-semibold text-xs transition-colors flex items-center justify-center cursor-pointer"
-                >
-                  <Delete className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 text-center">
-          <p className="text-xs text-slate-500">
-            PharmaCare Pro • Medical Store &amp; Pharmacy ERP System
-          </p>
+          </div>
         </div>
       </div>
     </div>

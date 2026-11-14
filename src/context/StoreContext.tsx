@@ -96,7 +96,7 @@ interface StoreContextType {
   restoreSnapshot: (filename: string) => Promise<boolean>;
 
   // Medicine Actions
-  addMedicine: (medicine: Omit<Medicine, 'id' | 'totalQuantity'>, initialBatch?: Partial<MedicineBatch>) => void;
+  addMedicine: (medicine: Omit<Medicine, 'id' | 'totalQuantity'>, initialBatch?: Partial<MedicineBatch>) => Medicine;
   updateMedicine: (id: string, updated: Partial<Medicine>) => void;
   deleteMedicine: (id: string) => void;
   addBatch: (
@@ -1108,7 +1108,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addMedicine = (
     medicineData: Omit<Medicine, 'id' | 'totalQuantity'>,
     initialBatch?: Partial<MedicineBatch>
-  ) => {
+  ): Medicine => {
     const medId = `med-${Date.now()}`;
     const batches: MedicineBatch[] = [];
 
@@ -1189,6 +1189,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     logActivity('MEDICINE_ADDED', `Added new medicine: ${newMed.name} (${newMed.strength}) - Fixed Price Rs. ${resolvedFixedSalePrice}`, { medId });
     addNotification('stock_adjustment', 'New Medicine Registered', `${newMed.name} added to inventory catalog at Fixed Price Rs. ${resolvedFixedSalePrice}.`, 'info', medId);
+    return newMed;
   };
 
   const syncUpdatedMedicineToServer = (med: Medicine, ver: number) => {
@@ -1518,7 +1519,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
 
         markLocalDirty();
-        setMedicines(prev => [newMed, ...prev]);
+        const nextMeds = [newMed, ...medicinesRef.current];
+        medicinesRef.current = nextMeds;
+        setMedicines(nextMeds);
+        try {
+          localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMeds));
+        } catch {}
         imported++;
       } catch (err: any) {
         errors.push(`Row ${index + 1}: ${err.message || 'Unknown error'}`);
@@ -1554,9 +1560,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, error: 'Cart is empty. Add at least one medicine.' };
     }
 
+    const currentMeds = medicinesRef.current.length > 0 ? medicinesRef.current : medicines;
+
     // Step 1: Strict validation of stock availability and expiry
     for (const item of saleInput.items) {
-      const med = medicines.find(m => m.id === item.medicineId);
+      const med = currentMeds.find(m => m.id === item.medicineId);
       if (!med) {
         return { success: false, error: `Medicine not found for ID: ${item.medicineId}` };
       }
@@ -1587,7 +1595,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let calculatedSubtotal = 0;
 
     for (const item of saleInput.items) {
-      const med = medicines.find(m => m.id === item.medicineId)!;
+      const med = currentMeds.find(m => m.id === item.medicineId)!;
       const batch = med.batches.find(b => b.id === item.batchId)!;
 
       const lineDiscount = item.discountAmount || 0;
@@ -1645,36 +1653,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     // Step 3: Deduct sold quantities from batches atomically
-    setMedicines(prevMedicines =>
-      prevMedicines.map(med => {
-        const itemsForThisMed = saleInput.items.filter(i => i.medicineId === med.id);
-        if (itemsForThisMed.length === 0) return med;
+    const nextMedicinesAfterSale = currentMeds.map(med => {
+      const itemsForThisMed = saleInput.items.filter(i => i.medicineId === med.id);
+      if (itemsForThisMed.length === 0) return med;
 
-        const updatedBatches = med.batches.map(batch => {
-          const matchedItem = itemsForThisMed.find(i => i.batchId === batch.id);
-          if (!matchedItem) return batch;
-          const newQty = Math.max(0, batch.quantity - matchedItem.quantity);
-          return {
-            ...batch,
-            quantity: newQty,
-          };
-        });
-
-        const newTotalQty = updatedBatches.reduce((acc, b) => acc + b.quantity, 0);
-
-        if (newTotalQty === 0) {
-          addNotification('out_of_stock', `Out of Stock: ${med.name}`, `${med.name} stock has reached 0 units.`, 'danger', med.id);
-        } else if (newTotalQty <= med.minStockLevel) {
-          addNotification('low_stock', `Low Stock Alert: ${med.name}`, `${med.name} quantity (${newTotalQty}) is at or below minimum threshold (${med.minStockLevel}).`, 'warning', med.id);
-        }
-
+      const updatedBatches = med.batches.map(batch => {
+        const matchedItem = itemsForThisMed.find(i => i.batchId === batch.id);
+        if (!matchedItem) return batch;
+        const newQty = Math.max(0, batch.quantity - matchedItem.quantity);
         return {
-          ...med,
-          batches: updatedBatches,
-          totalQuantity: newTotalQty,
+          ...batch,
+          quantity: newQty,
         };
-      })
-    );
+      });
+
+      const newTotalQty = updatedBatches.reduce((acc, b) => acc + b.quantity, 0);
+
+      if (newTotalQty === 0) {
+        addNotification('out_of_stock', `Out of Stock: ${med.name}`, `${med.name} stock has reached 0 units.`, 'danger', med.id);
+      } else if (newTotalQty <= med.minStockLevel) {
+        addNotification('low_stock', `Low Stock Alert: ${med.name}`, `${med.name} quantity (${newTotalQty}) is at or below minimum threshold (${med.minStockLevel}).`, 'warning', med.id);
+      }
+
+      return {
+        ...med,
+        batches: updatedBatches,
+        totalQuantity: newTotalQty,
+      };
+    });
+    medicinesRef.current = nextMedicinesAfterSale;
+    setMedicines(nextMedicinesAfterSale);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMedicinesAfterSale));
+    } catch {}
 
     // Step 4: Record customer purchase stats if customer exists
     if (saleInput.customerId) {
@@ -1706,6 +1717,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .then(res => {
           if (res.ok || res.status === 409) {
             ackDedicatedMutation(ver);
+            broadcastFullRefresh();
           } else {
             enqueueOfflineSale(newSale).then(refreshPendingQueueCount);
           }
@@ -1754,6 +1766,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const totalRefund = returnItems.reduce((sum, item) => sum + item.refundAmount, 0);
     const now = new Date();
 
+    const currentMeds = medicinesRef.current.length > 0 ? medicinesRef.current : medicines;
+
     const returnRecord: SaleReturn = {
       id: `ret-${Date.now()}`,
       saleId: sale.id,
@@ -1763,7 +1777,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       staffId: currentUser?.id || 'admin',
       staffName: currentUser?.fullName || 'Admin Pharmacist',
       items: returnItems.map(item => {
-        const med = medicines.find(m => m.id === item.medicineId);
+        const med = currentMeds.find(m => m.id === item.medicineId);
         const batch = med?.batches.find(b => b.id === item.batchId);
         return {
           medicineId: item.medicineId,
@@ -1781,28 +1795,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     // Restore stock to batches
-    setMedicines(prevMedicines =>
-      prevMedicines.map(med => {
-        const itemsToRestore = returnItems.filter(i => i.medicineId === med.id);
-        if (itemsToRestore.length === 0) return med;
+    const nextMedicinesAfterReturn = currentMeds.map(med => {
+      const itemsToRestore = returnItems.filter(i => i.medicineId === med.id);
+      if (itemsToRestore.length === 0) return med;
 
-        const updatedBatches = med.batches.map(batch => {
-          const matched = itemsToRestore.find(i => i.batchId === batch.id);
-          if (!matched) return batch;
-          return {
-            ...batch,
-            quantity: batch.quantity + matched.quantity,
-          };
-        });
-
-        const newTotalQty = updatedBatches.reduce((acc, b) => acc + b.quantity, 0);
+      const updatedBatches = med.batches.map(batch => {
+        const matched = itemsToRestore.find(i => i.batchId === batch.id);
+        if (!matched) return batch;
         return {
-          ...med,
-          batches: updatedBatches,
-          totalQuantity: newTotalQty,
+          ...batch,
+          quantity: batch.quantity + matched.quantity,
         };
-      })
-    );
+      });
+
+      const newTotalQty = updatedBatches.reduce((acc, b) => acc + b.quantity, 0);
+      return {
+        ...med,
+        batches: updatedBatches,
+        totalQuantity: newTotalQty,
+      };
+    });
+    medicinesRef.current = nextMedicinesAfterReturn;
+    setMedicines(nextMedicinesAfterReturn);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMedicinesAfterReturn));
+    } catch {}
 
     // Update Sale status
     setSales(prev =>
@@ -1824,7 +1841,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body: JSON.stringify(returnRecord),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
       })
       .catch(() => {});
 
@@ -1856,53 +1876,69 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     // Update or add batches to medicines
-    setMedicines(prevMedicines =>
-      prevMedicines.map(med => {
-        const purchaseItemsForMed = purchaseData.items.filter(i => i.medicineId === med.id);
-        if (purchaseItemsForMed.length === 0) return med;
+    const currentMeds = medicinesRef.current.length > 0 ? medicinesRef.current : medicines;
+    const nextMedicinesAfterPurchase = currentMeds.map(med => {
+      const purchaseItemsForMed = purchaseData.items.filter(
+        i => i.medicineId === med.id && !(i as any).skipStockAddition
+      );
+      if (purchaseItemsForMed.length === 0) return med;
 
-        let updatedBatches = [...(med.batches || [])];
+      let updatedBatches = [...(med.batches || [])];
+      let nextFixedSale = med.fixedSalePrice;
+      let nextFixedCost = med.fixedPurchasePrice;
 
-        for (const pItem of purchaseItemsForMed) {
-          const existingBatchIndex = updatedBatches.findIndex(b => b.batchNumber === pItem.batchNumber);
-
-          if (existingBatchIndex >= 0) {
-            const existing = updatedBatches[existingBatchIndex];
-            updatedBatches[existingBatchIndex] = {
-              ...existing,
-              quantity: existing.quantity + pItem.quantity,
-              purchasePrice: pItem.purchasePrice,
-              salePrice: pItem.salePrice,
-              expiryDate: pItem.expiryDate || existing.expiryDate,
-              mfgDate: pItem.mfgDate || existing.mfgDate,
-            };
-          } else {
-            updatedBatches.push({
-              id: `bat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-              medicineId: med.id,
-              batchNumber: pItem.batchNumber,
-              purchasePrice: pItem.purchasePrice,
-              salePrice: pItem.salePrice,
-              wholesalePrice: pItem.salePrice * 0.9,
-              quantity: pItem.quantity,
-              initialQuantity: pItem.quantity,
-              mfgDate: pItem.mfgDate,
-              expiryDate: pItem.expiryDate,
-              supplierId: purchaseData.supplierId,
-              supplierName: purchaseData.supplierName,
-              receivedDate: purchaseData.purchaseDate,
-            });
-          }
+      for (const pItem of purchaseItemsForMed) {
+        const existingBatchIndex = updatedBatches.findIndex(b => b.batchNumber === pItem.batchNumber);
+        if (pItem.salePrice && Number(pItem.salePrice) > 0) {
+          nextFixedSale = Number(pItem.salePrice);
+        }
+        if (pItem.purchasePrice !== undefined) {
+          nextFixedCost = Number(pItem.purchasePrice);
         }
 
-        const newTotalQty = updatedBatches.reduce((acc, b) => acc + b.quantity, 0);
-        return {
-          ...med,
-          batches: updatedBatches,
-          totalQuantity: newTotalQty,
-        };
-      })
-    );
+        if (existingBatchIndex >= 0) {
+          const existing = updatedBatches[existingBatchIndex];
+          updatedBatches[existingBatchIndex] = {
+            ...existing,
+            quantity: existing.quantity + pItem.quantity,
+            purchasePrice: pItem.purchasePrice,
+            salePrice: pItem.salePrice,
+            expiryDate: pItem.expiryDate || existing.expiryDate,
+            mfgDate: pItem.mfgDate || existing.mfgDate,
+          };
+        } else {
+          updatedBatches.push({
+            id: `bat-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            medicineId: med.id,
+            batchNumber: pItem.batchNumber,
+            purchasePrice: pItem.purchasePrice,
+            salePrice: pItem.salePrice,
+            wholesalePrice: pItem.salePrice * 0.9,
+            quantity: pItem.quantity,
+            initialQuantity: pItem.quantity,
+            mfgDate: pItem.mfgDate,
+            expiryDate: pItem.expiryDate,
+            supplierId: purchaseData.supplierId,
+            supplierName: purchaseData.supplierName,
+            receivedDate: purchaseData.purchaseDate,
+          });
+        }
+      }
+
+      const newTotalQty = updatedBatches.reduce((acc, b) => acc + b.quantity, 0);
+      return {
+        ...med,
+        fixedSalePrice: nextFixedSale,
+        fixedPurchasePrice: nextFixedCost,
+        batches: updatedBatches,
+        totalQuantity: newTotalQty,
+      };
+    });
+    medicinesRef.current = nextMedicinesAfterPurchase;
+    setMedicines(nextMedicinesAfterPurchase);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMedicinesAfterPurchase));
+    } catch {}
 
     // Update Supplier ledger
     setSuppliers(prev =>
@@ -1931,7 +1967,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         body: JSON.stringify(newPurchase),
       })
         .then(res => {
-          if (res.ok) ackDedicatedMutation(ver);
+          if (res.ok) {
+            ackDedicatedMutation(ver);
+            broadcastFullRefresh();
+          }
         })
         .catch(() => {});
     }
@@ -1955,25 +1994,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const recordPurchasePayment = (purchaseId: string, amount: number) => {
     const ver = markLocalDirty();
+    const targetPurchase = purchases.find(p => p.id === purchaseId);
+    const targetSupplierId = targetPurchase?.supplierId || '';
+
     setPurchases(prev =>
       prev.map(p => {
         if (p.id !== purchaseId) return p;
         const newPaid = p.paidAmount + amount;
         const newBalance = Math.max(0, p.totalAmount - newPaid);
         const newStatus = newBalance === 0 ? 'Paid' : newPaid > 0 ? 'Partial' : 'Pending';
-
-        setSuppliers(sups =>
-          sups.map(s => {
-            if (s.id !== p.supplierId) return s;
-            const updatedPaid = s.totalPaid + amount;
-            const updatedOutstanding = Math.max(0, s.totalPurchases - updatedPaid);
-            return {
-              ...s,
-              totalPaid: updatedPaid,
-              outstandingBalance: updatedOutstanding,
-            };
-          })
-        );
 
         return {
           ...p,
@@ -1984,13 +2013,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })
     );
 
+    if (targetSupplierId) {
+      setSuppliers(sups =>
+        sups.map(s => {
+          if (s.id !== targetSupplierId) return s;
+          const updatedPaid = s.totalPaid + amount;
+          const updatedOutstanding = Math.max(0, s.totalPurchases - updatedPaid);
+          return {
+            ...s,
+            totalPaid: updatedPaid,
+            outstandingBalance: updatedOutstanding,
+          };
+        })
+      );
+    }
+
     fetch(`/api/purchase/${encodeURIComponent(purchaseId)}/payment`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ amount }),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
       })
       .catch(() => {});
 
@@ -2213,7 +2260,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     adjustmentType: StockAdjustment['adjustmentType'];
     reason: string;
   }): { success: boolean; error?: string } => {
-    const med = medicines.find(m => m.id === adjustment.medicineId);
+    const currentMeds = medicinesRef.current.length > 0 ? medicinesRef.current : medicines;
+    const med = currentMeds.find(m => m.id === adjustment.medicineId);
     if (!med) return { success: false, error: 'Medicine not found' };
 
     const batch = med.batches.find(b => b.id === adjustment.batchId);
@@ -2239,18 +2287,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     const ver = markLocalDirty();
-    setMedicines(prev =>
-      prev.map(m => {
-        if (m.id !== med.id) return m;
-        const updatedBatches = m.batches.map(b => (b.id === batch.id ? { ...b, quantity: newQuantity } : b));
-        const totalQuantity = updatedBatches.reduce((acc, b) => acc + b.quantity, 0);
-        return {
-          ...m,
-          batches: updatedBatches,
-          totalQuantity,
-        };
-      })
-    );
+    const nextMedicinesAfterAdj = currentMeds.map(m => {
+      if (m.id !== med.id) return m;
+      const updatedBatches = m.batches.map(b => (b.id === batch.id ? { ...b, quantity: newQuantity } : b));
+      const totalQuantity = updatedBatches.reduce((acc, b) => acc + b.quantity, 0);
+      return {
+        ...m,
+        batches: updatedBatches,
+        totalQuantity,
+      };
+    });
+    medicinesRef.current = nextMedicinesAfterAdj;
+    setMedicines(nextMedicinesAfterAdj);
+    try {
+      localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMedicinesAfterAdj));
+    } catch {}
 
     setAdjustments(prev => [adjRecord, ...prev]);
 
@@ -2260,7 +2311,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body: JSON.stringify(adjRecord),
     })
       .then(res => {
-        if (res.ok) ackDedicatedMutation(ver);
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
       })
       .catch(() => {});
 
@@ -2447,18 +2501,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Notifications
   const markNotificationRead = (id: string) => {
-    markLocalDirty();
-    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
+    setNotifications(prev => {
+      const next = prev.map(n => (n.id === id ? { ...n, read: true } : n));
+      try {
+        localStorage.setItem('pharmacare_notifications', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const markAllNotificationsRead = () => {
-    markLocalDirty();
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications(prev => {
+      const next = prev.map(n => ({ ...n, read: true }));
+      try {
+        localStorage.setItem('pharmacare_notifications', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const clearNotification = (id: string) => {
-    markLocalDirty();
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications(prev => {
+      const next = prev.filter(n => n.id !== id);
+      try {
+        localStorage.setItem('pharmacare_notifications', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   // Settings

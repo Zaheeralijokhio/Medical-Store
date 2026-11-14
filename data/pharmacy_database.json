@@ -214,31 +214,40 @@
   },
   "auditLogs": [
     {
-      "id": "log-1794571555497",
-      "action": "MEDICINE_DELETED",
-      "description": "Removed medicine formulation Local E2E Med",
+      "id": "log-1794630308328",
+      "action": "STAFF_CREATED",
+      "description": "Owner saved staff account for E2E Verification Staff (@e2estaff_8312)",
       "userId": "usr-owner-1",
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
-      "timestamp": "2026-11-13T12:05:55.497Z"
+      "timestamp": "2026-11-14T04:25:08.328Z"
+    },
+    {
+      "id": "log-1794571555497",
+      "action": "MEDICINE_DELETED",
+      "userId": "usr-owner-1",
+      "userName": "Dr. Abdul Rehman (Owner)",
+      "userRole": "admin",
+      "timestamp": "2026-11-13T12:05:55.497Z",
+      "description": "Removed medicine formulation Local E2E Med"
     },
     {
       "id": "log-1794571555484",
       "action": "MEDICINE_CREATED",
-      "description": "Registered formulation Local E2E Med () with 10 units",
       "userId": "usr-staff-local-e2e-1794571555",
       "userName": "Local E2E Staff",
       "userRole": "staff",
-      "timestamp": "2026-11-13T12:05:55.484Z"
+      "timestamp": "2026-11-13T12:05:55.484Z",
+      "description": "Registered formulation Local E2E Med () with 10 units"
     },
     {
       "id": "log-1794571555475",
       "action": "STAFF_CREATED",
-      "description": "Owner saved staff account for Local E2E Staff (@local_e2e_staff)",
       "userId": "usr-owner-1",
       "userName": "Dr. Abdul Rehman (Owner)",
       "userRole": "admin",
-      "timestamp": "2026-11-13T12:05:55.475Z"
+      "timestamp": "2026-11-13T12:05:55.475Z",
+      "description": "Owner saved staff account for Local E2E Staff (@local_e2e_staff)"
     },
     {
       "id": "log-1794403881383-2zs5",
@@ -383,70 +392,70 @@
       "storeId": "store-1",
       "name": "Analgesics & Antipyretics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-2",
       "storeId": "store-1",
       "name": "Antibiotics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-3",
       "storeId": "store-1",
       "name": "Gastrointestinal",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-4",
       "storeId": "store-1",
       "name": "Antihistamines & Respiratory",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-5",
       "storeId": "store-1",
       "name": "Cardiovascular & Hypertension",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-6",
       "storeId": "store-1",
       "name": "Antidiabetics",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-7",
       "storeId": "store-1",
       "name": "Vitamins & Supplements",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-8",
       "storeId": "store-1",
       "name": "Dermatological",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-9",
       "storeId": "store-1",
       "name": "Surgical & First Aid",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     },
     {
       "id": "cat-10",
       "storeId": "store-1",
       "name": "General",
       "createdBy": "usr-owner-1",
-      "createdAt": "2026-11-13T12:05:55.504Z"
+      "createdAt": "2026-11-14T04:27:15.143Z"
     }
   ],
   "deletedIds": [
@@ -462,10 +471,11 @@
     "med-e2e-check",
     "usr-staff-e2e-check",
     "med-local-e2e-1794571555",
-    "usr-staff-local-e2e-1794571555"
+    "usr-staff-local-e2e-1794571555",
+    "usr-staff-e2e-1794630308312"
   ],
   "adjustments": [],
-  "lastUpdated": "2026-11-13T12:05:55.504Z",
+  "lastUpdated": "2026-11-14T04:27:15.143Z",
   "saleReturns": [],
   "cleanVersion": "pharmacare_clean_v3",
   "staffMembers": [
@@ -581,19 +591,19 @@
   "stockTransactions": [
     {
       "id": "stx-1794571555484-5whq",
-      "storeId": "store-1",
-      "medicineId": "med-local-e2e-1794571555",
-      "medicineName": "Local E2E Med",
-      "batchId": "bat-local-e2e-1794571555",
-      "batchNumber": "LOC-001",
       "type": "opening",
-      "quantityChange": 10,
-      "previousQuantity": 0,
+      "batchId": "bat-local-e2e-1794571555",
+      "storeId": "store-1",
+      "createdBy": "usr-staff-local-e2e-1794571555",
+      "timestamp": "2026-11-13T12:05:55.484Z",
+      "medicineId": "med-local-e2e-1794571555",
+      "batchNumber": "LOC-001",
       "newQuantity": 10,
       "referenceId": "med-local-e2e-1794571555",
-      "createdBy": "usr-staff-local-e2e-1794571555",
+      "medicineName": "Local E2E Med",
       "createdByName": "Local E2E Staff",
-      "timestamp": "2026-11-13T12:05:55.484Z"
+      "quantityChange": 10,
+      "previousQuantity": 0
     },
     {
       "id": "stx-1794547212596-g36d",
@@ -756,5 +766,6 @@
       "previousQuantity": 0
     }
   ],
-  "forceMedicineReplace": true
+  "forceMedicineReplace": true,
+  "forceReplace": true
 }

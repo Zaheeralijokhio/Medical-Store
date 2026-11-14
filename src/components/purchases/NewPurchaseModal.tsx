@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Truck,
@@ -77,6 +77,34 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
   const [newSalePrice, setNewSalePrice] = useState(35);
   const [newExpiryDate, setNewExpiryDate] = useState('2028-01-01');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    if ((!supplierId || !suppliers.some(s => s.id === supplierId)) && suppliers.length > 0) {
+      setSupplierId(suppliers[0].id);
+    }
+    if (medicines.length > 0) {
+      setItems(prev =>
+        prev.map(item => {
+          if (item.medicineId && medicines.some(m => m.id === item.medicineId)) {
+            return item;
+          }
+          const firstMed = medicines[0];
+          const firstBatch = firstMed.batches?.[0];
+          const pPrice = firstMed.fixedPurchasePrice || firstBatch?.purchasePrice || item.purchasePrice || 15;
+          const sPrice = firstMed.fixedSalePrice || firstBatch?.salePrice || item.salePrice || 20;
+          return {
+            ...item,
+            medicineId: firstMed.id,
+            medicineName: firstMed.name,
+            purchasePrice: pPrice,
+            salePrice: sPrice,
+            total: Number(item.quantity || 100) * pPrice,
+          };
+        })
+      );
+    }
+  }, [isOpen, suppliers, medicines, supplierId]);
+
   if (!isOpen) return null;
 
   // Option 1 Helpers
@@ -135,9 +163,9 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const sup = suppliers.find(s => s.id === supplierId);
+    const sup = suppliers.find(s => s.id === supplierId) || suppliers[0];
     if (!sup) {
-      alert('Please select a supplier.');
+      alert('Please select or register a supplier first.');
       return;
     }
 
@@ -173,7 +201,7 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
 
       const generatedCode = `MED-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      addMedicine(
+      const createdMed = addMedicine(
         {
           code: generatedCode,
           name: newMedName.trim(),
@@ -188,6 +216,8 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
           minStockLevel: 20,
           storageLocation: newStorageLocation.trim(),
           description: `Registered during supplier purchase from ${sup.companyName}`,
+          fixedSalePrice: Number(newSalePrice),
+          fixedPurchasePrice: Number(newCostPrice),
           batches: [],
           status: 'active',
           requiresPrescription: false,
@@ -203,25 +233,26 @@ export const NewPurchaseModal: React.FC<NewPurchaseModalProps> = ({
         }
       );
 
-      // Record corresponding purchase record
+      // Record corresponding purchase record without double-counting stock
+      const purchaseItemWithSkip: PurchaseItem & { skipStockAddition?: boolean } = {
+        medicineId: createdMed.id,
+        medicineName: createdMed.name,
+        batchNumber: newBatchNumber.trim(),
+        quantity: newQty,
+        purchasePrice: newCostPrice,
+        salePrice: newSalePrice,
+        mfgDate: '2025-01-01',
+        expiryDate: newExpiryDate,
+        total: newQty * newCostPrice,
+        skipStockAddition: true,
+      };
+
       addPurchase({
         supplierId: sup.id,
         supplierName: sup.companyName,
         invoiceNumber: invNumber,
         purchaseDate,
-        items: [
-          {
-            medicineId: generatedCode,
-            medicineName: newMedName.trim(),
-            batchNumber: newBatchNumber.trim(),
-            quantity: newQty,
-            purchasePrice: newCostPrice,
-            salePrice: newSalePrice,
-            mfgDate: '2025-01-01',
-            expiryDate: newExpiryDate,
-            total: newQty * newCostPrice,
-          },
-        ],
+        items: [purchaseItemWithSkip],
         totalAmount: totalPurchaseAmount,
         paidAmount: actualPaid,
         balanceAmount: Math.max(0, totalPurchaseAmount - actualPaid),

@@ -1603,6 +1603,7 @@ try {
         array_unshift($db['purchases'], $poRecord);
 
         foreach ($poRecord['items'] as $pItem) {
+            $skipStock = !empty($pItem['skipStockAddition']);
             foreach ($db['medicines'] as &$med) {
                 if (($med['id'] ?? '') !== ($pItem['medicineId'] ?? '')) continue;
                 $batches = is_array($med['batches'] ?? null) ? $med['batches'] : [];
@@ -1614,32 +1615,40 @@ try {
                     }
                 }
                 $batchId = $foundBatchIdx >= 0 ? ($batches[$foundBatchIdx]['id'] ?? '') : ('bat-' . round(microtime(true) * 1000) . '-' . substr(md5((string)mt_rand()), 0, 4));
-                if ($foundBatchIdx >= 0) {
-                    $batches[$foundBatchIdx]['quantity'] = (float)($batches[$foundBatchIdx]['quantity'] ?? 0) + (float)($pItem['quantity'] ?? 0);
-                    $batches[$foundBatchIdx]['purchasePrice'] = (float)($pItem['purchasePrice'] ?? $batches[$foundBatchIdx]['purchasePrice']);
-                    $batches[$foundBatchIdx]['salePrice'] = (float)($pItem['salePrice'] ?? $batches[$foundBatchIdx]['salePrice']);
-                    if (!empty($pItem['expiryDate'])) $batches[$foundBatchIdx]['expiryDate'] = $pItem['expiryDate'];
-                } else {
-                    $batches[] = [
-                        'id' => $batchId,
-                        'medicineId' => $med['id'],
-                        'batchNumber' => $pItem['batchNumber'] ?? 'BATCH-1',
-                        'purchasePrice' => (float)($pItem['purchasePrice'] ?? 0),
-                        'salePrice' => (float)($pItem['salePrice'] ?? 0),
-                        'wholesalePrice' => (float)($pItem['salePrice'] ?? 0) * 0.9,
-                        'quantity' => (float)($pItem['quantity'] ?? 0),
-                        'initialQuantity' => (float)($pItem['quantity'] ?? 0),
-                        'mfgDate' => $pItem['mfgDate'] ?? gmdate('Y-m-d'),
-                        'expiryDate' => $pItem['expiryDate'] ?? gmdate('Y-m-d', strtotime('+1 year')),
-                        'supplierId' => $poRecord['supplierId'] ?? '',
-                        'supplierName' => $poRecord['supplierName'] ?? '',
-                        'receivedDate' => $poRecord['purchaseDate'] ?? gmdate('Y-m-d'),
-                    ];
+                if (!$skipStock) {
+                    if ($foundBatchIdx >= 0) {
+                        $batches[$foundBatchIdx]['quantity'] = (float)($batches[$foundBatchIdx]['quantity'] ?? 0) + (float)($pItem['quantity'] ?? 0);
+                        $batches[$foundBatchIdx]['purchasePrice'] = (float)($pItem['purchasePrice'] ?? $batches[$foundBatchIdx]['purchasePrice']);
+                        $batches[$foundBatchIdx]['salePrice'] = (float)($pItem['salePrice'] ?? $batches[$foundBatchIdx]['salePrice']);
+                        if (!empty($pItem['expiryDate'])) $batches[$foundBatchIdx]['expiryDate'] = $pItem['expiryDate'];
+                    } else {
+                        $batches[] = [
+                            'id' => $batchId,
+                            'medicineId' => $med['id'],
+                            'batchNumber' => $pItem['batchNumber'] ?? 'BATCH-1',
+                            'purchasePrice' => (float)($pItem['purchasePrice'] ?? 0),
+                            'salePrice' => (float)($pItem['salePrice'] ?? 0),
+                            'wholesalePrice' => (float)($pItem['salePrice'] ?? 0) * 0.9,
+                            'quantity' => (float)($pItem['quantity'] ?? 0),
+                            'initialQuantity' => (float)($pItem['quantity'] ?? 0),
+                            'mfgDate' => $pItem['mfgDate'] ?? gmdate('Y-m-d'),
+                            'expiryDate' => $pItem['expiryDate'] ?? gmdate('Y-m-d', strtotime('+1 year')),
+                            'supplierId' => $poRecord['supplierId'] ?? '',
+                            'supplierName' => $poRecord['supplierName'] ?? '',
+                            'receivedDate' => $poRecord['purchaseDate'] ?? gmdate('Y-m-d'),
+                        ];
+                    }
+                    if (!empty($pItem['salePrice']) && (float)$pItem['salePrice'] > 0) {
+                        $med['fixedSalePrice'] = (float)$pItem['salePrice'];
+                    }
+                    if (isset($pItem['purchasePrice'])) {
+                        $med['fixedPurchasePrice'] = (float)$pItem['purchasePrice'];
+                    }
+                    $med['batches'] = $batches;
+                    $newTotal = 0;
+                    foreach ($batches as $b) $newTotal += (float)($b['quantity'] ?? 0);
+                    $med['totalQuantity'] = $newTotal;
                 }
-                $med['batches'] = $batches;
-                $newTotal = 0;
-                foreach ($batches as $b) $newTotal += (float)($b['quantity'] ?? 0);
-                $med['totalQuantity'] = $newTotal;
 
                 array_unshift($db['stockTransactions'], [
                     'id' => 'stx-' . round(microtime(true) * 1000) . '-' . substr(md5((string)mt_rand()), 0, 4),
@@ -1742,22 +1751,36 @@ try {
         $adj = readJsonBody();
         $db = readDatabase($sqliteFile);
         $actor = getActorFromReq($db, $adj);
+        $resolvedPrevQty = (float)($adj['previousQuantity'] ?? 0);
+        $resolvedNextQty = (float)($adj['newQuantity'] ?? 0);
         foreach ($db['medicines'] as &$med) {
             if (($med['id'] ?? '') !== ($adj['medicineId'] ?? '')) continue;
             $newTotal = 0;
             foreach ($med['batches'] as &$b) {
-                if (($b['id'] ?? '') === ($adj['batchId'] ?? '')) {
+                if (($b['id'] ?? '') === ($adj['batchId'] ?? '') || ($b['batchNumber'] ?? '') === ($adj['batchNumber'] ?? '')) {
                     $prevQty = (float)($b['quantity'] ?? 0);
                     $nextQty = isset($adj['newQuantity'])
                         ? max(0, (float)$adj['newQuantity'])
                         : max(0, $prevQty + (float)($adj['adjustedQuantity'] ?? 0));
                     $b['quantity'] = $nextQty;
+                    $resolvedPrevQty = $prevQty;
+                    $resolvedNextQty = $nextQty;
+                    if (empty($adj['medicineName'])) $adj['medicineName'] = $med['name'] ?? '';
+                    if (empty($adj['batchNumber'])) $adj['batchNumber'] = $b['batchNumber'] ?? '';
                 }
                 $newTotal += (float)($b['quantity'] ?? 0);
             }
             $med['totalQuantity'] = $newTotal;
         }
         unset($med, $b);
+        $adj['id'] = (string)($adj['id'] ?? ('adj-' . round(microtime(true) * 1000)));
+        $adj['storeId'] = DEFAULT_STORE_ID;
+        $adj['previousQuantity'] = $resolvedPrevQty;
+        $adj['newQuantity'] = $resolvedNextQty;
+        $adj['adjustedQuantity'] = (float)($adj['adjustedQuantity'] ?? ($resolvedNextQty - $resolvedPrevQty));
+        $adj['performedBy'] = (string)($adj['performedBy'] ?? ($actor['id'] ?? 'usr-owner-1'));
+        $adj['performedByName'] = (string)($adj['performedByName'] ?? ($actor['fullName'] ?? 'Admin Pharmacist'));
+        $adj['timestamp'] = (string)($adj['timestamp'] ?? gmdate('c'));
         array_unshift($db['adjustments'], $adj);
         array_unshift($db['stockTransactions'], [
             'id' => 'stx-' . round(microtime(true) * 1000),
@@ -1771,7 +1794,7 @@ try {
             'timestamp' => gmdate('c'),
         ]);
         $saved = writeDatabase($sqliteFile, $db);
-        sendJson(['success' => true, 'data' => $saved]);
+        sendJson(['success' => true, 'adjustment' => $adj, 'data' => $saved]);
     }
 
     // 9. Customers
