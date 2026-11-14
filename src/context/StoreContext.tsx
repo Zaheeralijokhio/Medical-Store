@@ -139,6 +139,8 @@ interface StoreContextType {
     notes?: string
   ) => { success: boolean; returnRecord?: SaleReturn; error?: string };
 
+  deleteSale: (saleId: string) => { success: boolean; error?: string };
+
   // Purchases
   addPurchase: (purchaseData: Omit<Purchase, 'id' | 'purchaseNumber'>) => { success: boolean; purchase?: Purchase };
   recordPurchasePayment: (purchaseId: string, amount: number) => void;
@@ -1936,6 +1938,118 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true, returnRecord };
   };
 
+  const deleteSale = (saleId: string): { success: boolean; error?: string } => {
+    if (currentUser?.id !== OWNER_ACCOUNT.id) {
+      return { success: false, error: 'Only the Store Owner can delete invoices.' };
+    }
+
+    const targetSale = sales.find(s => s.id === saleId);
+    if (!targetSale) {
+      return { success: false, error: 'Invoice not found.' };
+    }
+
+    const ver = markLocalDirty();
+    recordDeletedId(saleId);
+
+    const linkedReturnIds = saleReturns.filter(r => r.saleId === saleId).map(r => r.id);
+    linkedReturnIds.forEach(rid => {
+      if (rid) recordDeletedId(rid);
+    });
+
+    // Restore batch stock if the sale was not already returned
+    if (targetSale.status !== 'returned') {
+      const currentMeds = medicinesRef.current.length > 0 ? medicinesRef.current : medicines;
+      const nextMedicines = currentMeds.map(med => {
+        const itemsForMed = (targetSale.items || []).filter(i => i.medicineId === med.id);
+        if (itemsForMed.length === 0) return med;
+        const updatedBatches = med.batches.map(batch => {
+          const restoredQty = itemsForMed
+            .filter(i => i.batchId === batch.id || i.batchNumber === batch.batchNumber)
+            .reduce((sum, i) => sum + Number(i.quantity || 0), 0);
+          if (restoredQty <= 0) return batch;
+          return {
+            ...batch,
+            quantity: Number(batch.quantity || 0) + restoredQty,
+          };
+        });
+        const newTotalQty = updatedBatches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+        return {
+          ...med,
+          batches: updatedBatches,
+          totalQuantity: newTotalQty,
+        };
+      });
+      medicinesRef.current = nextMedicines;
+      setMedicines(nextMedicines);
+      try {
+        localStorage.setItem('pharmacare_medicines', JSON.stringify(nextMedicines));
+      } catch {}
+    }
+
+    // Reverse linked customer totals if customerId was set
+    if (targetSale.customerId) {
+      setCustomers(prev =>
+        prev.map(c => {
+          if (c.id !== targetSale.customerId) return c;
+          const grandTotal = Number(targetSale.grandTotal || 0);
+          const paid = Number(targetSale.amountPaid || 0);
+          const unpaid = Math.max(0, grandTotal - paid);
+          const isCredit = targetSale.paymentMethod === 'Credit' || unpaid > 0;
+          return {
+            ...c,
+            totalPurchases: Math.max(0, Number(c.totalPurchases || 0) - grandTotal),
+            outstandingBalance: isCredit
+              ? Math.max(0, Number(c.outstandingBalance || 0) - unpaid)
+              : c.outstandingBalance,
+          };
+        })
+      );
+    }
+
+    setSaleReturns(prev => {
+      const next = prev.filter(r => r.saleId !== saleId);
+      try {
+        localStorage.setItem('pharmacare_returns', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    setSales(prev => {
+      const next = prev.filter(s => s.id !== saleId);
+      try {
+        localStorage.setItem('pharmacare_sales', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
+    fetch(`/api/sale/${encodeURIComponent(saleId)}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    })
+      .then(res => {
+        if (res.ok) {
+          ackDedicatedMutation(ver);
+          broadcastFullRefresh();
+        }
+      })
+      .catch(() => {});
+
+    logActivity(
+      'SALE_DELETED',
+      `Owner permanently deleted invoice ${targetSale.invoiceNumber} (Rs. ${targetSale.grandTotal})`,
+      { invoiceNumber: targetSale.invoiceNumber, grandTotal: targetSale.grandTotal }
+    );
+
+    addNotification(
+      'sale_completed',
+      `Invoice Deleted (${targetSale.invoiceNumber})`,
+      `Owner deleted invoice ${targetSale.invoiceNumber} (Rs. ${targetSale.grandTotal}).`,
+      'warning'
+    );
+
+    return { success: true };
+  };
+
   // Purchase Management
   const addPurchase = (purchaseData: Omit<Purchase, 'id' | 'purchaseNumber'>) => {
     const purchaseId = `pur-${Date.now()}`;
@@ -2677,6 +2791,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         processSale,
         processSaleReturn,
+        deleteSale,
 
         addPurchase,
         recordPurchasePayment,

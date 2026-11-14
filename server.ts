@@ -1317,6 +1317,98 @@ async function startServer() {
     }
   });
 
+  // DELETE /api/sale/:id (Strictly Store Owner Only)
+  app.delete('/api/sale/:id', (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const actorId = String(req.headers['x-user-id'] || '').trim();
+      if (actorId !== 'usr-owner-1') {
+        return res.status(403).json({
+          success: false,
+          error: 'Unauthorized: Only the Store Owner can delete invoices.',
+        });
+      }
+
+      const db = readDatabase();
+      const targetSale = db.sales.find(s => s.id === id);
+      if (!targetSale) {
+        return res.status(404).json({ success: false, error: 'Invoice not found' });
+      }
+
+      // Restore stock if the sale was not already returned
+      if (targetSale.status !== 'returned') {
+        for (const item of targetSale.items || []) {
+          const qty = Number(item.quantity || 0);
+          if (qty <= 0) continue;
+          const med = db.medicines.find(m => m.id === item.medicineId);
+          if (!med) continue;
+          const batch = med.batches.find(b => b.id === item.batchId || b.batchNumber === item.batchNumber);
+          if (batch) {
+            const prevQty = Number(batch.quantity || 0);
+            batch.quantity = prevQty + qty;
+            med.totalQuantity = med.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+            db.stockTransactions.unshift({
+              id: `stx-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              storeId: DEFAULT_STORE_ID,
+              medicineId: med.id,
+              medicineName: med.name,
+              batchId: batch.id,
+              batchNumber: batch.batchNumber,
+              type: 'adjustment',
+              quantityChange: qty,
+              previousQuantity: prevQty,
+              newQuantity: batch.quantity,
+              referenceId: id,
+              createdBy: 'usr-owner-1',
+              createdByName: 'Store Owner',
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+      }
+
+      // Reverse linked customer balance/purchases
+      if (targetSale.customerId) {
+        const cust = db.customers.find(c => c.id === targetSale.customerId);
+        if (cust) {
+          const grandTotal = Number(targetSale.grandTotal || 0);
+          const paid = Number(targetSale.amountPaid || 0);
+          cust.totalPurchases = Math.max(0, Number(cust.totalPurchases || 0) - grandTotal);
+          const unpaidAmount = Math.max(0, grandTotal - paid);
+          if (targetSale.paymentMethod === 'Credit' || unpaidAmount > 0) {
+            cust.outstandingBalance = Math.max(0, Number(cust.outstandingBalance || 0) - unpaidAmount);
+          }
+        }
+      }
+
+      if (!Array.isArray(db.deletedIds)) db.deletedIds = [];
+      if (!db.deletedIds.includes(id)) db.deletedIds.push(id);
+
+      const linkedReturnIds = db.saleReturns.filter(r => r.saleId === id).map(r => r.id);
+      linkedReturnIds.forEach(rid => {
+        if (rid && !db.deletedIds!.includes(rid)) db.deletedIds!.push(rid);
+      });
+      db.saleReturns = db.saleReturns.filter(r => r.saleId !== id);
+      db.payments = db.payments.filter(p => p.referenceId !== id);
+      db.sales = db.sales.filter(s => s.id !== id);
+
+      db.auditLogs.unshift({
+        id: `log-${Date.now()}`,
+        action: 'SALE_DELETED',
+        description: `Owner permanently deleted invoice ${targetSale.invoiceNumber} (Rs. ${targetSale.grandTotal})`,
+        userId: 'usr-owner-1',
+        userName: 'Dr. Abdul Rehman (Owner)',
+        userRole: 'admin',
+        timestamp: new Date().toISOString(),
+      });
+
+      const saved = writeDatabase(db, 'SALE_DELETED');
+      res.json({ success: true, message: 'Invoice deleted successfully', data: saved });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // -------------------------------------------------------------
   // PURCHASE ENDPOINTS (Part 2.C)
   // -------------------------------------------------------------

@@ -29,24 +29,24 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
   const [genericName, setGenericName] = useState('');
   const [brandName, setBrandName] = useState('');
   const [category, setCategory] = useState('Analgesics & Antipyretics');
-  const [manufacturer, setManufacturer] = useState('GlaxoSmithKline (GSK)');
+  const [manufacturer, setManufacturer] = useState('');
   const [medicineType, setMedicineType] = useState<MedicineType>('Tablet');
-  const [strength, setStrength] = useState('500mg');
-  const [packingSize, setPackingSize] = useState('Box of 200 Tablets');
+  const [strength, setStrength] = useState('');
+  const [packingSize, setPackingSize] = useState('');
   const [barcode, setBarcode] = useState('');
-  const [minStockLevel, setMinStockLevel] = useState(25);
-  const [storageLocation, setStorageLocation] = useState('Shelf A-1');
+  const [minStockLevel, setMinStockLevel] = useState<string>('');
+  const [storageLocation, setStorageLocation] = useState('');
   const [description, setDescription] = useState('');
   const [requiresPrescription, setRequiresPrescription] = useState(false);
 
   // Fixed Inventory Price & Batch fields
   const [batchNumber, setBatchNumber] = useState('');
-  const [purchasePrice, setPurchasePrice] = useState(10);
-  const [salePrice, setSalePrice] = useState(15);
-  const [wholesalePrice, setWholesalePrice] = useState(13.5);
-  const [initialQuantity, setInitialQuantity] = useState(100);
-  const [mfgDate, setMfgDate] = useState('2025-01-01');
-  const [expiryDate, setExpiryDate] = useState('2027-12-31');
+  const [purchasePrice, setPurchasePrice] = useState<string>('');
+  const [salePrice, setSalePrice] = useState<string>('');
+  const [wholesalePrice, setWholesalePrice] = useState<string>('');
+  const [initialQuantity, setInitialQuantity] = useState<string>('');
+  const [mfgDate, setMfgDate] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id || '');
 
   const [formError, setFormError] = useState('');
@@ -62,13 +62,15 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
       setGenericName(medicineToEdit.genericName);
       setBrandName(medicineToEdit.brandName);
       setCategory(medicineToEdit.category);
-      setManufacturer(medicineToEdit.manufacturer);
+      setManufacturer(medicineToEdit.manufacturer || '');
       setMedicineType(medicineToEdit.medicineType);
-      setStrength(medicineToEdit.strength);
-      setPackingSize(medicineToEdit.packingSize);
-      setBarcode(medicineToEdit.barcode);
-      setMinStockLevel(medicineToEdit.minStockLevel);
-      setStorageLocation(medicineToEdit.storageLocation);
+      setStrength(medicineToEdit.strength || '');
+      setPackingSize(medicineToEdit.packingSize || '');
+      setBarcode(medicineToEdit.barcode || '');
+      setMinStockLevel(
+        medicineToEdit.minStockLevel !== undefined ? String(medicineToEdit.minStockLevel) : ''
+      );
+      setStorageLocation(medicineToEdit.storageLocation || '');
       setDescription(medicineToEdit.description || '');
       setRequiresPrescription(medicineToEdit.requiresPrescription || false);
 
@@ -76,42 +78,45 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
       const currentFixedSale =
         medicineToEdit.fixedSalePrice !== undefined
           ? medicineToEdit.fixedSalePrice
-          : primaryBatch?.salePrice || 15;
+          : primaryBatch?.salePrice || 0;
       const currentFixedCost =
         medicineToEdit.fixedPurchasePrice !== undefined
           ? medicineToEdit.fixedPurchasePrice
-          : primaryBatch?.purchasePrice || 10;
+          : primaryBatch?.purchasePrice || 0;
 
-      setSalePrice(currentFixedSale);
-      setPurchasePrice(currentFixedCost);
-      setWholesalePrice(primaryBatch?.wholesalePrice || Number((currentFixedSale * 0.92).toFixed(2)));
+      setSalePrice(String(currentFixedSale));
+      setPurchasePrice(String(currentFixedCost));
+      setWholesalePrice(
+        primaryBatch?.wholesalePrice !== undefined
+          ? String(primaryBatch.wholesalePrice)
+          : currentFixedSale > 0
+          ? String(Number((currentFixedSale * 0.92).toFixed(2)))
+          : ''
+      );
     } else {
-      // Default reset only when modal first opens for a new medicine
+      // Blank initial state so staff enters every medicine value and stock quantity themselves
       setName('');
       setGenericName('');
       setBrandName('');
       setCategory('Analgesics & Antipyretics');
-      setManufacturer('GlaxoSmithKline (GSK)');
+      setManufacturer('');
       setMedicineType('Tablet');
-      setStrength('500mg');
-      setPackingSize('Box of 100 Tablets');
-      setBarcode(`8964000${Math.floor(100000 + Math.random() * 900000)}`);
-      setMinStockLevel(25);
-      setStorageLocation('Shelf A-1');
+      setStrength('');
+      setPackingSize('');
+      setBarcode('');
+      setMinStockLevel('');
+      setStorageLocation('');
       setDescription('');
       setRequiresPrescription(false);
 
-      const rndBatch = `BAT-${new Date().getFullYear().toString().slice(-2)}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${Math.floor(10 + Math.random() * 90)}`;
-      setBatchNumber(rndBatch);
-      setPurchasePrice(15);
-      setSalePrice(20);
-      setWholesalePrice(18);
-      setInitialQuantity(100);
-      setMfgDate('2025-01-10');
-      setExpiryDate('2027-12-31');
-      if (suppliers.length > 0) {
-        setSupplierId(suppliers[0].id);
-      }
+      setBatchNumber('');
+      setPurchasePrice('');
+      setSalePrice('');
+      setWholesalePrice('');
+      setInitialQuantity('');
+      setMfgDate('');
+      setExpiryDate('');
+      setSupplierId(suppliers[0]?.id || '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, medicineToEdit?.id]);
@@ -126,8 +131,11 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
 
   if (!isOpen) return null;
 
-  const unitProfit = Math.max(0, Number(salePrice) - Number(purchasePrice));
-  const profitMarginPct = salePrice > 0 ? ((unitProfit / Number(salePrice)) * 100).toFixed(1) : '0.0';
+  const numericSalePrice = parseFloat(salePrice) || 0;
+  const numericPurchasePrice = parseFloat(purchasePrice) || 0;
+  const unitProfit = Math.max(0, numericSalePrice - numericPurchasePrice);
+  const profitMarginPct =
+    numericSalePrice > 0 ? ((unitProfit / numericSalePrice) * 100).toFixed(1) : '0.0';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,26 +147,52 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
       return;
     }
 
+    const parsedSale = parseFloat(salePrice);
+    const parsedPurchase = parseFloat(purchasePrice);
+    const parsedWholesale = parseFloat(wholesalePrice);
+    const parsedMinStock = parseInt(minStockLevel, 10);
+
+    if (isNaN(parsedSale) || parsedSale < 0) {
+      setFormError('Please enter a valid Fixed Selling Price.');
+      return;
+    }
+    if (isNaN(parsedPurchase) || parsedPurchase < 0) {
+      setFormError('Please enter a valid Purchase Cost Price.');
+      return;
+    }
+
     if (isEditing && medicineToEdit) {
       updateMedicine(medicineToEdit.id, {
         name: cleanName,
         genericName: cleanGeneric,
         brandName: brandName.trim() || cleanName.split(' ')[0],
         category,
-        manufacturer,
+        manufacturer: manufacturer.trim(),
         medicineType,
-        strength,
-        packingSize,
+        strength: strength.trim(),
+        packingSize: packingSize.trim(),
         barcode: barcode.trim(),
-        minStockLevel: Number(minStockLevel),
-        storageLocation,
+        minStockLevel: !isNaN(parsedMinStock) && parsedMinStock > 0 ? parsedMinStock : 20,
+        storageLocation: storageLocation.trim(),
         description,
         requiresPrescription,
-        fixedSalePrice: Number(salePrice),
-        fixedPurchasePrice: Number(purchasePrice),
+        fixedSalePrice: parsedSale,
+        fixedPurchasePrice: parsedPurchase,
       });
     } else {
+      const parsedQty = parseInt(initialQuantity, 10);
+      if (isNaN(parsedQty) || parsedQty < 0) {
+        setFormError('Please enter Opening Stock Quantity (0 or more).');
+        return;
+      }
+      if (!expiryDate) {
+        setFormError('Please select the Expiry Date.');
+        return;
+      }
+
       const selectedSup = suppliers.find(s => s.id === supplierId);
+      const resolvedBatchNum = batchNumber.trim() || 'BAT-01';
+
       addMedicine(
         {
           code: `MED-${Math.floor(100 + Math.random() * 900)}`,
@@ -166,33 +200,31 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
           genericName: cleanGeneric,
           brandName: brandName.trim() || cleanName.split(' ')[0],
           category,
-          manufacturer,
+          manufacturer: manufacturer.trim(),
           medicineType,
-          strength,
-          packingSize,
-          barcode: barcode.trim() || `${Date.now()}`,
-          minStockLevel: Number(minStockLevel),
-          storageLocation,
+          strength: strength.trim(),
+          packingSize: packingSize.trim(),
+          barcode: barcode.trim(),
+          minStockLevel: !isNaN(parsedMinStock) && parsedMinStock > 0 ? parsedMinStock : 20,
+          storageLocation: storageLocation.trim(),
           description,
           requiresPrescription,
-          fixedSalePrice: Number(salePrice),
-          fixedPurchasePrice: Number(purchasePrice),
+          fixedSalePrice: parsedSale,
+          fixedPurchasePrice: parsedPurchase,
           status: 'active',
           batches: [],
         },
-        batchNumber.trim()
-          ? {
-              batchNumber: batchNumber.trim(),
-              purchasePrice: Number(purchasePrice),
-              salePrice: Number(salePrice),
-              wholesalePrice: Number(wholesalePrice),
-              quantity: Number(initialQuantity),
-              mfgDate,
-              expiryDate,
-              supplierId: selectedSup?.id,
-              supplierName: selectedSup?.companyName,
-            }
-          : undefined
+        {
+          batchNumber: resolvedBatchNum,
+          purchasePrice: parsedPurchase,
+          salePrice: parsedSale,
+          wholesalePrice: !isNaN(parsedWholesale) && parsedWholesale >= 0 ? parsedWholesale : parsedSale,
+          quantity: parsedQty,
+          mfgDate: mfgDate || new Date().toISOString().split('T')[0],
+          expiryDate,
+          supplierId: selectedSup?.id,
+          supplierName: selectedSup?.companyName,
+        }
       );
     }
 
@@ -366,7 +398,8 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
                   min="0"
                   required
                   value={salePrice}
-                  onChange={e => setSalePrice(parseFloat(e.target.value) || 0)}
+                  onChange={e => setSalePrice(e.target.value)}
+                  placeholder="0.00"
                   className="w-full p-2.5 bg-white border-2 border-teal-600 rounded-xl text-sm font-mono font-black text-teal-900 focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                 />
                 <span className="text-[10px] text-teal-700 font-medium block mt-1">
@@ -384,7 +417,8 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
                   min="0"
                   required
                   value={purchasePrice}
-                  onChange={e => setPurchasePrice(parseFloat(e.target.value) || 0)}
+                  onChange={e => setPurchasePrice(e.target.value)}
+                  placeholder="0.00"
                   className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-800"
                 />
                 <span className="text-[10px] text-slate-500 block mt-1">
@@ -401,7 +435,8 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
                   step="0.01"
                   min="0"
                   value={wholesalePrice}
-                  onChange={e => setWholesalePrice(parseFloat(e.target.value) || 0)}
+                  onChange={e => setWholesalePrice(e.target.value)}
+                  placeholder="Optional"
                   className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-700"
                 />
                 <span className="text-[10px] text-slate-500 block mt-1">
@@ -425,7 +460,7 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
                     type="text"
                     value={barcode}
                     onChange={e => setBarcode(e.target.value)}
-                    placeholder="8964000..."
+                    placeholder="Scan or enter barcode"
                     className="w-full pl-8 p-2 border border-slate-200 rounded-lg text-xs font-mono"
                   />
                 </div>
@@ -435,9 +470,10 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
                 <label className="font-semibold text-slate-700 block mb-1">Min Stock Alert Level</label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   value={minStockLevel}
-                  onChange={e => setMinStockLevel(parseInt(e.target.value) || 20)}
+                  onChange={e => setMinStockLevel(e.target.value)}
+                  placeholder="e.g. 20"
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs"
                 />
               </div>
@@ -477,13 +513,12 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Batch Number *</label>
+                  <label className="font-semibold text-slate-700 block mb-1">Batch Number</label>
                   <input
                     type="text"
-                    required
                     value={batchNumber}
                     onChange={e => setBatchNumber(e.target.value)}
-                    placeholder="e.g. BAT-25K9"
+                    placeholder="e.g. BAT-001 (optional)"
                     className="w-full p-2 border border-slate-200 rounded-lg text-xs font-mono font-bold"
                   />
                 </div>
@@ -492,10 +527,11 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
                   <label className="font-semibold text-slate-700 block mb-1">Opening Quantity *</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     required
                     value={initialQuantity}
-                    onChange={e => setInitialQuantity(parseInt(e.target.value) || 1)}
+                    onChange={e => setInitialQuantity(e.target.value)}
+                    placeholder="Enter stock qty"
                     className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold"
                   />
                 </div>
@@ -507,6 +543,7 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
                     onChange={e => setSupplierId(e.target.value)}
                     className="w-full p-2 border border-slate-200 rounded-lg text-xs"
                   >
+                    <option value="">Select Supplier (Optional)</option>
                     {suppliers.map(s => (
                       <option key={s.id} value={s.id}>
                         {s.companyName}
@@ -565,7 +602,13 @@ export const MedicineModal: React.FC<MedicineModalProps> = ({
               className="flex-1 min-h-[42px] py-2.5 px-3 bg-[#0F766E] hover:bg-[#0D655E] text-white font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span className="truncate">{isEditing ? `Save Medicine & Fixed Price (${formatPKR(salePrice)})` : `Register Medicine (${formatPKR(salePrice)})`}</span>
+              <span className="truncate">
+                {isEditing
+                  ? `Save Medicine & Fixed Price (${formatPKR(numericSalePrice)})`
+                  : numericSalePrice > 0
+                  ? `Register Medicine (${formatPKR(numericSalePrice)})`
+                  : 'Register Medicine'}
+              </span>
             </button>
           </div>
         </form>

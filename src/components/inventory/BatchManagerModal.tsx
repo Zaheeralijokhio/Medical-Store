@@ -37,12 +37,12 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
 
   const [showAddBatchForm, setShowAddBatchForm] = useState(false);
   const [newBatchNumber, setNewBatchNumber] = useState('');
-  const [newPurchasePrice, setNewPurchasePrice] = useState(15);
-  const [newSalePrice, setNewSalePrice] = useState(20);
-  const [newWholesalePrice, setNewWholesalePrice] = useState(18);
-  const [newQuantity, setNewQuantity] = useState(50);
-  const [newMfgDate, setNewMfgDate] = useState('2025-01-01');
-  const [newExpiryDate, setNewExpiryDate] = useState('2027-12-31');
+  const [newPurchasePrice, setNewPurchasePrice] = useState('');
+  const [newSalePrice, setNewSalePrice] = useState('');
+  const [newWholesalePrice, setNewWholesalePrice] = useState('');
+  const [newQuantity, setNewQuantity] = useState('');
+  const [newMfgDate, setNewMfgDate] = useState('');
+  const [newExpiryDate, setNewExpiryDate] = useState('');
   const [newSupplierId, setNewSupplierId] = useState(suppliers[0]?.id || '');
 
   if (!isOpen || !liveMedicine) return null;
@@ -55,15 +55,19 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
     }
 
     const selectedSup = suppliers.find(s => s.id === newSupplierId);
+    const parsedQty = parseInt(newQuantity, 10) || 0;
+    const parsedPurchase = parseFloat(newPurchasePrice) || 0;
+    const parsedSale = parseFloat(newSalePrice) || 0;
+    const parsedWholesale = parseFloat(newWholesalePrice) || parsedSale;
 
     addBatch(liveMedicine.id, {
       batchNumber: newBatchNumber.trim().toUpperCase(),
-      purchasePrice: Number(newPurchasePrice),
-      salePrice: Number(newSalePrice),
-      wholesalePrice: Number(newWholesalePrice),
-      quantity: Number(newQuantity),
-      initialQuantity: Number(newQuantity),
-      mfgDate: newMfgDate,
+      purchasePrice: parsedPurchase,
+      salePrice: parsedSale,
+      wholesalePrice: parsedWholesale,
+      quantity: parsedQty,
+      initialQuantity: parsedQty,
+      mfgDate: newMfgDate || getStoreTodayDateStr(),
       expiryDate: newExpiryDate,
       supplierId: selectedSup?.id,
       supplierName: selectedSup?.companyName,
@@ -72,6 +76,12 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
 
     setShowAddBatchForm(false);
     setNewBatchNumber('');
+    setNewQuantity('');
+    setNewPurchasePrice('');
+    setNewSalePrice('');
+    setNewWholesalePrice('');
+    setNewMfgDate('');
+    setNewExpiryDate('');
   };
 
   return (
@@ -110,7 +120,16 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
             {!showAddBatchForm && (
               <button
                 type="button"
-                onClick={() => setShowAddBatchForm(true)}
+                onClick={() => {
+                  setNewPurchasePrice(
+                    liveMedicine.fixedPurchasePrice !== undefined ? String(liveMedicine.fixedPurchasePrice) : ''
+                  );
+                  setNewSalePrice(
+                    liveMedicine.fixedSalePrice !== undefined ? String(liveMedicine.fixedSalePrice) : ''
+                  );
+                  setNewQuantity('');
+                  setShowAddBatchForm(true);
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs"
               >
                 <Plus className="w-3.5 h-3.5" /> New Batch
@@ -138,10 +157,11 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
                   <label className="font-semibold text-slate-700 block mb-1">Batch Quantity *</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     required
                     value={newQuantity}
-                    onChange={e => setNewQuantity(parseInt(e.target.value) || 1)}
+                    onChange={e => setNewQuantity(e.target.value)}
+                    placeholder="Enter qty"
                     className="w-full p-2 bg-white border border-slate-200 rounded-lg font-bold"
                   />
                 </div>
@@ -150,9 +170,11 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     required
                     value={newPurchasePrice}
-                    onChange={e => setNewPurchasePrice(parseFloat(e.target.value) || 0)}
+                    onChange={e => setNewPurchasePrice(e.target.value)}
+                    placeholder="0.00"
                     className="w-full p-2 bg-white border border-slate-200 rounded-lg font-mono"
                   />
                 </div>
@@ -161,9 +183,11 @@ export const BatchManagerModal: React.FC<BatchManagerModalProps> = ({
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     required
                     value={newSalePrice}
-                    onChange={e => setNewSalePrice(parseFloat(e.target.value) || 0)}
+                    onChange={e => setNewSalePrice(e.target.value)}
+                    placeholder="0.00"
                     className="w-full p-2 bg-white border border-slate-200 rounded-lg font-mono font-bold text-teal-800"
                   />
                 </div>

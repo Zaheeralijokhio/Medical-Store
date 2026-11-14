@@ -17,6 +17,8 @@ import {
   Banknote,
   DollarSign,
   CheckCircle2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useStore } from '../../context/StoreContext';
@@ -26,8 +28,8 @@ import { InvoiceModal } from '../pos/InvoiceModal';
 import { SaleReturnModal } from '../pos/SaleReturnModal';
 
 export const SalesHistory: React.FC = () => {
-  const { currentUser, isAdmin } = useAuth();
-  const { sales, saleReturns, settings, staffMembers } = useStore();
+  const { currentUser, isAdmin, isOwner } = useAuth();
+  const { sales, saleReturns, settings, staffMembers, deleteSale } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [scopeFilter, setScopeFilter] = useState<'all' | 'mine'>('all');
@@ -37,6 +39,7 @@ export const SalesHistory: React.FC = () => {
 
   const [selectedSaleForView, setSelectedSaleForView] = useState<Sale | null>(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [confirmDeleteSale, setConfirmDeleteSale] = useState<Sale | null>(null);
 
   const mySalesCount = useMemo(
     () => (sales || []).filter(s => s && s.staffId === currentUser?.id).length,
@@ -306,13 +309,26 @@ export const SalesHistory: React.FC = () => {
                 )}
               </div>
 
-              <button
-                onClick={() => setSelectedSaleForView(sale)}
-                className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0F766E] font-bold text-xs flex items-center justify-center gap-1.5 min-h-[42px] transition-colors"
-              >
-                <Eye className="w-4 h-4" />
-                <span>View Cash Memo / Print</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedSaleForView(sale)}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0F766E] font-bold text-xs flex items-center justify-center gap-1.5 min-h-[42px] transition-colors"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>View Cash Memo / Print</span>
+                </button>
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteSale(sale)}
+                    title="Delete Invoice (Owner Only)"
+                    className="px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1 min-h-[42px] transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </button>
+                )}
+              </div>
             </div>
           ))
         )}
@@ -389,13 +405,25 @@ export const SalesHistory: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={() => setSelectedSaleForView(sale)}
-                        className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#0F766E] font-semibold text-xs inline-flex items-center gap-1 transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View Memo</span>
-                      </button>
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setSelectedSaleForView(sale)}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#0F766E] font-semibold text-xs inline-flex items-center gap-1 transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View Memo</span>
+                        </button>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteSale(sale)}
+                            title="Delete Invoice (Owner Only)"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -418,6 +446,55 @@ export const SalesHistory: React.FC = () => {
         isOpen={showReturnModal}
         onClose={() => setShowReturnModal(false)}
       />
+
+      {/* Owner-Only Confirm Delete Invoice Modal */}
+      {isOwner && confirmDeleteSale && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 border border-slate-200 shadow-2xl space-y-4 text-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-900">
+                  Delete Invoice Permanently?
+                </h4>
+                <p className="text-slate-600 mt-1 leading-relaxed">
+                  Are you sure you want to delete invoice{' '}
+                  <strong className="font-mono text-slate-900">{confirmDeleteSale.invoiceNumber}</strong>{' '}
+                  for <strong>{confirmDeleteSale.customerName}</strong> ({formatPKR(confirmDeleteSale.grandTotal)})?
+                  {confirmDeleteSale.status !== 'returned'
+                    ? ' Sold medicine stock will be restored back to inventory.'
+                    : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteSale(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const targetId = confirmDeleteSale.id;
+                  deleteSale(targetId);
+                  if (selectedSaleForView?.id === targetId) {
+                    setSelectedSaleForView(null);
+                  }
+                  setConfirmDeleteSale(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
+              >
+                Yes, Delete Invoice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

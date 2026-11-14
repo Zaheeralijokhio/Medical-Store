@@ -2001,6 +2001,87 @@ async function startServer() {
       res.status(500).json({ success: false, error: err.message });
     }
   });
+  app.delete("/api/sale/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      const actorId = String(req.headers["x-user-id"] || "").trim();
+      if (actorId !== "usr-owner-1") {
+        return res.status(403).json({
+          success: false,
+          error: "Unauthorized: Only the Store Owner can delete invoices."
+        });
+      }
+      const db2 = readDatabase();
+      const targetSale = db2.sales.find((s) => s.id === id);
+      if (!targetSale) {
+        return res.status(404).json({ success: false, error: "Invoice not found" });
+      }
+      if (targetSale.status !== "returned") {
+        for (const item of targetSale.items || []) {
+          const qty = Number(item.quantity || 0);
+          if (qty <= 0) continue;
+          const med = db2.medicines.find((m) => m.id === item.medicineId);
+          if (!med) continue;
+          const batch = med.batches.find((b) => b.id === item.batchId || b.batchNumber === item.batchNumber);
+          if (batch) {
+            const prevQty = Number(batch.quantity || 0);
+            batch.quantity = prevQty + qty;
+            med.totalQuantity = med.batches.reduce((sum, b) => sum + Number(b.quantity || 0), 0);
+            db2.stockTransactions.unshift({
+              id: `stx-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              storeId: DEFAULT_STORE_ID2,
+              medicineId: med.id,
+              medicineName: med.name,
+              batchId: batch.id,
+              batchNumber: batch.batchNumber,
+              type: "adjustment",
+              quantityChange: qty,
+              previousQuantity: prevQty,
+              newQuantity: batch.quantity,
+              referenceId: id,
+              createdBy: "usr-owner-1",
+              createdByName: "Store Owner",
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            });
+          }
+        }
+      }
+      if (targetSale.customerId) {
+        const cust = db2.customers.find((c) => c.id === targetSale.customerId);
+        if (cust) {
+          const grandTotal = Number(targetSale.grandTotal || 0);
+          const paid = Number(targetSale.amountPaid || 0);
+          cust.totalPurchases = Math.max(0, Number(cust.totalPurchases || 0) - grandTotal);
+          const unpaidAmount = Math.max(0, grandTotal - paid);
+          if (targetSale.paymentMethod === "Credit" || unpaidAmount > 0) {
+            cust.outstandingBalance = Math.max(0, Number(cust.outstandingBalance || 0) - unpaidAmount);
+          }
+        }
+      }
+      if (!Array.isArray(db2.deletedIds)) db2.deletedIds = [];
+      if (!db2.deletedIds.includes(id)) db2.deletedIds.push(id);
+      const linkedReturnIds = db2.saleReturns.filter((r) => r.saleId === id).map((r) => r.id);
+      linkedReturnIds.forEach((rid) => {
+        if (rid && !db2.deletedIds.includes(rid)) db2.deletedIds.push(rid);
+      });
+      db2.saleReturns = db2.saleReturns.filter((r) => r.saleId !== id);
+      db2.payments = db2.payments.filter((p) => p.referenceId !== id);
+      db2.sales = db2.sales.filter((s) => s.id !== id);
+      db2.auditLogs.unshift({
+        id: `log-${Date.now()}`,
+        action: "SALE_DELETED",
+        description: `Owner permanently deleted invoice ${targetSale.invoiceNumber} (Rs. ${targetSale.grandTotal})`,
+        userId: "usr-owner-1",
+        userName: "Dr. Abdul Rehman (Owner)",
+        userRole: "admin",
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      const saved = writeDatabase(db2, "SALE_DELETED");
+      res.json({ success: true, message: "Invoice deleted successfully", data: saved });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
   app.post("/api/purchase", (req, res) => {
     try {
       const purchase = req.body;

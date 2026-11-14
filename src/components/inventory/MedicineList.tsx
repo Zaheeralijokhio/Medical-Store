@@ -89,7 +89,7 @@ const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
   const [stockMode, setStockMode] = useState<'new' | 'existing'>('new');
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const [batchNumber, setBatchNumber] = useState<string>(generateDefaultBatchCode);
-  const [quantity, setQuantity] = useState<number>(100);
+  const [quantity, setQuantity] = useState<number>(0);
   const [purchasePrice, setPurchasePrice] = useState<number>(0);
   const [salePrice, setSalePrice] = useState<number>(0);
   const [mfgDate, setMfgDate] = useState<string>('2025-01-01');
@@ -110,7 +110,7 @@ const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
         : firstBatch?.purchasePrice || 0;
 
     setFormError('');
-    setQuantity(100);
+    setQuantity(0);
     if (existingBatches.length > 0 && firstBatch) {
       setStockMode('existing');
       setSelectedBatchId(firstBatch.id);
@@ -315,6 +315,7 @@ const QuickAddStockModal: React.FC<QuickAddStockModalProps> = ({
                 required
                 value={quantity || ''}
                 onChange={e => setQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                placeholder="Enter qty"
                 className="w-full p-2 border-2 border-emerald-400 rounded-lg font-bold text-center text-emerald-900"
               />
             </div>

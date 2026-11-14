@@ -1677,6 +1677,117 @@ try {
         sendJson(['success' => true, 'data' => $saved]);
     }
 
+    if (preg_match('#^/sale/([^/]+)$#', $route, $m) && $method === 'DELETE') {
+        $saleId = urldecode($m[1]);
+        $headers = function_exists('getallheaders') ? array_change_key_case(getallheaders(), CASE_LOWER) : [];
+        $rawActorId = trim((string)($headers['x-user-id'] ?? ($_SERVER['HTTP_X_USER_ID'] ?? '')));
+        if ($rawActorId !== 'usr-owner-1') {
+            sendJson(['success' => false, 'error' => 'Unauthorized: Only the Store Owner can delete invoices.'], 403);
+        }
+
+        $db = readDatabase($sqliteFile);
+        $targetSale = null;
+        foreach (($db['sales'] ?? []) as $s) {
+            if (($s['id'] ?? '') === $saleId) {
+                $targetSale = $s;
+                break;
+            }
+        }
+        if (!$targetSale) {
+            sendJson(['success' => false, 'error' => 'Invoice not found'], 404);
+        }
+
+        // Restore stock if the invoice was not already returned
+        if (($targetSale['status'] ?? 'completed') !== 'returned') {
+            foreach (($targetSale['items'] ?? []) as $sItem) {
+                $qty = (float)($sItem['quantity'] ?? 0);
+                if ($qty <= 0) continue;
+                foreach ($db['medicines'] as &$med) {
+                    if (($med['id'] ?? '') !== ($sItem['medicineId'] ?? '')) continue;
+                    $newTotal = 0;
+                    foreach ($med['batches'] as &$b) {
+                        if (($b['id'] ?? '') === ($sItem['batchId'] ?? '') || (!empty($sItem['batchNumber']) && ($b['batchNumber'] ?? '') === $sItem['batchNumber'])) {
+                            $prevQty = (float)($b['quantity'] ?? 0);
+                            $b['quantity'] = $prevQty + $qty;
+                            array_unshift($db['stockTransactions'], [
+                                'id' => 'stx-' . round(microtime(true) * 1000) . '-' . substr(md5((string)mt_rand()), 0, 4),
+                                'storeId' => DEFAULT_STORE_ID,
+                                'medicineId' => $med['id'],
+                                'medicineName' => $med['name'] ?? '',
+                                'batchId' => $b['id'] ?? '',
+                                'batchNumber' => $b['batchNumber'] ?? '',
+                                'type' => 'adjustment',
+                                'quantityChange' => $qty,
+                                'previousQuantity' => $prevQty,
+                                'newQuantity' => $b['quantity'],
+                                'referenceId' => $saleId,
+                                'createdBy' => 'usr-owner-1',
+                                'createdByName' => 'Store Owner',
+                                'timestamp' => gmdate('c'),
+                            ]);
+                        }
+                        $newTotal += (float)($b['quantity'] ?? 0);
+                    }
+                    $med['totalQuantity'] = $newTotal;
+                }
+                unset($med, $b);
+            }
+        }
+
+        // Reverse linked customer totals
+        if (!empty($targetSale['customerId'])) {
+            foreach ($db['customers'] as &$cust) {
+                if (($cust['id'] ?? '') === $targetSale['customerId']) {
+                    $grandTotal = (float)($targetSale['grandTotal'] ?? 0);
+                    $paid = (float)($targetSale['amountPaid'] ?? 0);
+                    $cust['totalPurchases'] = max(0, (float)($cust['totalPurchases'] ?? 0) - $grandTotal);
+                    $unpaid = max(0, $grandTotal - $paid);
+                    if (($targetSale['paymentMethod'] ?? '') === 'Credit' || $unpaid > 0) {
+                        $cust['outstandingBalance'] = max(0, (float)($cust['outstandingBalance'] ?? 0) - $unpaid);
+                    }
+                }
+            }
+            unset($cust);
+        }
+
+        // Remove linked sale returns & payments and track deleted IDs
+        if (!isset($db['deletedIds']) || !is_array($db['deletedIds'])) $db['deletedIds'] = [];
+        $db['deletedIds'][] = $saleId;
+
+        $remainingReturns = [];
+        foreach (($db['saleReturns'] ?? []) as $ret) {
+            if (($ret['saleId'] ?? '') === $saleId) {
+                if (!empty($ret['id'])) $db['deletedIds'][] = $ret['id'];
+            } else {
+                $remainingReturns[] = $ret;
+            }
+        }
+        $db['saleReturns'] = $remainingReturns;
+
+        $db['payments'] = array_values(array_filter(
+            $db['payments'] ?? [],
+            fn($p) => ($p['referenceId'] ?? '') !== $saleId
+        ));
+
+        $db['sales'] = array_values(array_filter(
+            $db['sales'] ?? [],
+            fn($s) => ($s['id'] ?? '') !== $saleId
+        ));
+
+        array_unshift($db['auditLogs'], [
+            'id' => 'log-' . round(microtime(true) * 1000) . '-' . substr(md5((string)mt_rand()), 0, 4),
+            'action' => 'SALE_DELETED',
+            'description' => 'Owner permanently deleted invoice ' . ($targetSale['invoiceNumber'] ?? $saleId) . ' (Rs. ' . ($targetSale['grandTotal'] ?? 0) . ')',
+            'userId' => 'usr-owner-1',
+            'userName' => 'Dr. Abdul Rehman (Owner)',
+            'userRole' => 'admin',
+            'timestamp' => gmdate('c'),
+        ]);
+
+        $saved = writeDatabase($sqliteFile, $db);
+        sendJson(['success' => true, 'message' => 'Invoice deleted successfully', 'data' => $saved]);
+    }
+
     // 7. Purchases & Payments
     if ($method === 'POST' && $route === '/purchase') {
         $po = readJsonBody();
