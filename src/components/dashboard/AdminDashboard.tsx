@@ -375,290 +375,358 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       {/* Row 1: Primary Financial & Inventory KPI Cards (8 Cards) */}
       <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* 1. Today's Sales */}
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('sales')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/40 hover:from-emerald-600 hover:via-teal-600 hover:to-teal-700 hover:border-emerald-500 shadow-xs hover:shadow-xl hover:shadow-emerald-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-emerald-100 uppercase tracking-wider transition-colors">
               Today&apos;s Sales
             </span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-emerald-600/25 transition-all">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+          <div className="mt-3.5">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 group-hover:text-white tracking-tight tabular-nums transition-colors">
               {formatPKR(salesStats.todaySales)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 tabular-nums">
-              Gross Profit · <span className="font-bold text-emerald-700">{formatPKR(salesStats.todayGrossProfit)}</span>
+            <p className="mt-1.5 text-xs text-slate-500 group-hover:text-emerald-100 tabular-nums transition-colors">
+              Gross Profit ·{' '}
+              <span className="font-bold text-emerald-700 group-hover:text-white">
+                {formatPKR(salesStats.todayGrossProfit)}
+              </span>
             </p>
           </div>
         </div>
 
         {/* 2. Monthly Sales */}
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('sales')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-teal-200/80 bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/40 hover:from-teal-600 hover:via-teal-700 hover:to-cyan-700 hover:border-teal-500 shadow-xs hover:shadow-xl hover:shadow-teal-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-teal-100 uppercase tracking-wider transition-colors">
               Monthly Sales
             </span>
-            <div className="p-2 rounded-xl bg-teal-50 text-teal-700">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-teal-600/25 transition-all">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+          <div className="mt-3.5">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 group-hover:text-white tracking-tight tabular-nums transition-colors">
               {formatPKR(salesStats.monthSales)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 tabular-nums">
-              Monthly Net · <span className="font-bold text-teal-700">{formatPKR(salesStats.monthlyNetProfit)}</span>
+            <p className="mt-1.5 text-xs text-slate-500 group-hover:text-teal-100 tabular-nums transition-colors">
+              Monthly Net ·{' '}
+              <span className="font-bold text-teal-700 group-hover:text-white">
+                {formatPKR(salesStats.monthlyNetProfit)}
+              </span>
             </p>
           </div>
         </div>
 
         {/* 3. Today's Purchases */}
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('purchases')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-sky-200/80 bg-gradient-to-br from-white via-sky-50/30 to-blue-50/40 hover:from-sky-600 hover:via-blue-600 hover:to-indigo-700 hover:border-sky-500 shadow-xs hover:shadow-xl hover:shadow-sky-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-sky-100 uppercase tracking-wider transition-colors">
               Today&apos;s Purchases
             </span>
-            <div className="p-2 rounded-xl bg-sky-50 text-sky-700">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-sky-600/25 transition-all">
               <ShoppingCart className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+          <div className="mt-3.5">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 group-hover:text-white tracking-tight tabular-nums transition-colors">
               {formatPKR(salesStats.todayPurchases)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 tabular-nums">
-              Monthly POs · <span className="font-bold text-slate-700">{formatPKR(salesStats.monthPurchases)}</span>
+            <p className="mt-1.5 text-xs text-slate-500 group-hover:text-sky-100 tabular-nums transition-colors">
+              Monthly POs ·{' '}
+              <span className="font-bold text-sky-800 group-hover:text-white">
+                {formatPKR(salesStats.monthPurchases)}
+              </span>
             </p>
           </div>
         </div>
 
         {/* 4. Total Revenue */}
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('reports')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-white via-indigo-50/30 to-violet-50/40 hover:from-indigo-600 hover:via-violet-600 hover:to-purple-700 hover:border-indigo-500 shadow-xs hover:shadow-xl hover:shadow-indigo-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-indigo-100 uppercase tracking-wider transition-colors">
               Total Revenue
             </span>
-            <div className="p-2 rounded-xl bg-slate-100 text-slate-700">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-indigo-600/25 transition-all">
               <BarChart3 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+          <div className="mt-3.5">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 group-hover:text-white tracking-tight tabular-nums transition-colors">
               {formatPKR(salesStats.totalRevenue)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+            <p className="mt-1.5 text-xs text-slate-500 group-hover:text-indigo-100 tabular-nums transition-colors">
               {(sales || []).filter(s => s && s.status !== 'returned').length} completed invoices
             </p>
           </div>
         </div>
 
         {/* 5. Gross Profit */}
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('reports')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50/35 to-green-50/40 hover:from-[#0F766E] hover:via-emerald-600 hover:to-teal-700 hover:border-emerald-500 shadow-xs hover:shadow-xl hover:shadow-emerald-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-emerald-100 uppercase tracking-wider transition-colors">
               Gross Profit
             </span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-emerald-600/25 transition-all">
               <ArrowUpRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-emerald-700 tracking-tight tabular-nums">
+          <div className="mt-3.5">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-emerald-700 group-hover:text-white tracking-tight tabular-nums transition-colors">
               {formatPKR(salesStats.totalGrossProfit)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 tabular-nums">
-              COGS · {formatPKR(salesStats.totalCOGS)}
+            <p className="mt-1.5 text-xs text-slate-500 group-hover:text-emerald-100 tabular-nums transition-colors">
+              COGS · <span className="font-semibold group-hover:text-white">{formatPKR(salesStats.totalCOGS)}</span>
             </p>
           </div>
         </div>
 
         {/* 6. Net Profit */}
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('reports')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-teal-200/80 bg-gradient-to-br from-white via-teal-50/35 to-emerald-50/40 hover:from-[#0B191E] hover:via-[#0F383C] hover:to-[#0F766E] hover:border-teal-500 shadow-xs hover:shadow-xl hover:shadow-teal-900/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-teal-200 uppercase tracking-wider transition-colors">
               Net Profit
             </span>
-            <div className="p-2 rounded-xl bg-teal-50 text-teal-700">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#0F766E] to-teal-500 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-teal-600/25 transition-all">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-3.5">
             <h3
-              className={`text-xl sm:text-2xl font-extrabold tracking-tight tabular-nums ${
+              className={`text-xl sm:text-2xl font-extrabold tracking-tight tabular-nums transition-colors group-hover:text-white ${
                 salesStats.totalNetProfit >= 0 ? 'text-teal-700' : 'text-rose-600'
               }`}
             >
               {formatPKR(salesStats.totalNetProfit)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1.5 text-xs text-slate-500 group-hover:text-teal-100 transition-colors">
               Gross Profit minus Expenses
             </p>
           </div>
         </div>
 
         {/* 7. Total Expenses */}
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('expenses')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-rose-200/80 bg-gradient-to-br from-white via-rose-50/30 to-pink-50/35 hover:from-rose-600 hover:via-rose-700 hover:to-pink-700 hover:border-rose-500 shadow-xs hover:shadow-xl hover:shadow-rose-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-rose-100 uppercase tracking-wider transition-colors">
               Total Expenses
             </span>
-            <div className="p-2 rounded-xl bg-rose-50 text-rose-700">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-rose-600/25 transition-all">
               <ArrowDownRight className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+          <div className="mt-3.5">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 group-hover:text-white tracking-tight tabular-nums transition-colors">
               {formatPKR(salesStats.totalExpenses)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 tabular-nums">
+            <p className="mt-1.5 text-xs text-slate-500 group-hover:text-rose-100 tabular-nums transition-colors">
               {expenses.length} store expense(s)
             </p>
           </div>
         </div>
 
         {/* 8. Total Stock Value */}
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('inventory')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-amber-200/80 bg-gradient-to-br from-white via-amber-50/30 to-orange-50/40 hover:from-amber-500 hover:via-orange-600 hover:to-amber-700 hover:border-amber-500 shadow-xs hover:shadow-xl hover:shadow-amber-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-amber-100 uppercase tracking-wider transition-colors">
               Total Stock Value
             </span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-teal-700">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-amber-600/25 transition-all">
               <Package className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3">
-            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+          <div className="mt-3.5">
+            <h3 className="text-xl sm:text-2xl font-extrabold text-slate-900 group-hover:text-white tracking-tight tabular-nums transition-colors">
               {formatPKR(inventoryStats.purchaseVal)}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 tabular-nums">
-              Retail · <span className="font-semibold text-slate-700">{formatPKR(inventoryStats.saleVal)}</span>
+            <p className="mt-1.5 text-xs text-slate-500 group-hover:text-amber-100 tabular-nums transition-colors">
+              Retail ·{' '}
+              <span className="font-bold text-amber-800 group-hover:text-white">
+                {formatPKR(inventoryStats.saleVal)}
+              </span>
             </p>
           </div>
         </div>
       </div>
 
-      {/* Row 2: Operational Quick-Access Tiles */}
+      {/* Row 2: Operational Quick-Access Tiles (8 Tiles) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
         <button
           type="button"
           onClick={() => onNavigate('inventory')}
-          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
+          className="group p-3.5 rounded-2xl text-left min-h-[88px] border border-teal-200/80 bg-gradient-to-br from-white to-teal-50/50 hover:from-[#0F766E] hover:to-teal-600 hover:border-teal-500 shadow-2xs hover:shadow-lg hover:shadow-teal-600/20 hover:-translate-y-1 transition-all duration-200 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-teal-700 mb-1.5">
-            <span className="text-[11px] font-bold">Medicines</span>
-            <Pill className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <div className="flex items-center justify-between text-teal-700 group-hover:text-white mb-2 transition-colors">
+            <span className="text-xs font-bold">Medicines</span>
+            <div className="w-7 h-7 rounded-lg bg-teal-100/80 group-hover:bg-white/20 text-teal-700 group-hover:text-white flex items-center justify-center transition-colors">
+              <Pill className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
+          <div className="text-xl font-extrabold text-slate-900 group-hover:text-white tabular-nums transition-colors">
             {inventoryStats.totalMedicines}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Formulations</p>
+          <p className="text-[10px] text-slate-500 group-hover:text-teal-100 mt-0.5 transition-colors">
+            Formulations
+          </p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('inventory')}
-          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
+          className="group p-3.5 rounded-2xl text-left min-h-[88px] border border-emerald-200/80 bg-gradient-to-br from-white to-emerald-50/50 hover:from-emerald-600 hover:to-teal-600 hover:border-emerald-500 shadow-2xs hover:shadow-lg hover:shadow-emerald-600/20 hover:-translate-y-1 transition-all duration-200 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-emerald-700 mb-1.5">
-            <span className="text-[11px] font-bold">Stock Qty</span>
-            <Layers className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <div className="flex items-center justify-between text-emerald-700 group-hover:text-white mb-2 transition-colors">
+            <span className="text-xs font-bold">Stock Qty</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-100/80 group-hover:bg-white/20 text-emerald-700 group-hover:text-white flex items-center justify-center transition-colors">
+              <Layers className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
+          <div className="text-xl font-extrabold text-slate-900 group-hover:text-white tabular-nums transition-colors">
             {inventoryStats.totalStockQty.toLocaleString()}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Available units</p>
+          <p className="text-[10px] text-slate-500 group-hover:text-emerald-100 mt-0.5 transition-colors">
+            Available units
+          </p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('inventory')}
-          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
+          className="group p-3.5 rounded-2xl text-left min-h-[88px] border border-amber-200/80 bg-gradient-to-br from-white to-amber-50/50 hover:from-amber-500 hover:to-orange-600 hover:border-amber-500 shadow-2xs hover:shadow-lg hover:shadow-amber-600/20 hover:-translate-y-1 transition-all duration-200 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-amber-600 mb-1.5">
-            <span className="text-[11px] font-bold">Low Stock</span>
-            <AlertTriangle className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <div className="flex items-center justify-between text-amber-600 group-hover:text-white mb-2 transition-colors">
+            <span className="text-xs font-bold">Low Stock</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-100/80 group-hover:bg-white/20 text-amber-600 group-hover:text-white flex items-center justify-center transition-colors">
+              <AlertTriangle className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
+          <div className="text-xl font-extrabold text-slate-900 group-hover:text-white tabular-nums transition-colors">
             {inventoryStats.lowStockCount}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Below alert level</p>
+          <p className="text-[10px] text-slate-500 group-hover:text-amber-100 mt-0.5 transition-colors">
+            Below alert level
+          </p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('inventory')}
-          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
+          className="group p-3.5 rounded-2xl text-left min-h-[88px] border border-orange-200/80 bg-gradient-to-br from-white to-orange-50/50 hover:from-orange-500 hover:to-red-600 hover:border-orange-500 shadow-2xs hover:shadow-lg hover:shadow-orange-600/20 hover:-translate-y-1 transition-all duration-200 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-orange-600 mb-1.5">
-            <span className="text-[11px] font-bold">Near Expiry</span>
-            <Clock className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <div className="flex items-center justify-between text-orange-600 group-hover:text-white mb-2 transition-colors">
+            <span className="text-xs font-bold">Near Expiry</span>
+            <div className="w-7 h-7 rounded-lg bg-orange-100/80 group-hover:bg-white/20 text-orange-600 group-hover:text-white flex items-center justify-center transition-colors">
+              <Clock className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
+          <div className="text-xl font-extrabold text-slate-900 group-hover:text-white tabular-nums transition-colors">
             {inventoryStats.nearExpiryCount}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Within {settings.expiryAlertDays}d</p>
+          <p className="text-[10px] text-slate-500 group-hover:text-orange-100 mt-0.5 transition-colors">
+            Within {settings.expiryAlertDays}d
+          </p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('inventory')}
-          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
+          className="group p-3.5 rounded-2xl text-left min-h-[88px] border border-rose-200/80 bg-gradient-to-br from-white to-rose-50/50 hover:from-rose-600 hover:to-pink-700 hover:border-rose-500 shadow-2xs hover:shadow-lg hover:shadow-rose-600/20 hover:-translate-y-1 transition-all duration-200 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-rose-700 mb-1.5">
-            <span className="text-[11px] font-bold">Expired</span>
-            <AlertOctagon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <div className="flex items-center justify-between text-rose-700 group-hover:text-white mb-2 transition-colors">
+            <span className="text-xs font-bold">Expired</span>
+            <div className="w-7 h-7 rounded-lg bg-rose-100/80 group-hover:bg-white/20 text-rose-700 group-hover:text-white flex items-center justify-center transition-colors">
+              <AlertOctagon className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-xl font-extrabold text-rose-700 tabular-nums">
+          <div className="text-xl font-extrabold text-rose-700 group-hover:text-white tabular-nums transition-colors">
             {inventoryStats.expiredCount}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Locked batches</p>
+          <p className="text-[10px] text-slate-500 group-hover:text-rose-100 mt-0.5 transition-colors">
+            Locked batches
+          </p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('customers')}
-          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
+          className="group p-3.5 rounded-2xl text-left min-h-[88px] border border-cyan-200/80 bg-gradient-to-br from-white to-cyan-50/50 hover:from-cyan-600 hover:to-teal-700 hover:border-cyan-500 shadow-2xs hover:shadow-lg hover:shadow-cyan-600/20 hover:-translate-y-1 transition-all duration-200 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-teal-700 mb-1.5">
-            <span className="text-[11px] font-bold">Customers</span>
-            <Users className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <div className="flex items-center justify-between text-teal-700 group-hover:text-white mb-2 transition-colors">
+            <span className="text-xs font-bold">Customers</span>
+            <div className="w-7 h-7 rounded-lg bg-cyan-100/80 group-hover:bg-white/20 text-teal-700 group-hover:text-white flex items-center justify-center transition-colors">
+              <Users className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
+          <div className="text-xl font-extrabold text-slate-900 group-hover:text-white tabular-nums transition-colors">
             {customers.length}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Registered</p>
+          <p className="text-[10px] text-slate-500 group-hover:text-cyan-100 mt-0.5 transition-colors">
+            Registered
+          </p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('suppliers')}
-          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
+          className="group p-3.5 rounded-2xl text-left min-h-[88px] border border-sky-200/80 bg-gradient-to-br from-white to-sky-50/50 hover:from-sky-600 hover:to-blue-700 hover:border-sky-500 shadow-2xs hover:shadow-lg hover:shadow-sky-600/20 hover:-translate-y-1 transition-all duration-200 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-sky-700 mb-1.5">
-            <span className="text-[11px] font-bold">Suppliers</span>
-            <Building2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <div className="flex items-center justify-between text-sky-700 group-hover:text-white mb-2 transition-colors">
+            <span className="text-xs font-bold">Suppliers</span>
+            <div className="w-7 h-7 rounded-lg bg-sky-100/80 group-hover:bg-white/20 text-sky-700 group-hover:text-white flex items-center justify-center transition-colors">
+              <Building2 className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
+          <div className="text-xl font-extrabold text-slate-900 group-hover:text-white tabular-nums transition-colors">
             {suppliers.length}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Pharma vendors</p>
+          <p className="text-[10px] text-slate-500 group-hover:text-sky-100 mt-0.5 transition-colors">
+            Pharma vendors
+          </p>
         </button>
 
         <button
           type="button"
           onClick={() => onNavigate('staff')}
-          className="pro-card p-3.5 rounded-xl text-left group min-h-[82px]"
+          className="group p-3.5 rounded-2xl text-left min-h-[88px] border border-indigo-200/80 bg-gradient-to-br from-white to-indigo-50/50 hover:from-indigo-600 hover:to-violet-700 hover:border-indigo-500 shadow-2xs hover:shadow-lg hover:shadow-indigo-600/20 hover:-translate-y-1 transition-all duration-200 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-slate-700 mb-1.5">
-            <span className="text-[11px] font-bold">Staff</span>
-            <Users className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <div className="flex items-center justify-between text-indigo-700 group-hover:text-white mb-2 transition-colors">
+            <span className="text-xs font-bold">Staff</span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-100/80 group-hover:bg-white/20 text-indigo-700 group-hover:text-white flex items-center justify-center transition-colors">
+              <Users className="w-3.5 h-3.5" />
+            </div>
           </div>
-          <div className="text-xl font-extrabold text-slate-900 tabular-nums">
+          <div className="text-xl font-extrabold text-slate-900 group-hover:text-white tabular-nums transition-colors">
             {staffMembers.length}
           </div>
-          <p className="text-[10px] text-slate-500 mt-0.5">Store accounts</p>
+          <p className="text-[10px] text-slate-500 group-hover:text-indigo-100 mt-0.5 transition-colors">
+            Store accounts
+          </p>
         </button>
       </div>
 

@@ -157,74 +157,86 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) =>
 
       {/* Row 1: Store & Shift Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('sales')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-teal-200/80 bg-gradient-to-br from-white via-teal-50/30 to-emerald-50/40 hover:from-[#0F766E] hover:via-teal-600 hover:to-emerald-600 hover:border-teal-500 shadow-xs hover:shadow-xl hover:shadow-teal-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-teal-100 uppercase tracking-wider transition-colors">
               Store Today Cash
             </span>
-            <div className="p-2 rounded-xl bg-teal-50 text-teal-700">
-              <Receipt className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-teal-600/25 transition-all">
+              <Receipt className="w-4 h-4" />
             </div>
           </div>
-          <h3 className="text-lg sm:text-2xl font-extrabold text-slate-900 mt-3 tabular-nums">
+          <h3 className="text-lg sm:text-2xl font-extrabold text-slate-900 group-hover:text-white mt-3.5 tabular-nums transition-colors">
             {formatPKR(storeTotalRevenueToday)}
           </h3>
-          <p className="text-[11px] sm:text-xs text-slate-500 mt-1 tabular-nums">
-            Your shift: <span className="font-semibold text-teal-700">{formatPKR(myTotalRevenueToday)}</span>
+          <p className="text-[11px] sm:text-xs text-slate-500 group-hover:text-teal-100 mt-1.5 tabular-nums transition-colors">
+            Your shift: <span className="font-bold text-teal-700 group-hover:text-white">{formatPKR(myTotalRevenueToday)}</span>
           </p>
         </div>
 
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('sales')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50/30 to-teal-50/40 hover:from-emerald-600 hover:via-teal-600 hover:to-teal-700 hover:border-emerald-500 shadow-xs hover:shadow-xl hover:shadow-emerald-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-emerald-100 uppercase tracking-wider transition-colors">
               Store Invoices
             </span>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
-              <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-emerald-600/25 transition-all">
+              <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <h3 className="text-lg sm:text-2xl font-extrabold text-slate-900 mt-3 tabular-nums">
+          <h3 className="text-lg sm:text-2xl font-extrabold text-slate-900 group-hover:text-white mt-3.5 tabular-nums transition-colors">
             {sales.length}
           </h3>
-          <p className="text-[11px] sm:text-xs text-slate-500 mt-1 tabular-nums">
+          <p className="text-[11px] sm:text-xs text-slate-500 group-hover:text-emerald-100 mt-1.5 tabular-nums transition-colors">
             {storeTodaySales.length} today · {myAllSales.length} yours
           </p>
         </div>
 
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('inventory')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-sky-200/80 bg-gradient-to-br from-white via-sky-50/30 to-blue-50/40 hover:from-sky-600 hover:via-blue-600 hover:to-indigo-700 hover:border-sky-500 shadow-xs hover:shadow-xl hover:shadow-sky-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-sky-100 uppercase tracking-wider transition-colors">
               Available Meds
             </span>
-            <div className="p-2 rounded-xl bg-sky-50 text-sky-700">
-              <Pill className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-sky-600/25 transition-all">
+              <Pill className="w-4 h-4" />
             </div>
           </div>
-          <h3 className="text-lg sm:text-2xl font-extrabold text-slate-900 mt-3 tabular-nums">
+          <h3 className="text-lg sm:text-2xl font-extrabold text-slate-900 group-hover:text-white mt-3.5 tabular-nums transition-colors">
             {activeMeds} / {medicines.length}
           </h3>
-          <p className="text-[11px] sm:text-xs text-slate-500 mt-1 tabular-nums">
+          <p className="text-[11px] sm:text-xs text-slate-500 group-hover:text-sky-100 mt-1.5 tabular-nums transition-colors">
             {totalUnitsInStock.toLocaleString()} units in stock
           </p>
         </div>
 
-        <div className="pro-card p-4 sm:p-5 rounded-2xl">
+        <div
+          onClick={() => onNavigate('inventory')}
+          className="group cursor-pointer p-4 sm:p-5 rounded-2xl border border-amber-200/80 bg-gradient-to-br from-white via-amber-50/30 to-orange-50/40 hover:from-amber-500 hover:via-orange-600 hover:to-amber-700 hover:border-amber-500 shadow-xs hover:shadow-xl hover:shadow-amber-600/20 hover:-translate-y-1 transition-all duration-200"
+        >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[11px] font-bold text-slate-500 group-hover:text-amber-100 uppercase tracking-wider transition-colors">
               Alerts &amp; Patients
             </span>
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 group-hover:from-white/20 group-hover:to-white/10 text-white flex items-center justify-center shadow-xs shadow-amber-600/25 transition-all">
               {lowStockCount + outOfStockCount > 0 ? (
-                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
+                <AlertTriangle className="w-4 h-4" />
               ) : (
-                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-teal-700" />
+                <Users className="w-4 h-4" />
               )}
             </div>
           </div>
-          <h3 className="text-lg sm:text-2xl font-extrabold text-amber-700 mt-3 tabular-nums">
+          <h3 className="text-lg sm:text-2xl font-extrabold text-amber-700 group-hover:text-white mt-3.5 tabular-nums transition-colors">
             {lowStockCount + outOfStockCount} alerts
           </h3>
-          <p className="text-[11px] sm:text-xs text-slate-500 mt-1 tabular-nums">
+          <p className="text-[11px] sm:text-xs text-slate-500 group-hover:text-amber-100 mt-1.5 tabular-nums transition-colors">
             {customers.length} customers · {outOfStockCount} out
           </p>
         </div>
