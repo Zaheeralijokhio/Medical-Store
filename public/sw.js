@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pharmacare-cache-v27';
+const CACHE_NAME = 'pharmacare-cache-v28';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icon.svg',
